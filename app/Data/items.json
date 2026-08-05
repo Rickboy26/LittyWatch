@@ -1,50 +1,485 @@
 [
-  {"key":"gift-of-the-traveler","name":"Gift of the Traveler","category":"consumable","aliases":["gift of the traveler","gifts of the traveler","gott","gotts","nick gift","nick gifts","nickgift","nickgifts","5 got","goT"]},
-  {"key":"nicholas-set","name":"Nicholas Set","category":"set","aliases":["nicholas set","nicholas sets","nick set","nick sets","nickset","nicksets","nic set","nic sets"]},
-  {"key":"armbrace-of-truth","name":"Armbrace of Truth","category":"currency","aliases":["armbrace of truth","armbrace","armbraces","ambrace","ambraces","ambr","arms"]},
-  {"key":"glob-of-ectoplasm","name":"Glob of Ectoplasm","category":"currency","aliases":["glob of ectoplasm","ectoplasm","ecto","ectos","ekto","ektos"]},
-  {"key":"zaishen-key","name":"Zaishen Key","category":"currency","aliases":["zaishen key","zaishen keys","zkey","zkeys"]},
-  {"key":"obsidian-shard","name":"Obsidian Shard","category":"material","aliases":["obsidian shard","obsidian shards","obsi shard","obsi shards"]},
-  {"key":"bone-dragon-staff","name":"Bone Dragon Staff","category":"weapon","aliases":["bone dragon staff","bds"]},
-  {"key":"eternal-blade","name":"Eternal Blade","category":"weapon","aliases":["eternal blade","eternal blades","eternalblade","eblade"]},
-  {"key":"eternal-bow","name":"Eternal Bow","category":"weapon","aliases":["eternal bow","eternal bows","eternal flatbow","eternal longbow","eternal shortbow","eternal hornbow","eternal recurve bow","eternal rec bow"]},
-  {"key":"eternal-shield","name":"Eternal Shield","category":"shield","aliases":["eternal shield","eternal shields"]},
-  {"key":"voltaic-spear","name":"Voltaic Spear","category":"weapon","aliases":["voltaic spear","voltaicspear","vs"]},
-  {"key":"obsidian-edge","name":"Obsidian Edge","category":"weapon","aliases":["obsidian edge","obsiedge"]},
-  {"key":"chaos-axe","name":"Chaos Axe","category":"weapon","aliases":["chaos axe"]},
-  {"key":"colossal-scimitar","name":"Colossal Scimitar","category":"weapon","aliases":["colossal scimitar"]},
-  {"key":"shadow-bow","name":"Shadow Bow","category":"weapon","aliases":["shadow bow","shadowbow"]},
-  {"key":"crude-shield","name":"Crude Shield","category":"shield","aliases":["crude shield"]},
-  {"key":"eagle-defender","name":"Eagle Defender","category":"shield","aliases":["eagle defender"]},
-  {"key":"black-dye","name":"Black Dye","category":"material","aliases":["black dye","black dyes"]},
-  {"key":"unidentified-gold","name":"Unidentified Gold","category":"weapon","aliases":["unidentified gold","unidentified golds","unid gold","unid golds","unid. golds","unids"]},
-  {"key":"cupcake","name":"Cupcake","category":"consumable","aliases":["cupcake","cupcakes"]},
-  {"key":"stalkers-ration","name":"Stalker's Ration","category":"consumable","aliases":["stalker's ration","stalker's rations","stalkers ration","stalkers rations"]},
-  {"key":"conset","name":"Conset","category":"consumable","aliases":["conset","consets"]},
-  {"key":"tengu-support-flare","name":"Tengu Support Flare","category":"consumable","aliases":["tengu support flare","tengu","tengus"]},
-  {"key":"seal-of-the-dragon-empire","name":"Seal of the Dragon Empire","category":"consumable","aliases":["seal of the dragon empire","guard seal","guard seals","guards-seals"]},
-  {"key":"royal-gift","name":"Royal Gift","category":"consumable","aliases":["royal gift","royal gifts"]},
-  {"key":"lockpick","name":"Lockpick","category":"consumable","aliases":["lockpick","lockpicks","picks"]},
-  {"key":"silver-zaishen-coin","name":"Silver Zaishen Coin","category":"currency","aliases":["silver zaishen coin","silver zaishen coins","silver z coin","silver z coins"]},
-  {"key":"gold-zaishen-coin","name":"Gold Zaishen Coin","category":"currency","aliases":["gold zaishen coin","gold zaishen coins","gold z coin","gold zcoin"]},
-  {"key":"ghostly-hero","name":"Ghostly Hero","category":"miniature","aliases":["ghostly hero"]},
-  {"key":"rift-warden","name":"Rift Warden","category":"miniature","aliases":["rift warden"]},
-  {"key":"mallyx","name":"Mallyx","category":"miniature","aliases":["mallyx"]},
-  {"key":"kuuna","name":"Kuuna","category":"miniature","aliases":["kuuna"]},
-  {"key":"mad-kings-guard","name":"Mad King's Guard","category":"miniature","aliases":["mad king's guard","mad kings guard","mad king guard","mkg"]},
-  {"key":"mini-undead-prince-rurik","name":"Miniature Undead Prince Rurik","category":"miniature","aliases":["miniature undead prince rurik","mini undead prince","undead prince"]},
-  {"key":"mystical-summoning-stone-gaki","name":"Mystical Summoning Stone (Gaki)","category":"consumable","aliases":["mystical summoning stone gaki","mystical summon stone gaki","gaki"]},
-  {"key":"cracked-ascalonian-war-horn","name":"Cracked Ascalonian War Horn","category":"consumable","aliases":["cracked ascalonian war horn","cracked ascalonian war horns"]},
-  {"key":"summoning-stone","name":"Summoning Stone","category":"consumable","aliases":["summoning stone","summoning stones","summon stone","summon stones"]},
-  {"key":"elite-tome","name":"Elite Tome","category":"tome","aliases":["elite tome","elite tomes"]},
-  {"key":"ranger-tome","name":"Ranger Tome","category":"tome","aliases":["ranger tome","ranger tomes","reg ranger tome","reg ranger tomes","regular ranger tomes"]},
-  {"key":"warrior-tome","name":"Warrior Tome","category":"tome","aliases":["warrior tome","warrior tomes","warri tome","warri tomes"]},
-  {"key":"elementalist-tome","name":"Elementalist Tome","category":"tome","aliases":["elementalist tome","elementalist tomes","ele tome","ele tomes"]},
-  {"key":"kathandrax-hammer","name":"Kathandrax Hammer","category":"weapon","aliases":["kathandrax hammer","kath hammer"]},
-  {"key":"kerrshs-staff","name":"Kerrsh's Staff","category":"weapon","aliases":["kerrsh's staff","kerssh's staff","kerrsh staff"]},
-  {"key":"asterius-scythe","name":"Asterius Scythe","category":"weapon","aliases":["asterius scythe"]},
-  {"key":"flame-sentinel-tonic","name":"Flame Sentinel Tonic","category":"tonic","aliases":["flame sentinel tonic","el flame sentinel tonic"]},
-  {"key":"soup","name":"Soup","category":"consumable","aliases":["soup"]},
-  {"key":"compass","name":"Compass","category":"material","aliases":["compass","compasses"]},
-  {"key":"primeval-armor-remnant","name":"Primeval Armor Remnant","category":"armor","aliases":["primeval armor remnant","primeval armor remnants"]}
+  {
+    "key": "gift-of-the-traveler",
+    "name": "Gift of the Traveler",
+    "category": "consumable",
+    "aliases": [
+      "gift of the traveler",
+      "gifts of the traveler",
+      "gott",
+      "gotts",
+      "nick gift",
+      "nick gifts",
+      "nickgift",
+      "nickgifts"
+    ]
+  },
+  {
+    "key": "nicholas-set",
+    "name": "Nicholas Set",
+    "category": "set",
+    "aliases": [
+      "nicholas set",
+      "nicholas sets",
+      "nick set",
+      "nick sets",
+      "nickset",
+      "nicksets",
+      "nic set",
+      "nic sets"
+    ]
+  },
+  {
+    "key": "armbrace-of-truth",
+    "name": "Armbrace of Truth",
+    "category": "currency",
+    "aliases": [
+      "armbrace of truth",
+      "armbrace",
+      "armbraces",
+      "ambrace",
+      "ambraces",
+      "ambr",
+      "arms"
+    ]
+  },
+  {
+    "key": "glob-of-ectoplasm",
+    "name": "Glob of Ectoplasm",
+    "category": "currency",
+    "aliases": [
+      "glob of ectoplasm",
+      "ectoplasm",
+      "ecto",
+      "ectos",
+      "ekto",
+      "ektos"
+    ]
+  },
+  {
+    "key": "zaishen-key",
+    "name": "Zaishen Key",
+    "category": "currency",
+    "aliases": [
+      "zaishen key",
+      "zaishen keys",
+      "zkey",
+      "zkeys"
+    ]
+  },
+  {
+    "key": "obsidian-shard",
+    "name": "Obsidian Shard",
+    "category": "material",
+    "aliases": [
+      "obsidian shard",
+      "obsidian shards",
+      "obsi shard",
+      "obsi shards"
+    ]
+  },
+  {
+    "key": "bone-dragon-staff",
+    "name": "Bone Dragon Staff",
+    "category": "weapon",
+    "aliases": [
+      "bone dragon staff",
+      "bds"
+    ]
+  },
+  {
+    "key": "eternal-blade",
+    "name": "Eternal Blade",
+    "category": "weapon",
+    "aliases": [
+      "eternal blade",
+      "eternal blades",
+      "eternalblade",
+      "eblade"
+    ]
+  },
+  {
+    "key": "eternal-bow",
+    "name": "Eternal Bow",
+    "category": "weapon",
+    "aliases": [
+      "eternal bow",
+      "eternal bows",
+      "eternal flatbow",
+      "eternal longbow",
+      "eternal shortbow",
+      "eternal hornbow",
+      "eternal recurve bow",
+      "eternal rec bow"
+    ]
+  },
+  {
+    "key": "eternal-shield",
+    "name": "Eternal Shield",
+    "category": "shield",
+    "aliases": [
+      "eternal shield",
+      "eternal shields"
+    ]
+  },
+  {
+    "key": "voltaic-spear",
+    "name": "Voltaic Spear",
+    "category": "weapon",
+    "aliases": [
+      "voltaic spear",
+      "voltaicspear"
+    ]
+  },
+  {
+    "key": "obsidian-edge",
+    "name": "Obsidian Edge",
+    "category": "weapon",
+    "aliases": [
+      "obsidian edge",
+      "obsiedge"
+    ]
+  },
+  {
+    "key": "chaos-axe",
+    "name": "Chaos Axe",
+    "category": "weapon",
+    "aliases": [
+      "chaos axe"
+    ]
+  },
+  {
+    "key": "colossal-scimitar",
+    "name": "Colossal Scimitar",
+    "category": "weapon",
+    "aliases": [
+      "colossal scimitar"
+    ]
+  },
+  {
+    "key": "shadow-bow",
+    "name": "Shadow Bow",
+    "category": "weapon",
+    "aliases": [
+      "shadow bow",
+      "shadowbow"
+    ]
+  },
+  {
+    "key": "crude-shield",
+    "name": "Crude Shield",
+    "category": "shield",
+    "aliases": [
+      "crude shield"
+    ]
+  },
+  {
+    "key": "eagle-defender",
+    "name": "Eagle Defender",
+    "category": "shield",
+    "aliases": [
+      "eagle defender"
+    ]
+  },
+  {
+    "key": "black-dye",
+    "name": "Black Dye",
+    "category": "material",
+    "aliases": [
+      "black dye",
+      "black dyes"
+    ]
+  },
+  {
+    "key": "unidentified-gold",
+    "name": "Unidentified Gold",
+    "category": "weapon",
+    "aliases": [
+      "unidentified gold",
+      "unidentified golds",
+      "unid gold",
+      "unid golds",
+      "unid. golds",
+      "unids"
+    ]
+  },
+  {
+    "key": "cupcake",
+    "name": "Cupcake",
+    "category": "consumable",
+    "aliases": [
+      "cupcake",
+      "cupcakes"
+    ]
+  },
+  {
+    "key": "stalkers-ration",
+    "name": "Stalker's Ration",
+    "category": "consumable",
+    "aliases": [
+      "stalker's ration",
+      "stalker's rations",
+      "stalkers ration",
+      "stalkers rations"
+    ]
+  },
+  {
+    "key": "conset",
+    "name": "Conset",
+    "category": "consumable",
+    "aliases": [
+      "conset",
+      "consets"
+    ]
+  },
+  {
+    "key": "tengu-support-flare",
+    "name": "Tengu Support Flare",
+    "category": "consumable",
+    "aliases": [
+      "tengu support flare",
+      "tengu",
+      "tengus"
+    ]
+  },
+  {
+    "key": "seal-of-the-dragon-empire",
+    "name": "Seal of the Dragon Empire",
+    "category": "consumable",
+    "aliases": [
+      "seal of the dragon empire",
+      "guard seal",
+      "guard seals",
+      "guards-seals"
+    ]
+  },
+  {
+    "key": "royal-gift",
+    "name": "Royal Gift",
+    "category": "consumable",
+    "aliases": [
+      "royal gift",
+      "royal gifts"
+    ]
+  },
+  {
+    "key": "lockpick",
+    "name": "Lockpick",
+    "category": "consumable",
+    "aliases": [
+      "lockpick",
+      "lockpicks",
+      "picks"
+    ]
+  },
+  {
+    "key": "silver-zaishen-coin",
+    "name": "Silver Zaishen Coin",
+    "category": "currency",
+    "aliases": [
+      "silver zaishen coin",
+      "silver zaishen coins",
+      "silver z coin",
+      "silver z coins"
+    ]
+  },
+  {
+    "key": "gold-zaishen-coin",
+    "name": "Gold Zaishen Coin",
+    "category": "currency",
+    "aliases": [
+      "gold zaishen coin",
+      "gold zaishen coins",
+      "gold z coin",
+      "gold zcoin"
+    ]
+  },
+  {
+    "key": "ghostly-hero",
+    "name": "Ghostly Hero",
+    "category": "miniature",
+    "aliases": [
+      "ghostly hero"
+    ]
+  },
+  {
+    "key": "rift-warden",
+    "name": "Rift Warden",
+    "category": "miniature",
+    "aliases": [
+      "rift warden"
+    ]
+  },
+  {
+    "key": "mallyx",
+    "name": "Mallyx",
+    "category": "miniature",
+    "aliases": [
+      "mallyx"
+    ]
+  },
+  {
+    "key": "kuuna",
+    "name": "Kuuna",
+    "category": "miniature",
+    "aliases": [
+      "kuuna"
+    ]
+  },
+  {
+    "key": "mad-kings-guard",
+    "name": "Mad King's Guard",
+    "category": "miniature",
+    "aliases": [
+      "mad king's guard",
+      "mad kings guard",
+      "mad king guard",
+      "mkg"
+    ]
+  },
+  {
+    "key": "mini-undead-prince-rurik",
+    "name": "Miniature Undead Prince Rurik",
+    "category": "miniature",
+    "aliases": [
+      "miniature undead prince rurik",
+      "mini undead prince",
+      "undead prince"
+    ]
+  },
+  {
+    "key": "mystical-summoning-stone-gaki",
+    "name": "Mystical Summoning Stone (Gaki)",
+    "category": "consumable",
+    "aliases": [
+      "mystical summoning stone gaki",
+      "mystical summon stone gaki",
+      "gaki"
+    ]
+  },
+  {
+    "key": "cracked-ascalonian-war-horn",
+    "name": "Cracked Ascalonian War Horn",
+    "category": "consumable",
+    "aliases": [
+      "cracked ascalonian war horn",
+      "cracked ascalonian war horns"
+    ]
+  },
+  {
+    "key": "summoning-stone",
+    "name": "Summoning Stone",
+    "category": "consumable",
+    "aliases": [
+      "summoning stone",
+      "summoning stones",
+      "summon stone",
+      "summon stones"
+    ]
+  },
+  {
+    "key": "elite-tome",
+    "name": "Elite Tome",
+    "category": "tome",
+    "aliases": [
+      "elite tome",
+      "elite tomes"
+    ]
+  },
+  {
+    "key": "ranger-tome",
+    "name": "Ranger Tome",
+    "category": "tome",
+    "aliases": [
+      "ranger tome",
+      "ranger tomes",
+      "reg ranger tome",
+      "reg ranger tomes",
+      "regular ranger tomes"
+    ]
+  },
+  {
+    "key": "warrior-tome",
+    "name": "Warrior Tome",
+    "category": "tome",
+    "aliases": [
+      "warrior tome",
+      "warrior tomes",
+      "warri tome",
+      "warri tomes"
+    ]
+  },
+  {
+    "key": "elementalist-tome",
+    "name": "Elementalist Tome",
+    "category": "tome",
+    "aliases": [
+      "elementalist tome",
+      "elementalist tomes",
+      "ele tome",
+      "ele tomes"
+    ]
+  },
+  {
+    "key": "kathandrax-hammer",
+    "name": "Kathandrax Hammer",
+    "category": "weapon",
+    "aliases": [
+      "kathandrax hammer",
+      "kath hammer"
+    ]
+  },
+  {
+    "key": "kerrshs-staff",
+    "name": "Kerrsh's Staff",
+    "category": "weapon",
+    "aliases": [
+      "kerrsh's staff",
+      "kerssh's staff",
+      "kerrsh staff"
+    ]
+  },
+  {
+    "key": "asterius-scythe",
+    "name": "Asterius Scythe",
+    "category": "weapon",
+    "aliases": [
+      "asterius scythe"
+    ]
+  },
+  {
+    "key": "flame-sentinel-tonic",
+    "name": "Flame Sentinel Tonic",
+    "category": "tonic",
+    "aliases": [
+      "flame sentinel tonic",
+      "el flame sentinel tonic"
+    ]
+  },
+  {
+    "key": "soup",
+    "name": "Soup",
+    "category": "consumable",
+    "aliases": [
+      "soup"
+    ]
+  },
+  {
+    "key": "compass",
+    "name": "Compass",
+    "category": "material",
+    "aliases": [
+      "compass",
+      "compasses"
+    ]
+  },
+  {
+    "key": "primeval-armor-remnant",
+    "name": "Primeval Armor Remnant",
+    "category": "armor",
+    "aliases": [
+      "primeval armor remnant",
+      "primeval armor remnants"
+    ]
+  }
 ]

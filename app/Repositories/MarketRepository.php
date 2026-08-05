@@ -92,7 +92,7 @@ final class MarketRepository
                        MAX(m.posted_at) AS latest_posted_at
                 FROM offers o
                 JOIN messages m ON m.id=o.message_id
-                WHERE o.item = :item
+                WHERE o.item = :item AND o.quality_status='accepted'
                 GROUP BY o.item");
         $statement->execute([':item' => $name]);
         $row = $statement->fetch();
@@ -102,7 +102,7 @@ final class MarketRepository
     /** @return list<array<string,mixed>> */
     public function offersForItem(string $name, int $limit = 200): array
     {
-        $statement = $this->pdo->prepare('SELECT o.*,m.player,m.message,m.posted_at FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.item=:item ORDER BY datetime(m.posted_at) DESC,o.id DESC LIMIT '.max(1,min(500,$limit)));
+        $statement = $this->pdo->prepare("SELECT o.*,m.player,m.message,m.posted_at FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.item=:item AND o.quality_status='accepted' ORDER BY datetime(m.posted_at) DESC,o.id DESC LIMIT ".max(1,min(500,$limit)));
         $statement->execute([':item'=>$name]);
         return $statement->fetchAll();
     }
@@ -117,7 +117,7 @@ final class MarketRepository
                        ROUND(AVG(CASE WHEN trade_type='sell' AND unit_price_ecto IS NOT NULL THEN unit_price_ecto END),2) AS avg_sell,
                        ROUND(AVG(CASE WHEN trade_type='buy' AND unit_price_ecto IS NOT NULL THEN unit_price_ecto END),2) AS avg_buy
                 FROM offers
-                WHERE item=:item
+                WHERE item=:item AND quality_status='accepted'
                 GROUP BY COALESCE(NULLIF(details,''),'Standaard')
                 ORDER BY offers DESC
                 LIMIT 50");

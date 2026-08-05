@@ -91,7 +91,7 @@ function itemKey(string $s): string { return trim(preg_replace('/[^a-z0-9]+/',' 
 
 function itemCatalog(): array {
     return [
-        'Gift of the Traveler'=>['gott','gotts','got','gots','gift of the traveler','gifts of the traveler','nick gift','nick gifts','nickgift','nickgifts'],
+        'Gift of the Traveler'=>['gott','gotts','gift of the traveler','gifts of the traveler','nick gift','nick gifts','nickgift','nickgifts'],
         'Nicholas Set'=>['nicholas sets','nicholas set','nick sets','nick set','nicksets','nickset','nic sets','nic set'], 'Armbrace of Truth'=>['armbrace of truth','armbrace','armbraces','ambrace','ambraces','ambr','arms'],
         'Glob of Ectoplasm'=>['glob of ectoplasm','ectoplasm','ectos','ecto','ektos'], 'Zaishen Key'=>['zaishen keys','zaishen key','zkeys','zkey'],
         'Lockpick'=>['lockpicks','lockpick','picks'], 'Conset'=>['consets','conset'], 'Essence of Celerity'=>['essence of celerity','essences'],
@@ -101,7 +101,7 @@ function itemCatalog(): array {
         'Ranger Tome'=>['regular ranger tomes','reg ranger tomes','ranger tomes','ranger tome'], 'Elementalist Tome'=>['elementalist tomes','ele tomes'],
         'Unidentified Gold'=>['unidentified golds','unidentified gold','unid. golds','unid golds','unid gold','unids'],
         'Bone Dragon Staff'=>['bone dragon staff','bds'], 'Eternal Blade'=>['eternal blade','eternalblade','eblade'],
-        'Obsidian Edge'=>['obsidian edge','obsiedge'], 'Voltaic Spear'=>['voltaic spear','voltaicspear','vs'], 'Chaos Axe'=>['chaos axe'],
+        'Obsidian Edge'=>['obsidian edge','obsiedge'], 'Voltaic Spear'=>['voltaic spear','voltaicspear'], 'Chaos Axe'=>['chaos axe'],
         'Colossal Scimitar'=>['colossal scimitar'], 'Eternal Bow'=>['eternal bows','eternal bow','eternal flatbow','eternal longbow','eternal shortbow','eternal hornbow','eternal rec bow','eternal recurve bow'],
         'Eternal Shield'=>['eternal shields','eternal shield'], 'Rift Warden'=>['rift warden'], 'Mad King’s Guard'=>['mad king’s guard',"mad king's guard",'mad king guard','mkg'],
         'Ghostly Hero'=>['ghostly hero'], 'Mallyx'=>['mallyx'], 'Miniature Undead Prince Rurik'=>['miniature undead prince rurik','mini undead prince','undead prince'],
@@ -169,11 +169,21 @@ function extractDetails(string $clean): string {
     return implode(' ',array_unique($d));
 }
 
+function aliasHasBoundaries(string $text,int $start,int $length): bool {
+    $before=$start>0?mb_substr($text,$start-1,1):'';
+    $after=mb_substr($text,$start+$length,1);
+    return ($before==='' || !preg_match('/[\p{L}\p{N}]/u',$before))
+        && ($after==='' || !preg_match('/[\p{L}\p{N}]/u',$after));
+}
+
 function catalogMentions(string $text): array {
     $lower=mb_strtolower($text); $hits=[];
     foreach(itemCatalog() as $name=>$aliases) foreach($aliases as $alias){
-        $offset=0;$a=mb_strtolower($alias);
-        while(($p=mb_stripos($lower,$a,$offset))!==false){$hits[]=['start'=>$p,'len'=>mb_strlen($a),'item'=>$name,'alias'=>$alias];$offset=$p+max(1,mb_strlen($a));}
+        $offset=0;$a=mb_strtolower($alias);$length=mb_strlen($a);
+        while(($p=mb_stripos($lower,$a,$offset))!==false){
+            if(aliasHasBoundaries($lower,$p,$length)) $hits[]=['start'=>$p,'len'=>$length,'item'=>$name,'alias'=>$alias];
+            $offset=$p+max(1,$length);
+        }
     }
     usort($hits,fn($x,$y)=>$x['start']<=>$y['start'] ?: $y['len']<=>$x['len']);
     $out=[];$end=-1;
