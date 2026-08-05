@@ -1,0 +1,13 @@
+data/*
+!data/.gitkeep
+
+logs/*
+!logs/.gitkeep
+
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
+.env
+config.local.php
