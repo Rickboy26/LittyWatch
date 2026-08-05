@@ -39,11 +39,19 @@ final class ItemController
             return Response::html('<h1>Item niet gevonden</h1><p>Er zijn nog geen aanbiedingen voor dit item.</p>', 404);
         }
 
+        $scope = $request->string('scope');
+        if (!in_array($scope, ['30','100','all'], true)) $scope = '100';
+        $variant = trim($request->string('variant'));
+        $variants = $this->market->variantsForItem($name);
+
         return Response::html($this->view->render('items/show', [
             'title' => $name.' · LittyWatch',
             'item' => $item,
             'offers' => $this->market->offersForItem($name, 200),
-            'variants' => $this->market->variantsForItem($name),
+            'variants' => $variants,
+            'scope' => $scope,
+            'selectedVariant' => $variant,
+            'analytics' => $this->market->itemAnalytics($name, $scope, $variant),
         ]));
     }
 }

@@ -2,7 +2,7 @@
 <div class="top">
   <div>
     <h1 style="margin:0">LittyWatch</h1>
-    <div class="muted">v1.1 — marktverkenner en itempagina's</div>
+    <div class="muted">v1.2 — prijsgrafieken en marktanalyses</div>
   </div>
   <div class="actions">
     <a href="collect.php">Nu ophalen</a>

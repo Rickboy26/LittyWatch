@@ -125,4 +125,76 @@ final class MarketRepository
         return $statement->fetchAll();
     }
 
+    /** @return array<string,mixed> */
+    public function itemAnalytics(string $name, string $scope = '100', string $variant = ''): array
+    {
+        $limit = match ($scope) {
+            '30' => 30,
+            'all' => 10000,
+            default => 100,
+        };
+
+        $where = "o.item=:item AND o.quality_status='accepted' AND o.unit_price_ecto IS NOT NULL AND o.price_type NOT IN ('bundle','currency_exchange')";
+        $params = [':item' => $name];
+        if ($variant !== '') {
+            $where .= " AND COALESCE(NULLIF(o.details,''),'Standaard')=:variant";
+            $params[':variant'] = $variant;
+        }
+
+        $sql = "SELECT o.trade_type,o.unit_price_ecto,o.details,m.player,m.posted_at,o.id
+                FROM offers o JOIN messages m ON m.id=o.message_id
+                WHERE $where
+                ORDER BY o.id DESC LIMIT ".$limit;
+        $statement = $this->pdo->prepare($sql);
+        $statement->execute($params);
+        $rows = array_reverse($statement->fetchAll());
+
+        $buy = [];
+        $sell = [];
+        $traders = [];
+        $points = [];
+        foreach ($rows as $row) {
+            $price = (float)$row['unit_price_ecto'];
+            if ($price <= 0) continue;
+            $type = (string)$row['trade_type'];
+            if ($type === 'buy') $buy[] = $price;
+            if ($type === 'sell') $sell[] = $price;
+            $traders[(string)$row['player']] = true;
+            $points[] = [
+                'type' => $type,
+                'price' => $price,
+                'player' => (string)$row['player'],
+                'posted_at' => (string)$row['posted_at'],
+                'id' => (int)$row['id'],
+            ];
+        }
+
+        $median = static function(array $values): ?float {
+            if (!$values) return null;
+            sort($values, SORT_NUMERIC);
+            $count = count($values);
+            $middle = intdiv($count, 2);
+            return $count % 2 ? (float)$values[$middle] : ((float)$values[$middle - 1] + (float)$values[$middle]) / 2;
+        };
+
+        $buyMedian = $median($buy);
+        $sellMedian = $median($sell);
+        return [
+            'scope' => $scope,
+            'variant' => $variant,
+            'points' => $points,
+            'buy_count' => count($buy),
+            'sell_count' => count($sell),
+            'unique_traders' => count($traders),
+            'buy_median' => $buyMedian,
+            'sell_median' => $sellMedian,
+            'spread' => ($buyMedian !== null && $sellMedian !== null) ? $buyMedian - $sellMedian : null,
+            'buy_min' => $buy ? min($buy) : null,
+            'buy_max' => $buy ? max($buy) : null,
+            'sell_min' => $sell ? min($sell) : null,
+            'sell_max' => $sell ? max($sell) : null,
+        ];
+    }
+
+
 }
