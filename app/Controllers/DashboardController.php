@@ -17,7 +17,12 @@ final class DashboardController
 
     public function index(Request $request): Response
     {
-        $data = $this->dashboard->build($request->string('q'), $request->string('type'));
+        $data = $this->dashboard->build(
+            $request->string('q'),
+            $request->string('type'),
+            $request->string('status'),
+            max(10, min(300, $request->int('limit', 100))),
+        );
         return Response::html($this->view->render('dashboard/index', $data));
     }
 }

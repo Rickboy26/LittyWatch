@@ -34,4 +34,10 @@ final class Request
         $value = $this->query[$key] ?? $this->post[$key] ?? $default;
         return is_scalar($value) ? trim((string)$value) : $default;
     }
+
+    public function int(string $key, int $default = 0): int
+    {
+        $value = $this->query[$key] ?? $this->post[$key] ?? $default;
+        return is_numeric($value) ? (int)$value : $default;
+    }
 }
