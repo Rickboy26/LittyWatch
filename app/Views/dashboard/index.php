@@ -2,7 +2,7 @@
 <div class="top">
   <div>
     <h1 style="margin:0">LittyWatch</h1>
-    <div class="muted">v0.9 — live dashboard-API en automatische updates</div>
+    <div class="muted">v1.0 — marktverkenner en itempagina's</div>
   </div>
   <div class="actions">
     <a href="collect.php">Nu ophalen</a>
@@ -44,7 +44,7 @@
   </div>
   <div class="scroll"><table><thead><tr><th>Type</th><th>Item</th><th>Prijs</th><th>Speler / origineel</th></tr></thead><tbody id="offerRows">
   <?php foreach ($offers as $offer): ?>
-  <tr><td><span class="badge <?= h((string)$offer['trade_type']) ?>"><?= strtoupper(h((string)$offer['trade_type'])) ?></span></td><td><strong><?= h((string)$offer['item']) ?></strong><?php if (!empty($offer['details'])): ?><div class="muted"><?= h((string)$offer['details']) ?></div><?php endif; ?><small class="muted"><?= (int)round((float)$offer['confidence']*100) ?>% · <?= h((string)($offer['quality_status'] ?? 'review')) ?></small></td><td><?= $offer['price_amount']!==null?h((string)$offer['price_amount']).h((string)$offer['price_currency']):'-' ?><?php if ($offer['unit_price_ecto']!==null): ?><div class="muted"><?= number_format((float)$offer['unit_price_ecto'],2) ?>e/stuk</div><?php endif; ?></td><td><?= h((string)$offer['player']) ?><div class="muted"><?= h((string)$offer['posted_at']) ?></div><code><?= h((string)($offer['raw_segment'] ?: $offer['message'])) ?></code></td></tr>
+  <tr><td><span class="badge <?= h((string)$offer['trade_type']) ?>"><?= strtoupper(h((string)$offer['trade_type'])) ?></span></td><td><a class="itemlink" href="item?name=<?= rawurlencode((string)$offer['item']) ?>"><?= h((string)$offer['item']) ?></a><?php if (!empty($offer['details'])): ?><div class="muted"><?= h((string)$offer['details']) ?></div><?php endif; ?><small class="muted"><?= (int)round((float)$offer['confidence']*100) ?>% · <?= h((string)($offer['quality_status'] ?? 'review')) ?></small></td><td><?= $offer['price_amount']!==null?h((string)$offer['price_amount']).h((string)$offer['price_currency']):'-' ?><?php if ($offer['unit_price_ecto']!==null): ?><div class="muted"><?= number_format((float)$offer['unit_price_ecto'],2) ?>e/stuk</div><?php endif; ?></td><td><?= h((string)$offer['player']) ?><div class="muted"><?= h((string)$offer['posted_at']) ?></div><code><?= h((string)($offer['raw_segment'] ?: $offer['message'])) ?></code></td></tr>
   <?php endforeach; ?>
   </tbody></table></div>
 </section>
@@ -93,7 +93,7 @@
       const unit = o.unit_price_ecto === null ? '' : `<div class="muted">${number(o.unit_price_ecto)}e/stuk</div>`;
       const details = o.details ? `<div class="muted">${escapeHtml(o.details)}</div>` : '';
       const raw = o.raw_segment || o.message || '';
-      return `<tr><td><span class="badge ${escapeHtml(o.trade_type)}">${escapeHtml(String(o.trade_type).toUpperCase())}</span></td><td><strong>${escapeHtml(o.item)}</strong>${details}<small class="muted">${Math.round(Number(o.confidence)*100)}% · ${escapeHtml(o.quality_status || 'review')}</small></td><td>${price}${unit}</td><td>${escapeHtml(o.player)}<div class="muted">${escapeHtml(o.posted_at)}</div><code>${escapeHtml(raw)}</code></td></tr>`;
+      return `<tr><td><span class="badge ${escapeHtml(o.trade_type)}">${escapeHtml(String(o.trade_type).toUpperCase())}</span></td><td><a class="itemlink" href="item?name=${encodeURIComponent(o.item)}">${escapeHtml(o.item)}</a>${details}<small class="muted">${Math.round(Number(o.confidence)*100)}% · ${escapeHtml(o.quality_status || 'review')}</small></td><td>${price}${unit}</td><td>${escapeHtml(o.player)}<div class="muted">${escapeHtml(o.posted_at)}</div><code>${escapeHtml(raw)}</code></td></tr>`;
     }).join('');
   }
 
