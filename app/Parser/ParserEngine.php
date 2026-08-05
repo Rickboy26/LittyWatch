@@ -12,6 +12,7 @@ final class ParserEngine
     private ModifierMatcher $modifierMatcher;
     private PriceMatcher $priceMatcher;
     private ConfidenceScorer $confidenceScorer;
+    private ?CategoryExpander $categoryExpander = null;
 
     public function __construct(Catalog $catalog)
     {
@@ -22,6 +23,7 @@ final class ParserEngine
         $this->modifierMatcher = new ModifierMatcher($catalog);
         $this->priceMatcher = new PriceMatcher();
         $this->confidenceScorer = new ConfidenceScorer($catalog);
+        if ($catalog->knowledgeBase() !== null) $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
     }
 
     /** @return list<ParsedOffer> */
@@ -46,6 +48,10 @@ final class ParserEngine
         if ($segment === '') return [];
 
         $items = $this->itemMatcher->matchAll($segment);
+        if ($this->categoryExpander !== null) {
+            $expanded = $this->categoryExpander->expand($segment);
+            if (count($expanded) > count($items)) $items = $expanded;
+        }
         if ($items === []) {
             $price = $this->priceMatcher->parse($segment);
             [$confidence, $status, $reason] = $this->confidenceScorer->score(null, [], $price, $segment);

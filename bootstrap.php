@@ -27,6 +27,7 @@ function db(): PDO {
 }
 
 function installSchema(): void {
+    \LittyWatch\Knowledge\Schema::install(db());
     db()->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS messages (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
