@@ -121,12 +121,12 @@ function normalizeKamadanPayload(string $body): array {
     $out=[];
     foreach ($rows as $row) {
         if (!is_array($row)) continue;
-        $message=(string)($row['message']??$row['text']??$row['msg']??'');
+        $message=(string)($row['m']??$row['message']??$row['text']??$row['msg']??'');
         if ($message==='') continue;
-        $player=(string)($row['name']??$row['player']??$row['sender']??'Unknown');
-        $time=$row['timestamp']??$row['time']??$row['created_at']??date(DATE_ATOM);
+        $player=(string)($row['s']??$row['name']??$row['player']??$row['sender']??'Unknown');
+        $time=$row['t']??$row['timestamp']??$row['time']??$row['created_at']??date(DATE_ATOM);
         if (is_numeric($time)) $time=date(DATE_ATOM,(int)$time);
-        $id=(string)($row['id']??hash('sha256',$player.'|'.$message.'|'.$time));
+        $id=(string)($row['h']??$row['id']??hash('sha256',$player.'|'.$message.'|'.$time));
         $out[]=['key'=>'kamadan:'.$id,'player'=>$player,'message'=>$message,'posted_at'=>(string)$time,'source'=>'kamadan.gwtoolbox.com'];
     }
     return $out;
