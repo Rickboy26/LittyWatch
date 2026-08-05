@@ -1,0 +1,6 @@
+[
+  "/\\btrim your guild cape\\b/i",
+  "/\\b(?:mission|rush|run|service)s?\\b/i",
+  "/^\\s*(?:pm|wsp|show me|offer(?:s)? only)\\b/i",
+  "/^[+_=<>!\\-\\s]+$/"
+]

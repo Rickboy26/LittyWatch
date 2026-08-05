@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 $config = require __DIR__ . '/config.php';
+require_once __DIR__ . '/app/Support/Autoloader.php';
+\LittyWatch\Support\Autoloader::register(__DIR__ . '/app');
+
 date_default_timezone_set($config['timezone']);
 ini_set('display_errors', '1');
 error_reporting(E_ALL);
@@ -299,3 +302,11 @@ function saveOffers(int $messageId,string $message): int {
 function httpGet(string $url): array {global$config;$headers=['User-Agent: LittyWatch/0.5 (+personal project)'];$ch=curl_init($url);curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>$config['request_timeout'],CURLOPT_HTTPHEADER=>$headers,CURLOPT_ENCODING=>'']);$body=curl_exec($ch);$err=curl_error($ch);$code=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$type=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);curl_close($ch);if($body===false)throw new RuntimeException('cURL-fout: '.$err);return[$code,$type,$body];}
 function normalizeKamadanPayload(string $body): array {$json=json_decode($body,true);if(!is_array($json))return[];$rows=$json['messages']??$json['results']??$json;if(!is_array($rows))return[];$out=[];foreach($rows as $row){if(!is_array($row))continue;$message=(string)($row['m']??$row['message']??'');if($message==='')continue;$player=(string)($row['s']??$row['player']??'Unknown');$time=$row['t']??date(DATE_ATOM);if(is_numeric($time))$time=date(DATE_ATOM,(int)$time);$id=(string)($row['h']??hash('sha256',$player.'|'.$message.'|'.$time));$out[]=['key'=>'kamadan:'.$id,'player'=>$player,'message'=>$message,'posted_at'=>(string)$time,'source'=>'kamadan.gwtoolbox.com'];}return$out;}
 function collectMessages(): array {global$config;installSchema();$messages=[];$used='';$error='';try{[$code,$type,$body]=httpGet($config['kamadan_endpoint']);if($code>=200&&$code<300)$messages=normalizeKamadanPayload($body);if(!$messages)throw new RuntimeException('Kamadan endpoint gaf geen herkenbare JSON terug.');$used=$config['kamadan_endpoint'];}catch(Throwable$e){$error=$e->getMessage();}$insert=db()->prepare('INSERT OR IGNORE INTO messages(source,source_key,player,message,trade_type,item,price_amount,price_currency,price_ecto,posted_at,collected_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)');$added=0;$offerCount=0;foreach(array_slice($messages,0,$config['max_messages_per_run'])as$row){$p=parseTrade($row['message']);$insert->execute([$row['source'],$row['key'],$row['player'],$row['message'],$p['type'],$p['item'],$p['amount'],$p['currency'],$p['ecto'],$row['posted_at'],date(DATE_ATOM)]);if($insert->rowCount()){$added++;$id=(int)db()->lastInsertId();$offerCount+=saveOffers($id,$row['message']);}}return['fetched'=>count($messages),'added'=>$added,'offers_added'=>$offerCount,'source'=>$used,'warning'=>$error];}
+
+function parserV2(): \LittyWatch\Parser\ParserEngine {
+    static $engine = null;
+    if ($engine instanceof \LittyWatch\Parser\ParserEngine) return $engine;
+    $catalog = new \LittyWatch\Parser\Catalog(__DIR__ . '/app/Data');
+    $engine = new \LittyWatch\Parser\ParserEngine($catalog);
+    return $engine;
+}

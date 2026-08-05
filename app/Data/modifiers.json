@@ -1,0 +1,17 @@
+[
+  {"key":"requirement","value":"q","capture":1,"pattern":"/\\bq\\s*([0-9]{1,2})\\b/i"},
+  {"key":"oldschool","value":"OS","pattern":"/\\b(?:os|old\\s*school|oldschool)\\b/i"},
+  {"key":"inscribable","value":"insc","pattern":"/\\b(?:insc|inscr|inscrib|inscribable|inscb)\\b/i"},
+  {"key":"dedication","value":"unded","pattern":"/\\b(?:unded|undedi(?:cated)?)\\b/i"},
+  {"key":"dedication","value":"ded","pattern":"/\\bded(?:icated)?\\b/i"},
+  {"key":"attribute","value":"fc","pattern":"/\\b(?:fc|fast\\s*cast(?:ing)?)\\b/i"},
+  {"key":"attribute","value":"inspiration","pattern":"/\\b(?:inspa?|inspiration)\\b/i"},
+  {"key":"attribute","value":"protection","pattern":"/\\b(?:prot|protection)\\b/i"},
+  {"key":"attribute","value":"communing","pattern":"/\\b(?:comm|communing)\\b/i"},
+  {"key":"attribute","value":"motivation","pattern":"/\\bmotivation\\b/i"},
+  {"key":"attribute","value":"tactics","pattern":"/\\b(?:tact|tactics)\\b/i"},
+  {"key":"attribute","value":"strength","pattern":"/\\b(?:str|strength)\\b/i"},
+  {"key":"inherent","value":"15^50","pattern":"/\\b15\\s*\\^\\s*50\\b/i"},
+  {"key":"inherent","value":"15 stance","pattern":"/\\b15%?\\s*(?:in\\s*)?stance\\b/i"},
+  {"key":"armor","value":"ar16","pattern":"/\\b(?:ar\\s*)?16\\b/i"}
+]
