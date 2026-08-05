@@ -134,7 +134,7 @@ final class MarketRepository
             default => 100,
         };
 
-        $where = "o.item=:item AND o.quality_status='accepted' AND o.unit_price_ecto IS NOT NULL AND o.price_type NOT IN ('bundle','currency_exchange')";
+        $where = "o.item=:item AND o.quality_status='accepted' AND o.unit_price_ecto IS NOT NULL AND COALESCE(o.price_basis,'') NOT IN ('bundle','currency_exchange')";
         $params = [':item' => $name];
         if ($variant !== '') {
             $where .= " AND COALESCE(NULLIF(o.details,''),'Standaard')=:variant";
