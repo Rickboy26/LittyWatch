@@ -8,6 +8,5 @@ logs/*
 *.sqlite3
 *.db
 *.log
-
 .env
 config.local.php

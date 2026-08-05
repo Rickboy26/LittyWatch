@@ -134,20 +134,53 @@ function normalizeKamadanPayload(string $body): array {
 
 function normalizeDecltypeHtml(string $html): array {
     libxml_use_internal_errors(true);
-    $dom=new DOMDocument();
-    if (!$dom->loadHTML($html)) return [];
-    $xp=new DOMXPath($dom); $out=[];
-    $nodes=$xp->query('//tr|//article|//li');
-    foreach ($nodes as $node) {
-        $text=trim(preg_replace('/\s+/', ' ', $node->textContent) ?? '');
-        if (!preg_match('/\bWT[BS]\b/i',$text)) continue;
-        $parts=preg_split('/\s+\|\s+/', $text);
-        if (count($parts)>=2) { $player=trim($parts[0]); $message=trim($parts[1]); }
-        else { $player='Unknown'; $message=$text; }
-        $key='decltype:'.hash('sha256',$text);
-        $out[]=['key'=>$key,'player'=>$player,'message'=>$message,'posted_at'=>date(DATE_ATOM),'source'=>'kamadan.decltype.org'];
-        if (count($out)>=250) break;
+    $dom = new DOMDocument();
+    if (!$dom->loadHTML($html, LIBXML_NOWARNING | LIBXML_NOERROR)) return [];
+
+    $xp = new DOMXPath($dom);
+    $out = [];
+    $seen = [];
+
+    // De site levert HTML, geen JSON. Zoek daarom naar de kleinste elementen
+    // waarin één volledig chatbericht staat, bijvoorbeeld:
+    // "Player Name a few seconds ago | WTS ... |"
+    foreach ($xp->query('//body//*[not(*)]') as $node) {
+        $text = trim(preg_replace('/\s+/u', ' ', $node->textContent) ?? '');
+        if ($text === '' || !preg_match('/\bWT[BST]\b/i', $text)) continue;
+
+        $player = '';
+        $message = '';
+
+        if (preg_match(
+            '/^(.+?)\s+(?:(?:a few|\d+)\s+(?:second|seconds|minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+ago|just now)\s*\|\s*(.+?)\s*\|?$/iu',
+            $text,
+            $m
+        )) {
+            $player = trim($m[1]);
+            $message = trim($m[2]);
+        } elseif (str_contains($text, '|')) {
+            $parts = array_values(array_filter(array_map('trim', explode('|', $text)), static fn($v) => $v !== ''));
+            if (count($parts) >= 2) {
+                $player = preg_replace('/\s+(?:a few|\d+)\s+(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\s+ago$/iu', '', $parts[0]) ?? $parts[0];
+                $message = $parts[1];
+            }
+        }
+
+        if ($player === '' || $message === '' || !preg_match('/\bWT[BST]\b/i', $message)) continue;
+        $fingerprint = hash('sha256', mb_strtolower($player . '|' . $message));
+        if (isset($seen[$fingerprint])) continue;
+        $seen[$fingerprint] = true;
+
+        $out[] = [
+            'key' => 'decltype:' . $fingerprint,
+            'player' => mb_substr($player, 0, 80),
+            'message' => $message,
+            'posted_at' => date(DATE_ATOM),
+            'source' => 'kamadan.decltype.org',
+        ];
+        if (count($out) >= 250) break;
     }
+
     return $out;
 }
 
