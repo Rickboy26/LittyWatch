@@ -1,0 +1,4 @@
+<?php
+require __DIR__.'/bootstrap.php';
+$checks=['PHP-versie'=>PHP_VERSION,'pdo_sqlite'=>extension_loaded('pdo_sqlite')?'OK':'ONTBREEKT','cURL'=>function_exists('curl_init')?'OK':'niet actief (fallback mogelijk)','DOM'=>class_exists('DOMDocument')?'OK':'ONTBREEKT','data schrijfbaar'=>(is_writable(__DIR__.'/data')?'OK':'NIET SCHRIJFBAAR')];
+?><!doctype html><html lang="nl"><meta charset="utf-8"><title>Health</title><style>body{font-family:system-ui;background:#111827;color:#eee;max-width:750px;margin:40px auto}table{width:100%;border-collapse:collapse}td{padding:12px;border-bottom:1px solid #374151}</style><h1>Systeemcontrole</h1><table><?php foreach($checks as $k=>$v):?><tr><td><?=h($k)?></td><td><?=h((string)$v)?></td></tr><?php endforeach;?></table><p><a style="color:#93c5fd" href="install.php">Installer</a></p>
