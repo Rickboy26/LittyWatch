@@ -19,6 +19,12 @@ final class MessageClassifier
             return ['kind'=>'character_name_sale','reason'=>'character_name_sale'];
         }
 
+        if (
+            preg_match('/\b(?:guild\s+recruit(?:ing|ment)?|recruiting\s+for\s+(?:our\s+)?guild|join\s+(?:our\s+)?guild|looking\s+for\s+(?:a\s+)?guild|lf\s+guild|guild\s+advert(?:isement)?|alliance\s+recruit(?:ing|ment)?|cape\s+trim|trim\s+guild\s+cape|guild\s+hall|wts\s+guild)\b/iu', $clean)
+        ) {
+            return ['kind'=>'guild_advertisement','reason'=>'guild_advertisement'];
+        }
+
         $serviceWords = ['mission','fow armor','any quest','vanquish','dungeon','furnace','duncan','mallyx','deep','urgoz','runner','running','rush','powerlevel','service'];
         $hits = 0;
         $lower = mb_strtolower($clean);

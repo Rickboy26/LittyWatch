@@ -13,7 +13,7 @@ return static function(Router $router,Container $c):void{
  $router->get('/alerts',fn($r)=>$c->get(AlertController::class)->index($r));$router->post('/alerts',fn($r)=>$c->get(AlertController::class)->update($r));
  $router->get('/game-assets',fn($r)=>$c->get(AssetController::class)->index($r));$router->get('/system',fn($r)=>$c->get(SystemController::class)->index($r));
  $router->get('/structured-offers',fn($r)=>$c->get(StructuredOfferController::class)->index($r));$router->get('/knowledge',fn($r)=>$c->get(KnowledgeController::class)->index($r));
- $router->get('/parser-review',fn($r)=>$c->get(ParserReviewController::class)->index($r));$router->post('/parser-review',fn($r)=>$c->get(ParserReviewController::class)->update($r));$router->get('/parser-review/export',fn($r)=>$c->get(ParserReviewController::class)->export($r));
+ $router->get('/parser-review',fn($r)=>$c->get(ParserReviewController::class)->index($r));$router->post('/parser-review',fn($r)=>$c->get(ParserReviewController::class)->update($r));$router->post('/parser-review/re-evaluate',fn($r)=>$c->get(ParserReviewController::class)->batchReview($r));$router->get('/parser-review/export',fn($r)=>$c->get(ParserReviewController::class)->export($r));
  $router->get('/admin',fn($r)=>$c->get(AdminController::class)->index($r));
  foreach(['collect'=>'collect','reparse'=>'reparse','market-maintenance'=>'marketMaintenance','knowledge-seed'=>'seedKnowledge','intelligence-refresh'=>'intelligence','snapshot'=>'snapshot','parser-lab'=>'parserLab'] as$path=>$method){$router->get('/admin/'.$path,fn($r)=>$c->get(MaintenanceController::class)->$method($r));}
  $router->post('/admin/parser-lab',fn($r)=>$c->get(MaintenanceController::class)->parserLab($r));

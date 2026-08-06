@@ -41,6 +41,7 @@ use LittyWatch\Services\WatchlistService;
 use LittyWatch\Services\DashboardService;
 use LittyWatch\Services\ExchangeRateService;
 use LittyWatch\Services\ItemImageService;
+use LittyWatch\Services\ParserBatchReviewService;
 use LittyWatch\Support\ProjectPaths;
 
 final class ApplicationServiceProvider
@@ -82,6 +83,10 @@ final class ApplicationServiceProvider
         $container->singleton(DashboardService::class, fn(Container $c) => new DashboardService($c->get(MarketRepository::class), $c->get(ExchangeRateService::class)));
         $container->singleton(AlertService::class, fn(Container $c) => new AlertService($c->get(AlertRepository::class)));
         $container->singleton(WatchlistService::class, fn(Container $c) => new WatchlistService($c->get(WatchlistRepository::class), $c->get(AlertService::class)));
+        $container->singleton(ParserBatchReviewService::class, fn(Container $c) => new ParserBatchReviewService(
+            $c->get('pdo'),
+            $c->get(ParserReviewRepository::class)
+        ));
 
         $container->singleton(DashboardController::class, fn(Container $c) => new DashboardController($c->get(DashboardService::class), $c->get(View::class)));
         $container->singleton(ApiController::class, fn(Container $c) => new ApiController($c->get(DashboardService::class)));
@@ -94,6 +99,7 @@ final class ApplicationServiceProvider
         $container->singleton(ParserReviewController::class, fn(Container $c) => new ParserReviewController(
             $c->get(ParserReviewRepository::class),
             $c->get(ItemKnowledgeRepository::class),
+            $c->get(ParserBatchReviewService::class),
             $c->get(View::class)
         ));
         $container->singleton(StructuredMarketController::class, fn(Container $c) => new StructuredMarketController($c->get(StructuredMarketRepository::class), $c->get(View::class), $c->get(CurrencyDisplayService::class)));

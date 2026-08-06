@@ -8,6 +8,7 @@ use LittyWatch\Core\Response;
 use LittyWatch\Core\View;
 use LittyWatch\Repositories\ItemKnowledgeRepository;
 use LittyWatch\Repositories\ParserReviewRepository;
+use LittyWatch\Services\ParserBatchReviewService;
 use Throwable;
 
 final class ParserReviewController
@@ -15,6 +16,7 @@ final class ParserReviewController
     public function __construct(
         private readonly ParserReviewRepository $repo,
         private readonly ItemKnowledgeRepository $itemKnowledge,
+        private readonly ParserBatchReviewService $batchReview,
         private readonly View $view,
     ) {}
 
@@ -101,6 +103,24 @@ final class ParserReviewController
             return new Response('', 302, [
                 'Location' => '/parser-review?error=' . rawurlencode($exception->getMessage())
             ]);
+        }
+    }
+
+    public function batchReview(Request $request): Response
+    {
+        try {
+            return Response::json([
+                'ok' => true,
+                ...$this->batchReview->process(
+                    $request->int('cursor'),
+                    $request->int('limit', 150)
+                ),
+            ]);
+        } catch (Throwable $exception) {
+            return Response::json([
+                'ok' => false,
+                'error' => $exception->getMessage(),
+            ], 500);
         }
     }
 

@@ -21,6 +21,7 @@ $tabs = [
     <p>Werk twijfelgevallen snel af en bouw een lokale Guild Wars-kennisbank op.</p>
   </div>
   <div class="actions">
+    <button class="btn" type="button" data-rereview-start>Herbeoordeel openstaande berichten</button>
     <a class="btn secondary" href="/parser-review/export">Exporteren</a>
   </div>
 </section>
@@ -33,6 +34,25 @@ $tabs = [
   <article><span>Herkend</span><strong><?= $pct($qualityStats['parsed'] ?? 0) ?></strong></article>
   <article><span>Review</span><strong><?= $pct($qualityStats['review'] ?? 0) ?></strong></article>
   <article><span>Uitgesloten</span><strong><?= $pct($qualityStats['excluded'] ?? 0) ?></strong></article>
+</section>
+
+<section class="surface batch-review-panel" data-rereview-panel hidden>
+  <div class="section-heading">
+    <div>
+      <span class="kicker">BATCH HERBEOORDELING</span>
+      <h2>Openstaande berichten opnieuw beoordelen</h2>
+    </div>
+    <strong data-rereview-percent>0%</strong>
+  </div>
+  <div class="batch-progress"><span data-rereview-bar></span></div>
+  <p data-rereview-status>Voorbereiden…</p>
+  <div class="batch-result-grid">
+    <span>Gecontroleerd <strong data-rereview-checked>0</strong></span>
+    <span>Herkend <strong data-rereview-parsed>0</strong></span>
+    <span>Uitgesloten <strong data-rereview-excluded>0</strong></span>
+    <span>Review <strong data-rereview-review>0</strong></span>
+    <span>Mislukt <strong data-rereview-failed>0</strong></span>
+  </div>
 </section>
 
 <nav class="review-tabs">
@@ -415,6 +435,95 @@ $tabs = [
     </div>
   </section>
 <?php endif; ?>
+
+<script>
+(() => {
+  const start = document.querySelector('[data-rereview-start]');
+  const panel = document.querySelector('[data-rereview-panel]');
+  const bar = document.querySelector('[data-rereview-bar]');
+  const percent = document.querySelector('[data-rereview-percent]');
+  const status = document.querySelector('[data-rereview-status]');
+  const fields = {
+    checked: document.querySelector('[data-rereview-checked]'),
+    parsed: document.querySelector('[data-rereview-parsed]'),
+    excluded: document.querySelector('[data-rereview-excluded]'),
+    review: document.querySelector('[data-rereview-review]'),
+    failed: document.querySelector('[data-rereview-failed]'),
+  };
+
+  let running = false;
+  let cursor = 0;
+  let totals = {checked:0, parsed:0, excluded:0, review:0, failed:0};
+  let initialEstimate = 0;
+
+  const paint = remaining => {
+    Object.entries(fields).forEach(([key, element]) => {
+      if (element) element.textContent = String(totals[key] || 0);
+    });
+    if (initialEstimate <= 0) initialEstimate = totals.checked + remaining;
+    const done = initialEstimate > 0
+      ? Math.min(100, Math.round((totals.checked / initialEstimate) * 100))
+      : 0;
+    if (bar) bar.style.width = done + '%';
+    if (percent) percent.textContent = done + '%';
+  };
+
+  const runBatch = async () => {
+    const body = new URLSearchParams({cursor:String(cursor), limit:'150'});
+    const response = await fetch('/parser-review/re-evaluate', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+      body
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || 'Batch-herbeoordeling mislukt.');
+    }
+
+    for (const key of Object.keys(totals)) {
+      totals[key] += Number(result[key] || 0);
+    }
+    cursor = Number(result.next_cursor || cursor);
+    paint(Number(result.remaining || 0));
+
+    if (status) {
+      status.textContent = result.done
+        ? 'Herbeoordeling voltooid. De Review Queue wordt vernieuwd.'
+        : `${result.remaining} berichten wachten nog. Volgende batch wordt verwerkt…`;
+    }
+
+    if (!result.done) {
+      await runBatch();
+      return;
+    }
+
+    if (bar) bar.style.width = '100%';
+    if (percent) percent.textContent = '100%';
+    setTimeout(() => window.location.reload(), 1200);
+  };
+
+  start?.addEventListener('click', async () => {
+    if (running) return;
+    if (!window.confirm('Alle openstaande reviewberichten opnieuw beoordelen met de nieuwste parserregels?')) return;
+
+    running = true;
+    cursor = 0;
+    totals = {checked:0, parsed:0, excluded:0, review:0, failed:0};
+    initialEstimate = 0;
+    start.disabled = true;
+    panel.hidden = false;
+    if (status) status.textContent = 'Eerste batch wordt verwerkt…';
+
+    try {
+      await runBatch();
+    } catch (error) {
+      if (status) status.textContent = error.message;
+      start.disabled = false;
+      running = false;
+    }
+  });
+})();
+</script>
 
 <script>
 (() => {

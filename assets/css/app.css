@@ -171,3 +171,13 @@
     grid-template-columns:1fr !important;
   }
 }
+
+
+/* V4.4.4 batch parser re-review */
+.batch-review-panel{margin:16px 0;padding:18px}
+.batch-progress{height:12px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+.batch-progress span{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--gold),#72c98d);transition:width .25s ease}
+.batch-result-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-top:13px}
+.batch-result-grid span{padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:10px;color:var(--muted)}
+.batch-result-grid strong{display:block;color:var(--text);font-size:1.15rem;margin-top:3px}
+@media(max-width:800px){.batch-result-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
