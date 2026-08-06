@@ -11,6 +11,7 @@ final class Catalog
     private array $modifiers;
     private array $rejectPatterns;
     private ?\LittyWatch\Knowledge\KnowledgeBase $knowledgeBase = null;
+    private ?\PDO $database = null;
 
     public function __construct(string $dataDir, ?\PDO $db = null)
     {
@@ -18,6 +19,7 @@ final class Catalog
         $this->modifiers = $this->loadJson($dataDir . '/modifiers.json');
         $this->rejectPatterns = $this->loadJson($dataDir . '/reject-patterns.json');
         if ($db !== null) {
+            $this->database = $db;
             \LittyWatch\Knowledge\Schema::install($db);
             $this->knowledgeBase = new \LittyWatch\Knowledge\KnowledgeBase($db);
             $dbItems = $this->knowledgeBase->allItems();
@@ -31,6 +33,7 @@ final class Catalog
     public function modifiers(): array { return $this->modifiers; }
     public function rejectPatterns(): array { return $this->rejectPatterns; }
     public function knowledgeBase(): ?\LittyWatch\Knowledge\KnowledgeBase { return $this->knowledgeBase; }
+    public function database(): ?\PDO { return $this->database; }
 
     private function loadJson(string $path): array
     {

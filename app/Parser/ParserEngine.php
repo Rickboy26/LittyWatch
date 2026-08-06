@@ -34,8 +34,8 @@ final class ParserEngine
         $this->tradeNotationCleaner = new TradeNotationCleaner();
         $this->exchangeMatcher = new ExchangeMatcher();
         $dynamic = null;
-        if ($catalog->knowledgeBase() !== null) {
-            $knowledgeRepo = new \LittyWatch\Repositories\ParserKnowledgeRepository($catalog->knowledgeBase());
+        if ($catalog->database() !== null) {
+            $knowledgeRepo = new \LittyWatch\Repositories\ParserKnowledgeRepository($catalog->database());
             $knowledgeRepo->install();
             $dynamic = new DynamicKnowledge($knowledgeRepo);
         }

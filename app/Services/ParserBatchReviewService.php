@@ -6,7 +6,9 @@ namespace LittyWatch\Services;
 use LittyWatch\Market\OfferLifecycleService;
 use LittyWatch\Market\StructuredOfferWriter;
 use LittyWatch\Market\VariantNormalizer;
+use LittyWatch\Parser\DynamicKnowledge;
 use LittyWatch\Parser\MessageClassifier;
+use LittyWatch\Repositories\ParserKnowledgeRepository;
 use LittyWatch\Repositories\ParserReviewRepository;
 use PDO;
 use Throwable;
@@ -54,7 +56,11 @@ final class ParserBatchReviewService
             new VariantNormalizer(),
             new OfferLifecycleService($this->pdo)
         );
-        $classifier = new MessageClassifier();
+        $knowledgeRepository = new ParserKnowledgeRepository($this->pdo);
+        $knowledgeRepository->install();
+        $classifier = new MessageClassifier(
+            new DynamicKnowledge($knowledgeRepository)
+        );
 
         $result = [
             'checked' => 0,
