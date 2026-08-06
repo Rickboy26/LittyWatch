@@ -59,6 +59,7 @@ final class ExchangeMatcher
             'imperial guard' => 'Imperial Guard Reinforcement Order',
             'conset' => 'Conset',
             'consets' => 'Conset',
+            'cons' => 'Conset',
         ];
 
         return $aliases[$lower] ?? $value;
@@ -67,7 +68,13 @@ final class ExchangeMatcher
     /** @return list<string> */
     public function splitFallbackSources(string $value): array
     {
-        $parts = preg_split('/\s*(?:,|\/|\+|\bor\b|\band\b)\s*/iu', trim($value)) ?: [];
+        $trimmed = trim($value);
+        if (preg_match('/^(?:(?:tengu|guard|cons(?:et)?)\s*)+$/iu', $trimmed)) {
+            preg_match_all('/tengu|guard|cons(?:et)?/iu', $trimmed, $found);
+            $parts = $found[0] ?? [];
+        } else {
+            $parts = preg_split('/\s*(?:,|\/|\+|\bor\b|\band\b)\s*/iu', $trimmed) ?: [];
+        }
         $parts = array_values(array_filter(array_map(
             fn(string $part): string => $this->normalizeFallbackName($part),
             $parts

@@ -229,7 +229,8 @@
     "category": "consumable",
     "aliases": [
       "conset",
-      "consets"
+      "consets",
+      "cons"
     ]
   },
   {
@@ -238,8 +239,9 @@
     "category": "consumable",
     "aliases": [
       "tengu support flare",
-      "tengu",
-      "tengus"
+      "tengu flare",
+      "tengu flares",
+      "tengu"
     ]
   },
   {
@@ -393,9 +395,7 @@
     "aliases": [
       "ranger tome",
       "ranger tomes",
-      "reg ranger tome",
-      "reg ranger tomes",
-      "regular ranger tomes"
+      "rang tome"
     ]
   },
   {
@@ -405,8 +405,8 @@
     "aliases": [
       "warrior tome",
       "warrior tomes",
-      "warri tome",
-      "warri tomes"
+      "war tome",
+      "warr tome"
     ]
   },
   {
@@ -416,8 +416,7 @@
     "aliases": [
       "elementalist tome",
       "elementalist tomes",
-      "ele tome",
-      "ele tomes"
+      "ele tome"
     ]
   },
   {
@@ -480,6 +479,279 @@
     "aliases": [
       "primeval armor remnant",
       "primeval armor remnants"
+    ]
+  },
+  {
+    "key": "tormented-sword",
+    "name": "Tormented Sword",
+    "category": "weapon",
+    "aliases": [
+      "tormented sword",
+      "tormented swords",
+      "torm sword"
+    ]
+  },
+  {
+    "key": "unicorns-wrath",
+    "name": "Unicorn's Wrath",
+    "category": "weapon",
+    "aliases": [
+      "unicorn's wrath",
+      "unicorns wrath",
+      "unicorn wrath"
+    ]
+  },
+  {
+    "key": "rin-relic",
+    "name": "Rin Relic",
+    "category": "trophy",
+    "aliases": [
+      "rin relic",
+      "rin relics",
+      "rin relic set",
+      "rin set"
+    ]
+  },
+  {
+    "key": "miniature-dhuum",
+    "name": "Miniature Dhuum",
+    "category": "miniature",
+    "aliases": [
+      "miniature dhuum",
+      "mini dhuum",
+      "dhuum mini"
+    ]
+  },
+  {
+    "key": "miniature-destroyer-of-flesh",
+    "name": "Miniature Destroyer of Flesh",
+    "category": "miniature",
+    "aliases": [
+      "miniature destroyer of flesh",
+      "mini destroyer of flesh"
+    ]
+  },
+  {
+    "key": "everlasting-destroyer-tonic",
+    "name": "Everlasting Destroyer Tonic",
+    "category": "tonic",
+    "aliases": [
+      "everlasting destroyer tonic",
+      "el destroyer tonic",
+      "el destroyer"
+    ]
+  },
+  {
+    "key": "war-supplies",
+    "name": "War Supplies",
+    "category": "currency",
+    "aliases": [
+      "war supplies",
+      "war supply",
+      "war supp"
+    ]
+  },
+  {
+    "key": "ghastly-summoning-stone",
+    "name": "Ghastly Summoning Stone",
+    "category": "summoning-stone",
+    "aliases": [
+      "ghastly summoning stone",
+      "ghastly stone",
+      "ghastly stones",
+      "ghastly"
+    ]
+  },
+  {
+    "key": "imperial-guard-reinforcement-order",
+    "name": "Imperial Guard Reinforcement Order",
+    "category": "consumable",
+    "aliases": [
+      "imperial guard reinforcement order",
+      "guard order",
+      "imperial guard",
+      "guard"
+    ]
+  },
+  {
+    "key": "elite-warrior-tome",
+    "name": "Elite Warrior Tome",
+    "category": "tome",
+    "aliases": [
+      "elite warrior tome",
+      "elite warrior tomes",
+      "el warrior tome",
+      "elite war tome",
+      "elite warr tome"
+    ]
+  },
+  {
+    "key": "elite-ranger-tome",
+    "name": "Elite Ranger Tome",
+    "category": "tome",
+    "aliases": [
+      "elite ranger tome",
+      "elite ranger tomes",
+      "el ranger tome",
+      "elite rang tome"
+    ]
+  },
+  {
+    "key": "monk-tome",
+    "name": "Monk Tome",
+    "category": "tome",
+    "aliases": [
+      "monk tome",
+      "monk tomes",
+      "mo tome"
+    ]
+  },
+  {
+    "key": "elite-monk-tome",
+    "name": "Elite Monk Tome",
+    "category": "tome",
+    "aliases": [
+      "elite monk tome",
+      "elite monk tomes",
+      "el monk tome",
+      "elite mo tome"
+    ]
+  },
+  {
+    "key": "necromancer-tome",
+    "name": "Necromancer Tome",
+    "category": "tome",
+    "aliases": [
+      "necromancer tome",
+      "necromancer tomes",
+      "necro tome"
+    ]
+  },
+  {
+    "key": "elite-necromancer-tome",
+    "name": "Elite Necromancer Tome",
+    "category": "tome",
+    "aliases": [
+      "elite necromancer tome",
+      "elite necromancer tomes",
+      "el necromancer tome",
+      "elite necro tome"
+    ]
+  },
+  {
+    "key": "mesmer-tome",
+    "name": "Mesmer Tome",
+    "category": "tome",
+    "aliases": [
+      "mesmer tome",
+      "mesmer tomes",
+      "mes tome"
+    ]
+  },
+  {
+    "key": "elite-mesmer-tome",
+    "name": "Elite Mesmer Tome",
+    "category": "tome",
+    "aliases": [
+      "elite mesmer tome",
+      "elite mesmer tomes",
+      "el mesmer tome",
+      "elite mes tome"
+    ]
+  },
+  {
+    "key": "elite-elementalist-tome",
+    "name": "Elite Elementalist Tome",
+    "category": "tome",
+    "aliases": [
+      "elite elementalist tome",
+      "elite elementalist tomes",
+      "el elementalist tome",
+      "elite ele tome"
+    ]
+  },
+  {
+    "key": "assassin-tome",
+    "name": "Assassin Tome",
+    "category": "tome",
+    "aliases": [
+      "assassin tome",
+      "assassin tomes",
+      "sin tome"
+    ]
+  },
+  {
+    "key": "elite-assassin-tome",
+    "name": "Elite Assassin Tome",
+    "category": "tome",
+    "aliases": [
+      "elite assassin tome",
+      "elite assassin tomes",
+      "el assassin tome",
+      "elite sin tome"
+    ]
+  },
+  {
+    "key": "ritualist-tome",
+    "name": "Ritualist Tome",
+    "category": "tome",
+    "aliases": [
+      "ritualist tome",
+      "ritualist tomes",
+      "rit tome"
+    ]
+  },
+  {
+    "key": "elite-ritualist-tome",
+    "name": "Elite Ritualist Tome",
+    "category": "tome",
+    "aliases": [
+      "elite ritualist tome",
+      "elite ritualist tomes",
+      "el ritualist tome",
+      "elite rit tome"
+    ]
+  },
+  {
+    "key": "paragon-tome",
+    "name": "Paragon Tome",
+    "category": "tome",
+    "aliases": [
+      "paragon tome",
+      "paragon tomes",
+      "para tome"
+    ]
+  },
+  {
+    "key": "elite-paragon-tome",
+    "name": "Elite Paragon Tome",
+    "category": "tome",
+    "aliases": [
+      "elite paragon tome",
+      "elite paragon tomes",
+      "el paragon tome",
+      "elite para tome"
+    ]
+  },
+  {
+    "key": "dervish-tome",
+    "name": "Dervish Tome",
+    "category": "tome",
+    "aliases": [
+      "dervish tome",
+      "dervish tomes",
+      "derv tome"
+    ]
+  },
+  {
+    "key": "elite-dervish-tome",
+    "name": "Elite Dervish Tome",
+    "category": "tome",
+    "aliases": [
+      "elite dervish tome",
+      "elite dervish tomes",
+      "el dervish tome",
+      "elite derv tome"
     ]
   }
 ]

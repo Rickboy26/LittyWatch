@@ -49,3 +49,8 @@
   .compact-offer{grid-template-columns:1fr}
   .compact-price{text-align:left}
 }
+
+.parse-status{display:inline-flex;padding:6px 9px;border-radius:999px;font-size:.78rem;border:1px solid rgba(255,255,255,.1);white-space:nowrap}
+.parse-status.parsed{color:#8ce0b3;background:rgba(43,157,98,.12);border-color:rgba(75,190,128,.25)}
+.parse-status.excluded{color:#d6b879;background:rgba(180,130,50,.12);border-color:rgba(211,168,78,.25)}
+.parse-status.review{color:#d9a4a4;background:rgba(180,65,65,.12);border-color:rgba(220,90,90,.25)}

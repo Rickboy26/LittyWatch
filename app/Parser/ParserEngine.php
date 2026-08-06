@@ -14,6 +14,10 @@ final class ParserEngine
     private ConfidenceScorer $confidenceScorer;
     private TradeNotationCleaner $tradeNotationCleaner;
     private ExchangeMatcher $exchangeMatcher;
+    private MessageClassifier $classifier;
+    private SmartSegmenter $segmenter;
+    private SemanticNormalizer $semantic;
+    private SetQuantityResolver $setResolver;
     private ?CategoryExpander $categoryExpander = null;
     private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
     private ?AttributeMatcher $attributeMatcher = null;
@@ -29,6 +33,10 @@ final class ParserEngine
         $this->confidenceScorer = new ConfidenceScorer($catalog);
         $this->tradeNotationCleaner = new TradeNotationCleaner();
         $this->exchangeMatcher = new ExchangeMatcher();
+        $this->classifier = new MessageClassifier();
+        $this->segmenter = new SmartSegmenter();
+        $this->semantic = new SemanticNormalizer();
+        $this->setResolver = new SetQuantityResolver();
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
@@ -43,9 +51,10 @@ final class ParserEngine
         $results = [];
 
         foreach ($this->splitter->split($normalized) as $block) {
-            $segments = $this->splitSegments($block['text']);
-            foreach ($segments as $segment) {
-                $results = array_merge($results, $this->parseSegment($block['trade_type'], $segment));
+            if ($this->classifier->classify($block['text'])['kind'] !== 'market') continue;
+            foreach ($this->segmenter->split($block['text']) as $segment) {
+                if ($this->classifier->classify($segment)['kind'] !== 'market') continue;
+                $results = array_merge($results, $this->parseSegment($block['trade_type'], $this->semantic->normalize($segment)));
             }
         }
         return $results;
@@ -113,6 +122,10 @@ final class ParserEngine
             if ($slice === '') $slice = $segment;
             $price = $this->priceMatcher->parse($slice);
             if ($price->amount === null && count($items) === 1) $price = $wholePrice;
+            $setQuantity = $this->setResolver->resolve((string)$item['item'], $slice);
+            if ($setQuantity !== null && $price->amount !== null) {
+                $price = new ParsedPrice($price->amount,$price->currency,$price->ecto,'set',$setQuantity,$price->ecto!==null?$price->ecto/$setQuantity:null,$price->raw);
+            }
             $modifiers = $this->modifierMatcher->match($slice);
             $attribute = $this->attributeMatcher?->match($slice);
             if ($attribute !== null) $modifiers['attribute'] = $attribute['name'];
@@ -222,9 +235,7 @@ final class ParserEngine
     /** @return list<string> */
     private function splitSegments(string $text): array
     {
-        // Strong separators. Commas are intentionally retained for variant lists.
-        $parts = preg_split('/\s*(?:\|{1,2}|\/{2,}|;+)\s*/u', $text) ?: [$text];
-        return array_values(array_filter(array_map('trim', $parts), static fn(string $part): bool => $part !== ''));
+        return $this->segmenter->split($text);
     }
 
     private function fallbackName(string $segment, ParsedPrice $price): string

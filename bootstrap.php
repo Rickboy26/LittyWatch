@@ -82,6 +82,9 @@ SQL);
     ensureColumn('offers','exchange_item_key','TEXT');
     ensureColumn('offers','exchange_give_quantity','REAL');
     ensureColumn('offers','exchange_receive_quantity','REAL');
+    ensureColumn('messages','parser_status','TEXT');
+    ensureColumn('messages','parser_summary','TEXT');
+    ensureColumn('messages','parser_offer_count','INTEGER');
     ensureColumn('structured_offers','exchange_item','TEXT');
     ensureColumn('structured_offers','exchange_item_key','TEXT');
     ensureColumn('structured_offers','exchange_give_quantity','REAL');
@@ -117,34 +120,19 @@ function norm(string $s): string {
 function itemKey(string $s): string { return trim(preg_replace('/[^a-z0-9]+/',' ',mb_strtolower($s)) ?? ''); }
 
 function itemCatalog(): array {
-    return [
-        'Gift of the Traveler'=>['gott','gotts','gift of the traveler','gifts of the traveler','nick gift','nick gifts','nickgift','nickgifts'],
-        'Nicholas Set'=>['nicholas sets','nicholas set','nick sets','nick set','nicksets','nickset','nic sets','nic set'], 'Armbrace of Truth'=>['armbrace of truth','armbrace','armbraces','ambrace','ambraces','ambr','arms'],
-        'Glob of Ectoplasm'=>['glob of ectoplasm','ectoplasm','ectos','ecto','ektos'], 'Zaishen Key'=>['zaishen keys','zaishen key','zkeys','zkey'],
-        'Lockpick'=>['lockpicks','lockpick','picks'], 'Conset'=>['consets','conset'], 'Essence of Celerity'=>['essence of celerity','essences'],
-        'Grail of Might'=>['grail of might','grails'], 'Armor of Salvation'=>['armor of salvation','armors of salvation'],
-        'Cupcake'=>['cupcakes','cupcake'], "Stalker's Ration"=>["stalker's rations","stalker's ration",'stalkers rations','stalkers ration'], 'Black Dye'=>['black dyes','black dye'],
-        'Elite Tome'=>['elite tomes','elite tome'], 'Warrior Tome'=>['warrior tomes','warri tomes','warrior tome','warri tome'],
-        'Ranger Tome'=>['regular ranger tomes','reg ranger tomes','ranger tomes','ranger tome'], 'Elementalist Tome'=>['elementalist tomes','ele tomes'],
-        'Unidentified Gold'=>['unidentified golds','unidentified gold','unid. golds','unid golds','unid gold','unids'],
-        'Bone Dragon Staff'=>['bone dragon staff','bds'], 'Eternal Blade'=>['eternal blade','eternalblade','eblade'],
-        'Obsidian Edge'=>['obsidian edge','obsiedge'], 'Voltaic Spear'=>['voltaic spear','voltaicspear'], 'Chaos Axe'=>['chaos axe'],
-        'Colossal Scimitar'=>['colossal scimitar'], 'Eternal Bow'=>['eternal bows','eternal bow','eternal flatbow','eternal longbow','eternal shortbow','eternal hornbow','eternal rec bow','eternal recurve bow'],
-        'Eternal Shield'=>['eternal shields','eternal shield'], 'Rift Warden'=>['rift warden'], 'Mad King’s Guard'=>['mad king’s guard',"mad king's guard",'mad king guard','mkg'],
-        'Ghostly Hero'=>['ghostly hero'], 'Mallyx'=>['mallyx'], 'Miniature Undead Prince Rurik'=>['miniature undead prince rurik','mini undead prince','undead prince'],
-        'Celestial Horse'=>['celestial horse','cele horse'], 'Rin Relic Set'=>['rin relic set','rin set'], 'Raging Menzies'=>['raging menzies'],
-        'Summoning Stone'=>['summoning stones','summoning stone','summon stones','summon stone'], 'Cracked Ascalonian War Horn'=>['cracked ascalonian war horns','cracked ascalonian war horn'],
-        'Obsidian Shard'=>['obsidian shards','obsidian shard','obsi shards','obsi shard'], 'Royal Gift'=>['royal gifts','royal gift'], 'Silver Zaishen Coin'=>['silver zaishen coins','silver zaishen coin','silver z coin','silver zcoin'],
-        'Primeval Armor Remnant'=>['primeval armor remnants','primeval armor remnant'], 'Flame Sentinel Tonic'=>['flame sentinel tonic','el flame sentinel tonic'],
-        'Ruby'=>['rubies','ruby'], 'Sapphire'=>['sapphires','sapphire'], 'Char Carving'=>['char carvings','char carving'],
-        'Diessa Chalice'=>['diessa chalices','diessa chalice'], 'War Supplies'=>['war supplies','war supp'],
-        'Alcohol Points'=>['alcohol points','drunk points'], 'Sweet Points'=>['sweet points'],
-        'Mystical Summoning Stone (Gaki)'=>['mystical summoning stone gaki','mystical summon stone gaki','gaki'],
-        'Mysterious Armor'=>['mysterious armor'], 'Envoy Staff'=>['envoy staff'], 'Padraic'=>['padraic'], 'Kerrsh’s Staff'=>["kerrsh's staff",'kerrsh staff'],
-        'Hero Box'=>['hero boxes','herobox','hero box'], 'Gold Zaishen Coin'=>['gold zaishen coin','gold zcoin'], 'Tengu Support Flare'=>['tengu support flare','tengus','tengu'],
-        'Seal of the Dragon Empire'=>['seal of the dragon empire','guards-seals','guard seals'], 'Soup'=>['soup'], 'Elixir of Valor'=>['elixirs of valor','elixir of valor'],
-        'Droknar’s Key'=>["droknar's key",'droknars key'], 'Kathandrax Hammer'=>['kath hammer','kathandrax hammer'], 'Compass'=>['compasses','compass'], 'Asterius Scythe'=>['asterius scythe'], 'Warrior Rune of Superior Vigor'=>['sup rune vigor','superior vigor'],
-    ];
+    static $catalog = null;
+    if ($catalog !== null) return $catalog;
+
+    $path = __DIR__ . '/app/Data/items.json';
+    $decoded = json_decode((string)file_get_contents($path), true);
+    $catalog = [];
+    foreach (is_array($decoded) ? $decoded : [] as $item) {
+        $name = (string)($item['name'] ?? '');
+        if ($name === '') continue;
+        $aliases = array_values(array_unique(array_filter(array_map('strval', array_merge([$name], $item['aliases'] ?? [])))));
+        $catalog[$name] = $aliases;
+    }
+    return $catalog;
 }
 
 function detectType(string $text): ?string {
@@ -188,7 +176,12 @@ function detectQuantity(string $segment,?array $price): array {
 
 function extractDetails(string $clean): string {
     $d=[];
-    if(preg_match('/\bq\s*([0-9]{1,2})(?:\s*[-–]\s*([0-9]{1,2}))?\b/i',$clean,$m)) $d[]='q'.$m[1].(!empty($m[2])?'-'.$m[2]:'');
+    if(preg_match('/\bq\s*([0-9]{1,2})(?:\s*[-–]\s*([0-9]{1,2}))?\b/i',$clean,$m)) {
+        $d[]='q'.$m[1].(!empty($m[2])?'-'.$m[2]:'');
+    } elseif(preg_match('/\b([0-9]{1,2})\s+(soul\s+reaping|fast\s+casting|inspiration|protection|communing|motivation|tactics|strength)\b/i',$clean,$m)) {
+        $d[]='q'.$m[1]; $d[]=mb_strtolower($m[2]);
+    }
+    if(preg_match('/\+\s*([0-9]+)\s*energy\b/i',$clean,$m)) $d[]='+'.$m[1].' energy';
     if(preg_match('/\b(unded|ded)\b/i',$clean,$m)) $d[]=strtolower($m[1]);
     if(preg_match('/\b(os|oldschool|old school)\b/i',$clean)) $d[]='OS';
     if(preg_match('/\b(insc|inscb|inscr|inscribable)\b/i',$clean)) $d[]='insc';
@@ -255,7 +248,7 @@ function qualityForOffer(array $offer): array {
     $garbage=isGarbageFragment($item);
     if($garbage) return ['rejected',$garbage];
     if($item==='Onbekend') return ['rejected','unknown_item'];
-    if(preg_match('/\b(?:guild cape|trim your guild|mission(?:s)?|rush|service|runs?|armor any|names?:)\b/i',$item)) return ['review','service_or_non_item'];
+    if(preg_match('/\b(?:guild cape|trim your guild|mission(?:s)?|rush|service|runs?|armor any|names?:)\b/i',$item)) return ['rejected','service_or_non_item'];
     if(preg_match('/^(?:q\d+|mods?\/insc|\+{2,}|\d+[,.]?\d*\s*rp)\b/i',$item)) return ['review','generic_description'];
     if($confidence>=0.8 && $price!==null && !in_array($basis,['bundle','currency_exchange'],true)) return ['accepted','catalog_price'];
     if($confidence>=0.8) return ['accepted','catalog_no_price'];
@@ -302,6 +295,7 @@ function parsePiece(string $piece,string $type,?string $inheritedItem=null): arr
     if($mentions){$item=$mentions[0]['item'];$confidence=.95;}
     elseif($inheritedItem!==null && preg_match('/^(?:q\s*\d+|\d+\s*(?:a|e|k)\b|(?:fc|inspa?|prot|comm|motivation|tact))/i',$piece)){$item=$inheritedItem;$confidence=.85;}
     else{[$item,$unused,$confidence]=fallbackItem($piece);}
+    if(preg_match('/\bsets?\b/i',$piece) && mb_strtolower($item)==='rin relic'){$qty=25.0;$basis='set';}
     $details=extractDetails($piece);
     return [[ 'type'=>$type,'item'=>$item,'details'=>$details,'confidence'=>$confidence,'price'=>$price,'quantity'=>$qty,'basis'=>$basis,'segment'=>$piece ]];
 }
@@ -347,22 +341,26 @@ function parseBarterOffers(string $text): array {
     return $offers;
 }
 
+function classifyTradeText(string $text): array { return (new \LittyWatch\Parser\MessageClassifier())->classify($text); }
+function semanticTradeText(string $text): string { return (new \LittyWatch\Parser\SemanticNormalizer())->normalize($text); }
+function smartOfferSegments(string $text): array { return (new \LittyWatch\Parser\SmartSegmenter())->split($text); }
+
 function parseOffers(string $message): array {
     $offers=[];
     foreach(splitTypeBlocks($message) as $block){
         if(!$block['type'])continue;
+        if(classifyTradeText($block['text'])['kind']!=='market')continue;
 
         if($block['type']==='trade'){
-            $barter=parseBarterOffers($block['text']);
-            if($barter!==[]){
-                array_push($offers,...$barter);
-                continue;
-            }
+            $barter=parseBarterOffers(semanticTradeText($block['text']));
+            if($barter!==[]){array_push($offers,...$barter);continue;}
         }
 
-        $parts=preg_split('/\s*[|;]\s*|\s*[,.]\s*(?=q\s*\d+\b)|\s*,\s*(?=[A-Za-z][A-Za-z +\'’.-]{2,}\s+[0-9]+(?:[.,][0-9]+)?\s*(?:a|e|k)\b)/iu',$block['text'])?:[$block['text']];
+        $parts=smartOfferSegments($block['text']);
         $lastItem=null;
         foreach($parts as $part){
+            if(classifyTradeText($part)['kind']!=='market')continue;
+            $part=semanticTradeText($part);
             $parsed=parsePiece($part,$block['type'],$lastItem);
             foreach($parsed as $p){
                 if($p['item']==='Onbekend'&&!$p['price'])continue;
@@ -384,8 +382,16 @@ function parseOffers(string $message): array {
 function parseTrade(string $message): array {$offers=parseOffers($message);$f=$offers[0]??null;return['type'=>$f['type']??detectType($message),'item'=>$f['item']??null,'amount'=>$f['amount']??null,'currency'=>$f['currency']??null,'ecto'=>$f['ecto']??null];}
 function saveOffers(int $messageId,string $message): int {
     db()->prepare('DELETE FROM offers WHERE message_id=?')->execute([$messageId]);
+    $parsed=parseOffers($message);
     $ins=db()->prepare('INSERT OR IGNORE INTO offers(message_id,trade_type,item,item_key,details,quantity,price_amount,price_currency,price_ecto,unit_price_ecto,confidence,created_at,price_basis,raw_segment,quality_status,quality_reason,exchange_item,exchange_item_key,exchange_give_quantity,exchange_receive_quantity) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    $n=0;foreach(parseOffers($message) as $o){$ins->execute([$messageId,$o['type'],$o['item'],$o['item_key'],$o['details'],$o['quantity'],$o['amount'],$o['currency'],$o['ecto'],$o['unit_ecto'],$o['confidence'],date(DATE_ATOM),$o['basis'],$o['segment'],$o['quality_status'],$o['quality_reason'],$o['exchange_item']??null,$o['exchange_item_key']??null,$o['exchange_give_quantity']??null,$o['exchange_receive_quantity']??null]);$n+=$ins->rowCount();}return$n;
+    $n=0;foreach($parsed as $o){$ins->execute([$messageId,$o['type'],$o['item'],$o['item_key'],$o['details'],$o['quantity'],$o['amount'],$o['currency'],$o['ecto'],$o['unit_ecto'],$o['confidence'],date(DATE_ATOM),$o['basis'],$o['segment'],$o['quality_status'],$o['quality_reason'],$o['exchange_item']??null,$o['exchange_item_key']??null,$o['exchange_give_quantity']??null,$o['exchange_receive_quantity']??null]);$n+=$ins->rowCount();}
+    $c=classifyTradeText(norm($message));
+    if($c['kind']==='service'){$status='excluded';$summary='Serviceadvertentie uitgesloten';}
+    elseif($c['kind']==='character_name_sale'){$status='excluded';$summary='Naamverkoop uitgesloten';}
+    elseif($n>0){$status='parsed';$summary=$n.' aanbieding'.($n===1?'':'en').' herkend';}
+    else{$status='review';$summary='Niet betrouwbaar herkend · controle nodig';}
+    db()->prepare('UPDATE messages SET parser_status=?,parser_summary=?,parser_offer_count=? WHERE id=?')->execute([$status,$summary,$n,$messageId]);
+    return$n;
 }
 
 function httpGet(string $url): array {global$config;$headers=['User-Agent: LittyWatch/0.5 (+personal project)'];$ch=curl_init($url);curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>$config['request_timeout'],CURLOPT_HTTPHEADER=>$headers,CURLOPT_ENCODING=>'']);$body=curl_exec($ch);$err=curl_error($ch);$code=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$type=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);curl_close($ch);if($body===false)throw new RuntimeException('cURL-fout: '.$err);return[$code,$type,$body];}
