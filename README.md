@@ -1,13 +1,15 @@
-# LittyWatch
+# LittyWatch V4 Rewrite
 
-Guild Wars 1 market intelligence voor publieke Kamadan-handelsberichten.
+Deze versie heeft één router, één layout en voor alle zichtbare hoofdonderdelen eigen controllers en views. De oude `app/Pages` frontend is verwijderd. Bestaande database, parser, repositories, cronjobs en onderhoudsfuncties zijn behouden.
 
-## Huidige versie
+## Installatie
 
-V4.0 refactor — fase 1.
+Vervang de volledige repository-inhoud door deze versie. Bewaar vooraf `data/market.sqlite` en eventuele lokale assets.
 
-De website gebruikt één front controller (`index.php`), één router en één
-servicecontainer. Routes staan onder `routes/`; services worden geregistreerd
-onder `app/Providers/`.
+## Hoofdroutes
 
-Lees `README-V4.0-PHASE1.md` voor installatie en wijzigingen.
+`/`, `/live`, `/markets`, `/items`, `/traders`, `/trends`, `/intelligence`, `/watchlist`, `/alerts`, `/game-assets`, `/system`, `/admin`.
+
+## Belangrijk
+
+Dit is een frontend- en applicatiestructuur-rewrite bovenop de bestaande datalaag. Geen destructieve databasemigraties.

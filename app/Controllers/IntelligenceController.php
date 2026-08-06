@@ -1,0 +1,2 @@
+<?php
+declare(strict_types=1);namespace LittyWatch\Controllers;use LittyWatch\Core\{Request,Response,View};use LittyWatch\Repositories\PlatformRepository;final class IntelligenceController{public function __construct(private readonly PlatformRepository $repo,private readonly View $view){}public function index(Request $r):Response{$q=$r->string('q');return Response::html($this->view->render('intelligence/index',['title'=>'Intelligence · LittyWatch','rows'=>$this->repo->intelligence($q),'query'=>$q]));}}

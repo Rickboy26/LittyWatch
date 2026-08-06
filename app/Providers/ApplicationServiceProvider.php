@@ -11,7 +11,12 @@ use LittyWatch\Controllers\WatchlistController;
 use LittyWatch\Controllers\ItemController;
 use LittyWatch\Controllers\KnowledgeController;
 use LittyWatch\Controllers\MaintenanceController;
-use LittyWatch\Controllers\PageController;
+use LittyWatch\Controllers\LiveController;
+use LittyWatch\Controllers\TraderController;
+use LittyWatch\Controllers\TrendController;
+use LittyWatch\Controllers\IntelligenceController;
+use LittyWatch\Controllers\SystemController;
+use LittyWatch\Controllers\AssetController;
 use LittyWatch\Controllers\ParserReviewController;
 use LittyWatch\Controllers\StructuredMarketController;
 use LittyWatch\Controllers\StructuredOfferController;
@@ -24,6 +29,7 @@ use LittyWatch\Knowledge\Schema;
 use LittyWatch\Repositories\MarketRepository;
 use LittyWatch\Repositories\AlertRepository;
 use LittyWatch\Repositories\WatchlistRepository;
+use LittyWatch\Repositories\PlatformRepository;
 use LittyWatch\Repositories\ParserReviewRepository;
 use LittyWatch\Repositories\StructuredMarketRepository;
 use LittyWatch\Repositories\StructuredOfferRepository;
@@ -64,6 +70,7 @@ final class ApplicationServiceProvider
         $container->singleton(StructuredMarketRepository::class, fn(Container $c) => new StructuredMarketRepository($c->get('pdo')));
         $container->singleton(AlertRepository::class, fn(Container $c) => new AlertRepository($c->get('pdo')));
         $container->singleton(WatchlistRepository::class, fn(Container $c) => new WatchlistRepository($c->get('pdo')));
+        $container->singleton(PlatformRepository::class, fn(Container $c) => new PlatformRepository($c->get('pdo')));
 
         $container->singleton(ExchangeRateService::class, fn() => new ExchangeRateService($paths->config('exchange-rates.php')));
         $container->singleton(CurrencyDisplayService::class, fn(Container $c) => new CurrencyDisplayService($c->get(ExchangeRateService::class)));
@@ -81,8 +88,13 @@ final class ApplicationServiceProvider
         $container->singleton(AdminController::class, fn(Container $c) => new AdminController($c->get(View::class), $c->get(ItemImageService::class)));
         $container->singleton(WatchlistController::class, fn(Container $c) => new WatchlistController($c->get(WatchlistService::class), $c->get(View::class)));
         $container->singleton(AlertController::class, fn(Container $c) => new AlertController($c->get(AlertService::class), $c->get(WatchlistRepository::class), $c->get(CurrencyDisplayService::class), $c->get(View::class)));
-        $container->singleton(PageController::class, fn(Container $c) => new PageController($c->get(ProjectPaths::class)));
         $container->singleton(MaintenanceController::class, fn(Container $c) => new MaintenanceController($c->get('pdo'), $c->get(View::class), $this->root));
+        $container->singleton(LiveController::class, fn(Container $c) => new LiveController($c->get(PlatformRepository::class), $c->get(View::class)));
+        $container->singleton(TraderController::class, fn(Container $c) => new TraderController($c->get(PlatformRepository::class), $c->get(View::class)));
+        $container->singleton(TrendController::class, fn(Container $c) => new TrendController($c->get(PlatformRepository::class), $c->get(View::class)));
+        $container->singleton(IntelligenceController::class, fn(Container $c) => new IntelligenceController($c->get(PlatformRepository::class), $c->get(View::class)));
+        $container->singleton(SystemController::class, fn(Container $c) => new SystemController($c->get(PlatformRepository::class), $c->get(ProjectPaths::class), $c->get(View::class)));
+        $container->singleton(AssetController::class, fn(Container $c) => new AssetController($c->get(PlatformRepository::class), $c->get(ProjectPaths::class), $c->get(View::class)));
 
         $container->singleton(KnowledgeBase::class, function (Container $c): KnowledgeBase {
             Schema::install($c->get('pdo'));

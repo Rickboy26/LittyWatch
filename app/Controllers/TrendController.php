@@ -1,0 +1,2 @@
+<?php
+declare(strict_types=1);namespace LittyWatch\Controllers;use LittyWatch\Core\{Request,Response,View};use LittyWatch\Repositories\PlatformRepository;final class TrendController{public function __construct(private readonly PlatformRepository $repo,private readonly View $view){}public function index(Request $r):Response{return Response::html($this->view->render('trends/index',['title'=>'Trends · LittyWatch','rows'=>$this->repo->trends($r->int('limit',100))]));}}

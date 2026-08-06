@@ -1,0 +1,2 @@
+<?php
+declare(strict_types=1);namespace LittyWatch\Controllers;use LittyWatch\Core\{Request,Response,View};use LittyWatch\Repositories\PlatformRepository;final class LiveController{public function __construct(private readonly PlatformRepository $repo,private readonly View $view){}public function index(Request $r):Response{return Response::html($this->view->render('live/index',['title'=>'Live feed · LittyWatch','rows'=>$this->repo->live($r->int('limit',150))]));}}
