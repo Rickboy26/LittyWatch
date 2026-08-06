@@ -133,8 +133,21 @@ final class ParserEngine
                 $price = new ParsedPrice($price->amount,$price->currency,$price->ecto,'set',$setQuantity,$price->ecto!==null?$price->ecto/$setQuantity:null,$price->raw);
             }
             $modifiers = $this->modifierMatcher->match($slice);
+
+            if (preg_match('/\b(?:q|rq|req(?:uirement)?)\s*([0-9]{1,2})\b/iu', $slice, $requirementMatch)) {
+                $modifiers['requirement'] = 'q' . $requirementMatch[1];
+            }
+
             $attribute = $this->attributeMatcher?->match($slice);
-            if ($attribute !== null) $modifiers['attribute'] = $attribute['name'];
+            if ($attribute !== null) {
+                $modifiers['attribute'] = $attribute['name'];
+                if (
+                    !isset($modifiers['requirement'])
+                    && preg_match('/\breq(?:uirement)?\s+' . preg_quote((string)$attribute['name'], '/') . '\b/iu', $slice)
+                ) {
+                    $modifiers['requirement'] = 'any';
+                }
+            }
             [$confidence, $status, $reason] = $this->confidenceScorer->score($item, $modifiers, $price, $slice);
             $profileData = $this->profileResolver?->resolve($item['key'], $item['category'] ?? 'unknown', $modifiers) ?? [
                 'profile' => [], 'relevant' => $modifiers, 'market_key' => $item['key']

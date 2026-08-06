@@ -128,7 +128,8 @@
     "category": "weapon",
     "aliases": [
       "voltaic spear",
-      "voltaicspear"
+      "voltaicspear",
+      "volta"
     ]
   },
   {
@@ -752,6 +753,25 @@
       "elite dervish tomes",
       "el dervish tome",
       "elite derv tome"
+    ]
+  },
+  {
+    "key": "miniature-ghostly-priest",
+    "name": "Miniature Ghostly Priest",
+    "category": "miniature",
+    "aliases": [
+      "gpriest",
+      "g priest",
+      "miniature ghostly priest"
+    ]
+  },
+  {
+    "key": "platinum-wand",
+    "name": "Platinum Wand",
+    "category": "weapon",
+    "aliases": [
+      "platinum wand",
+      "plat wand"
     ]
   }
 ]

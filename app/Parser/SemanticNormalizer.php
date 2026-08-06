@@ -21,6 +21,14 @@ final class SemanticNormalizer
         $text = preg_replace('/\bpm(?:\s+me)?\b.*$/iu','',$text) ?? $text;
         $text = preg_replace('/\bopen\s+trade\b.*$/iu','',$text) ?? $text;
 
+        $text = preg_replace('/\brq\s*([0-9]{1,2})\b/iu', 'q$1', $text) ?? $text;
+        $text = preg_replace('/\breq(?:uirement)?\s*([0-9]{1,2})\b/iu', 'q$1', $text) ?? $text;
+        $text = preg_replace('/\binsc(?:r(?:ibable|iptable)?)?\b/iu', 'inscribable', $text) ?? $text;
+
+        // Collapse alias + canonical name combinations to one catalog item.
+        $text = preg_replace('/\bvolta\s*\(\s*voltaic\s+spear\s*\)/iu', 'Voltaic Spear', $text) ?? $text;
+        $text = preg_replace('/\bg\s*priest\s*\(\s*miniature\s+ghostly\s+priest\s*\)/iu', 'Miniature Ghostly Priest', $text) ?? $text;
+
         $text = preg_replace_callback(
             '/\b(elite\s+)?(war|warr|warrior|rang|ranger|mo|monk|necro|necromancer|mes|mesmer|ele|elementalist|sin|assassin|rit|ritualist|para|paragon|derv|dervish)\s+tomes?\b/iu',
             static fn(array $m): string => (!empty($m[1])?'Elite ':'') . (self::PROFESSIONS[mb_strtolower($m[2])] ?? $m[2]) . ' Tome',
@@ -39,6 +47,8 @@ final class SemanticNormalizer
             '/\bghastly\b(?!\s+summoning\s+stone)/iu'=>'Ghastly Summoning Stone',
             '/\bwar\s+suppl(?:y|ies)\b/iu'=>'War Supplies',
             '/\brin\s+relics?\s+set\b/iu'=>'Rin Relic set',
+            '/\bvolta\b/iu'=>'Voltaic Spear',
+            '/\bg\s*priest\b/iu'=>'Miniature Ghostly Priest',
         ];
         foreach ($rules as $pattern=>$replacement) $text = preg_replace($pattern,$replacement,$text) ?? $text;
         return trim($text, " \t\n\r\0\x0B|;,");

@@ -176,15 +176,17 @@ function detectQuantity(string $segment,?array $price): array {
 
 function extractDetails(string $clean): string {
     $d=[];
-    if(preg_match('/\bq\s*([0-9]{1,2})(?:\s*[-–]\s*([0-9]{1,2}))?\b/i',$clean,$m)) {
+    if(preg_match('/\b(?:q|rq|req(?:uirement)?)\s*([0-9]{1,2})(?:\s*[-–]\s*([0-9]{1,2}))?\b/i',$clean,$m)) {
         $d[]='q'.$m[1].(!empty($m[2])?'-'.$m[2]:'');
-    } elseif(preg_match('/\b([0-9]{1,2})\s+(soul\s+reaping|fast\s+casting|inspiration|protection|communing|motivation|tactics|strength)\b/i',$clean,$m)) {
+    } elseif(preg_match('/\b([0-9]{1,2})\s+(soul\s+reaping|fast\s+casting|inspiration|protection|communing|motivation|tactics|strength|channeling|domination|illusion|death\s+magic|blood\s+magic|fire\s+magic|air\s+magic|water\s+magic|earth\s+magic)\b/i',$clean,$m)) {
         $d[]='q'.$m[1]; $d[]=mb_strtolower($m[2]);
+    } elseif(preg_match('/\breq(?:uirement)?\s+(soul\s+reaping|fast\s+casting|inspiration|protection|communing|motivation|tactics|strength|channeling|domination|illusion|death\s+magic|blood\s+magic|fire\s+magic|air\s+magic|water\s+magic|earth\s+magic)\b/i',$clean,$m)) {
+        $d[]='req '.mb_strtolower($m[1]);
     }
     if(preg_match('/\+\s*([0-9]+)\s*energy\b/i',$clean,$m)) $d[]='+'.$m[1].' energy';
     if(preg_match('/\b(unded|ded)\b/i',$clean,$m)) $d[]=strtolower($m[1]);
     if(preg_match('/\b(os|oldschool|old school)\b/i',$clean)) $d[]='OS';
-    if(preg_match('/\b(insc|inscb|inscr|inscribable)\b/i',$clean)) $d[]='insc';
+    if(preg_match('/\b(insc|inscb|inscr|inscribable|inscriptable)\b/i',$clean)) $d[]='inscribable';
     if(preg_match('/\b(fc|fast cast|inspa?|prot|comm|communing|motivation|tact|tactics|str|strength)\b/i',$clean,$m)) $d[]=strtolower($m[1]);
     return implode(' ',array_unique($d));
 }
