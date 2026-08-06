@@ -108,19 +108,78 @@ final class ParserReviewController
 
     public function batchReview(Request $request): Response
     {
+        $previousDisplayErrors = ini_get('display_errors');
+        $previousHandler = set_error_handler(
+            static function (
+                int $severity,
+                string $message,
+                string $file,
+                int $line
+            ): never {
+                if (!(error_reporting() & $severity)) {
+                    throw new \ErrorException($message, 0, $severity, $file, $line);
+                }
+
+                throw new \ErrorException($message, 0, $severity, $file, $line);
+            }
+        );
+
+        ini_set('display_errors', '0');
+        ob_start();
+
         try {
+            $result = $this->batchReview->process(
+                $request->int('cursor'),
+                $request->int('limit', 150)
+            );
+
+            $unexpectedOutput = trim((string)ob_get_clean());
+            if ($unexpectedOutput !== '') {
+                error_log(
+                    'Unexpected batch review output: '
+                    . mb_substr(strip_tags($unexpectedOutput), 0, 2000)
+                );
+            }
+
             return Response::json([
                 'ok' => true,
-                ...$this->batchReview->process(
-                    $request->int('cursor'),
-                    $request->int('limit', 150)
-                ),
+                ...$result,
             ]);
         } catch (Throwable $exception) {
+            $unexpectedOutput = trim((string)ob_get_clean());
+
+            error_log(
+                'Batch review endpoint failed: '
+                . $exception
+                . ($unexpectedOutput !== ''
+                    ? PHP_EOL . 'Buffered output: ' . strip_tags($unexpectedOutput)
+                    : '')
+            );
+
             return Response::json([
                 'ok' => false,
                 'error' => $exception->getMessage(),
+                'error_type' => $exception::class,
+                'error_location' => basename($exception->getFile())
+                    . ':' . $exception->getLine(),
             ], 500);
+        } finally {
+            ini_set(
+                'display_errors',
+                $previousDisplayErrors === false
+                    ? '0'
+                    : (string)$previousDisplayErrors
+            );
+
+            if ($previousHandler !== null) {
+                set_error_handler($previousHandler);
+            } else {
+                restore_error_handler();
+            }
+
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
         }
     }
 

@@ -472,12 +472,39 @@ $tabs = [
     const body = new URLSearchParams({cursor:String(cursor), limit:'150'});
     const response = await fetch('/parser-review/re-evaluate', {
       method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+      headers:{
+        'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
+        'Accept':'application/json'
+      },
       body
     });
-    const result = await response.json();
+
+    const raw = await response.text();
+    let result;
+
+    try {
+      result = JSON.parse(raw);
+    } catch (parseError) {
+      const plain = raw
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+
+      throw new Error(
+        plain
+          ? 'Server gaf geen geldige JSON terug: ' + plain.slice(0, 800)
+          : 'Server gaf een lege of ongeldige response terug.'
+      );
+    }
+
     if (!response.ok || !result.ok) {
-      throw new Error(result.error || 'Batch-herbeoordeling mislukt.');
+      const location = result.error_location
+        ? ` (${result.error_location})`
+        : '';
+
+      throw new Error(
+        (result.error || 'Batch-herbeoordeling mislukt.') + location
+      );
     }
 
     for (const key of Object.keys(totals)) {

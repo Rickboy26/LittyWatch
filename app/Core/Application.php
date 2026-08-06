@@ -16,6 +16,16 @@ final class Application
         try {
             $this->router->dispatch($request)->send();
         } catch (\Throwable $exception) {
+            if (
+                $request->path() === '/parser-review/re-evaluate'
+                || str_contains(
+                    strtolower((string)($request->server['HTTP_ACCEPT'] ?? '')),
+                    'application/json'
+                )
+            ) {
+                $this->errorHandler->renderJson($exception)->send();
+            }
+
             $this->errorHandler->render($exception)->send();
         }
     }

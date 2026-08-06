@@ -28,6 +28,21 @@ final class ErrorHandler
         );
     }
 
+    public function renderJson(Throwable $exception): Response
+    {
+        $errorId = 'LW-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+        $this->writeLog($errorId, $exception);
+
+        return Response::json([
+            'ok' => false,
+            'error' => (bool)($this->config['debug'] ?? false)
+                ? $exception->getMessage()
+                : 'De batchactie kon niet worden uitgevoerd.',
+            'error_id' => $errorId,
+            'error_type' => $exception::class,
+        ], 500);
+    }
+
     private function writeLog(string $errorId, Throwable $exception): void
     {
         $logPath = (string)($this->config['log_path'] ?? '');
