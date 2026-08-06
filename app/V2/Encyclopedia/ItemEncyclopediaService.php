@@ -58,6 +58,10 @@ SQL);
 
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_metadata_name ON item_metadata(canonical_name)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_wiki_sync_item ON wiki_sync_log(item_key, created_at)');
+
+        // V3.0 local Gw.dat asset catalog.
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS item_assets (id INTEGER PRIMARY KEY AUTOINCREMENT, import_id INTEGER NOT NULL, dat_file_id INTEGER, source_filename TEXT NOT NULL, relative_path TEXT NOT NULL, web_path TEXT NOT NULL, sha256 TEXT NOT NULL UNIQUE, bytes INTEGER, width INTEGER, height INTEGER, source_model_id INTEGER, source_name TEXT, source_type TEXT, source_rarity TEXT, linked_item_key TEXT, linked_item_name TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_assets_link ON item_assets(linked_item_key)');
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -95,7 +99,11 @@ WITH catalog AS (
 SELECT
     catalog.*,
     im.wiki_title, im.description, im.category, im.campaign, im.rarity,
-    im.weapon_type, im.stackable, im.image_url, im.local_image,
+    im.weapon_type, im.stackable, im.image_url,
+    COALESCE(
+        NULLIF(im.local_image, ''),
+        (SELECT ia.web_path FROM item_assets ia WHERE ia.linked_item_key = catalog.item_key ORDER BY ia.updated_at DESC, ia.id DESC LIMIT 1)
+    ) AS local_image,
     im.source_url, im.source_transport, im.source_updated_at
 FROM catalog
 LEFT JOIN item_metadata im ON im.item_key = catalog.item_key
@@ -137,7 +145,11 @@ SELECT
     COUNT(DISTINCT NULLIF(m.player, '')) AS trader_count,
     MAX(m.posted_at) AS last_activity,
     im.wiki_title, im.description, im.category, im.campaign, im.rarity,
-    im.weapon_type, im.stackable, im.image_url, im.local_image,
+    im.weapon_type, im.stackable, im.image_url,
+    COALESCE(
+        NULLIF(im.local_image, ''),
+        (SELECT ia.web_path FROM item_assets ia WHERE ia.linked_item_key = so.item_key ORDER BY ia.updated_at DESC, ia.id DESC LIMIT 1)
+    ) AS local_image,
     im.source_url, im.source_transport, im.source_updated_at
 FROM structured_offers so
 JOIN messages m ON m.id = so.message_id
@@ -250,9 +262,13 @@ SQL);
         return [
             'catalog_items' => count($this->items('', 1000)),
             'metadata_items' => (int)$this->pdo->query('SELECT COUNT(*) FROM item_metadata')->fetchColumn(),
-            'cached_images' => (int)$this->pdo->query(
-                "SELECT COUNT(*) FROM item_metadata WHERE local_image IS NOT NULL AND local_image <> ''"
-            )->fetchColumn(),
+            'cached_images' => (int)$this->pdo->query(<<<'SQL'
+SELECT COUNT(*) FROM (
+    SELECT item_key FROM item_metadata WHERE local_image IS NOT NULL AND local_image <> ''
+    UNION
+    SELECT linked_item_key FROM item_assets WHERE linked_item_key IS NOT NULL AND linked_item_key <> ''
+)
+SQL)->fetchColumn(),
             'failed_syncs' => (int)$this->pdo->query(
                 "SELECT COUNT(*) FROM wiki_sync_log WHERE status <> 'success'"
             )->fetchColumn(),

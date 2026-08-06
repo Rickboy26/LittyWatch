@@ -32,7 +32,7 @@ function scoreClass(int|float|null $score): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LittyWatch V2.9 Command Center</title>
+<title>LittyWatch V3.0 Command Center</title>
 <link rel="stylesheet" href="/assets/v2/platform.css">
 <style>
 :root{color-scheme:dark;--bg:#080b10;--panel:#121824;--panel2:#0e141d;--line:#293548;--text:#eef2f8;--muted:#9eabba;--gold:#d9b870;--green:#6bdba6;--red:#ef9191;--orange:#e7b56d}
@@ -42,7 +42,7 @@ function scoreClass(int|float|null $score): string {
 <body>
 <div class="shell">
 <aside class="side">
-<div class="brand"><strong>LittyWatch</strong><small>V2.9 Command Center</small></div>
+<div class="brand"><strong>LittyWatch</strong><small>V3.0 Command Center</small></div>
 <nav class="nav">
 <a class="active" href="/v2-hub.php">Overzicht</a>
 <a href="/v2-markets.php">Markten</a>
@@ -51,13 +51,14 @@ function scoreClass(int|float|null $score): string {
 <a href="/v2-watchlist.php">Watchlist</a>
 <a href="/v2-alerts.php">Alerts</a>
 <a href="/v2-trends.php">Trends</a>
-<a href="/v2-intelligence.php">Intelligence</a><a class="lw-nav-health" href="/v2-health.php">Systeem</a>
+<a href="/v2-intelligence.php">Intelligence</a>
+<a href="/v3-assets.php">Game Assets</a><a class="lw-nav-health" href="/v2-health.php">Systeem</a>
 </nav>
 </aside>
 
 <main class="main">
 <section class="hero">
-<div class="eyebrow">LITTYWATCH V2.9</div>
+<div class="eyebrow">LITTYWATCH V3.0</div>
 <h1>Market Command Center</h1>
 <div class="muted">Zoek tegelijk in markten, items, traders en recente aanbiedingen.</div>
 </section>

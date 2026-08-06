@@ -10,3 +10,7 @@ logs/*
 *.log
 .env
 config.local.php
+
+imports/assets/*.zip
+assets/game-items/*/
+!assets/game-items/.gitkeep
