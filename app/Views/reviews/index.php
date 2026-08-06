@@ -45,9 +45,9 @@ $tabs = [
 </nav>
 
 <?php if ($tab === 'queue'): ?>
-<div class="review-workbench">
-  <section class="review-queue surface">
-    <form class="review-filter" method="get">
+<div class="lw-review-split">
+  <section class="lw-review-list-panel surface">
+    <form class="lw-review-filter" method="get">
       <input type="hidden" name="tab" value="queue">
       <select name="status">
         <?php foreach (['pending','approved','corrected','rejected'] as $value): ?>
@@ -60,13 +60,13 @@ $tabs = [
       <button class="btn small">Zoeken</button>
     </form>
 
-    <div class="queue-count"><?= count($rows) ?> zichtbaar</div>
+    <div class="lw-review-count"><?= count($rows) ?> zichtbaar</div>
 
-    <div class="queue-items">
+    <div class="lw-review-items">
       <?php if (!$rows): ?><div class="empty-inline">Geen reviewregels gevonden.</div><?php endif; ?>
       <?php foreach ($rows as $row): ?>
-        <a class="queue-item <?= $selected && (int)$selected['id'] === (int)$row['id'] ? 'active' : '' ?>"
-           href="/parser-review?tab=queue&status=<?= h($status) ?>&q=<?= rawurlencode($query) ?>&selected=<?= (int)$row['id'] ?>#review-detail">
+        <a class="lw-review-item <?= $selected && (int)$selected['id'] === (int)$row['id'] ? 'active' : '' ?>"
+           href="/parser-review?tab=queue&status=<?= h($status) ?>&q=<?= rawurlencode($query) ?>&selected=<?= (int)$row['id'] ?>#lw-review-detail-panel">
           <div class="queue-head">
             <strong><?= h($row['player']) ?></strong>
             <span><?= number_format((float)$row['confidence'] * 100, 0) ?>%</span>
@@ -81,7 +81,7 @@ $tabs = [
     </div>
   </section>
 
-  <section id="review-detail" class="review-detail surface">
+  <section id="lw-review-detail-panel" class="lw-review-detail-panel surface">
     <?php if (!$selected): ?>
       <div class="empty-state">
         <h2>Selecteer een bericht</h2>
@@ -90,7 +90,7 @@ $tabs = [
     <?php else:
       $expected = json_decode((string)($selected['expected_json'] ?? ''), true) ?: [];
     ?>
-      <header class="detail-header">
+      <header class="lw-review-detail-header">
         <div>
           <span class="kicker">ORIGINEEL BERICHT</span>
           <h2><?= h($selected['player']) ?></h2>
@@ -454,5 +454,19 @@ $tabs = [
       `;
     }
   });
+})();
+</script>
+
+<script>
+(() => {
+  const selected = document.querySelector('.lw-review-item.active');
+  const detail = document.getElementById('review-detail');
+
+  // Only jump on genuinely narrow screens.
+  if (selected && detail && window.matchMedia('(max-width: 720px)').matches) {
+    requestAnimationFrame(() => {
+      detail.scrollIntoView({behavior: 'smooth', block: 'start'});
+    });
+  }
 })();
 </script>
