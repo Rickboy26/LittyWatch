@@ -49,11 +49,12 @@ SQL);
             ['alerts', 'condition_met', 'INTEGER NOT NULL DEFAULT 0'],
             ['alerts', 'last_signature', 'TEXT'],
             ['alerts', 'last_checked_at', 'TEXT'],
-            ['alerts', 'updated_at', 'TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP'],
+            ['alerts', 'updated_at', "TEXT NOT NULL DEFAULT ''"],
             ['alert_events', 'is_read', 'INTEGER NOT NULL DEFAULT 0'],
         ] as [$table, $column, $definition]) {
             $this->ensureColumn($table, $column, $definition);
         }
+        $this->pdo->exec("UPDATE alerts SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL OR updated_at = ''");
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_alerts_market ON alerts(market_key)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_alerts_enabled ON alerts(is_enabled, condition_type)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_alert_events_alert ON alert_events(alert_id, created_at)');

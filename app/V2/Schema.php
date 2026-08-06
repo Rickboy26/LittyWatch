@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS watchlist (
 SQL);
         self::ensureColumn($pdo, 'watchlist', 'target_buy_ecto', 'REAL');
         self::ensureColumn($pdo, 'watchlist', 'target_sell_ecto', 'REAL');
-        self::ensureColumn($pdo, 'watchlist', 'updated_at', "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
+        self::ensureColumn($pdo, 'watchlist', 'updated_at', "TEXT NOT NULL DEFAULT ''");
+        $pdo->exec("UPDATE watchlist SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL OR updated_at = ''");
 
         $pdo->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS market_snapshots (
@@ -39,7 +40,16 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
 )
 SQL);
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_market_snapshots_key_time ON market_snapshots(market_key, captured_at)');
-        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_structured_market_active ON structured_offers(normalized_market_key, lifecycle_status, quality_status)');
+        if (self::tableExists($pdo, 'structured_offers')) {
+            $pdo->exec('CREATE INDEX IF NOT EXISTS idx_structured_market_active ON structured_offers(normalized_market_key, lifecycle_status, quality_status)');
+        }
+    }
+
+    private static function tableExists(PDO $pdo, string $table): bool
+    {
+        $stmt = $pdo->prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = :table LIMIT 1");
+        $stmt->execute([':table' => $table]);
+        return (bool)$stmt->fetchColumn();
     }
 
     private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void
