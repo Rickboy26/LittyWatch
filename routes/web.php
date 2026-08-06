@@ -2,7 +2,9 @@
 declare(strict_types=1);
 
 use LittyWatch\Controllers\AdminController;
+use LittyWatch\Controllers\AlertController;
 use LittyWatch\Controllers\DashboardController;
+use LittyWatch\Controllers\WatchlistController;
 use LittyWatch\Controllers\ItemController;
 use LittyWatch\Controllers\KnowledgeController;
 use LittyWatch\Controllers\MaintenanceController;
@@ -33,17 +35,21 @@ return static function (Router $router, Container $container): void {
         '/trader' => 'trader',
         '/trends' => 'trends',
         '/intelligence' => 'intelligence',
-        '/watchlist' => 'watchlist',
-        '/alerts' => 'alerts',
         '/game-assets' => 'assets',
         '/system' => 'system',
     ] as $path => $page) {
         $router->get($path, fn($request) => $container->get(PageController::class)->show($request, $page));
     }
 
-    foreach (['/intelligence' => 'intelligence', '/watchlist' => 'watchlist', '/alerts' => 'alerts', '/game-assets' => 'assets'] as $path => $page) {
+    foreach (['/intelligence' => 'intelligence', '/game-assets' => 'assets'] as $path => $page) {
         $router->post($path, fn($request) => $container->get(PageController::class)->show($request, $page));
     }
+
+
+    $router->get('/watchlist', fn($request) => $container->get(WatchlistController::class)->index($request));
+    $router->post('/watchlist', fn($request) => $container->get(WatchlistController::class)->update($request));
+    $router->get('/alerts', fn($request) => $container->get(AlertController::class)->index($request));
+    $router->post('/alerts', fn($request) => $container->get(AlertController::class)->update($request));
 
     $router->get('/admin', fn($request) => $container->get(AdminController::class)->index($request));
     $router->get('/admin/collect', fn($request) => $container->get(MaintenanceController::class)->collect($request));

@@ -17,8 +17,6 @@ final class PageController
         'trader',
         'trends',
         'intelligence',
-        'watchlist',
-        'alerts',
         'assets',
         'system',
     ];

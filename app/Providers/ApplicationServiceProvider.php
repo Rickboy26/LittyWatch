@@ -4,8 +4,10 @@ declare(strict_types=1);
 namespace LittyWatch\Providers;
 
 use LittyWatch\Controllers\AdminController;
+use LittyWatch\Controllers\AlertController;
 use LittyWatch\Controllers\ApiController;
 use LittyWatch\Controllers\DashboardController;
+use LittyWatch\Controllers\WatchlistController;
 use LittyWatch\Controllers\ItemController;
 use LittyWatch\Controllers\KnowledgeController;
 use LittyWatch\Controllers\MaintenanceController;
@@ -20,10 +22,14 @@ use LittyWatch\Knowledge\KnowledgeBase;
 use LittyWatch\Knowledge\KnowledgeControllerData;
 use LittyWatch\Knowledge\Schema;
 use LittyWatch\Repositories\MarketRepository;
+use LittyWatch\Repositories\AlertRepository;
+use LittyWatch\Repositories\WatchlistRepository;
 use LittyWatch\Repositories\ParserReviewRepository;
 use LittyWatch\Repositories\StructuredMarketRepository;
 use LittyWatch\Repositories\StructuredOfferRepository;
 use LittyWatch\Services\CurrencyDisplayService;
+use LittyWatch\Services\AlertService;
+use LittyWatch\Services\WatchlistService;
 use LittyWatch\Services\DashboardService;
 use LittyWatch\Services\ExchangeRateService;
 use LittyWatch\Services\ItemImageService;
@@ -56,11 +62,15 @@ final class ApplicationServiceProvider
         $container->singleton(StructuredOfferRepository::class, fn(Container $c) => new StructuredOfferRepository($c->get('pdo')));
         $container->singleton(ParserReviewRepository::class, fn(Container $c) => new ParserReviewRepository($c->get('pdo')));
         $container->singleton(StructuredMarketRepository::class, fn(Container $c) => new StructuredMarketRepository($c->get('pdo')));
+        $container->singleton(AlertRepository::class, fn(Container $c) => new AlertRepository($c->get('pdo')));
+        $container->singleton(WatchlistRepository::class, fn(Container $c) => new WatchlistRepository($c->get('pdo')));
 
         $container->singleton(ExchangeRateService::class, fn() => new ExchangeRateService($paths->config('exchange-rates.php')));
         $container->singleton(CurrencyDisplayService::class, fn(Container $c) => new CurrencyDisplayService($c->get(ExchangeRateService::class)));
         $container->singleton(ItemImageService::class, fn() => new ItemImageService($this->root));
         $container->singleton(DashboardService::class, fn(Container $c) => new DashboardService($c->get(MarketRepository::class), $c->get(ExchangeRateService::class)));
+        $container->singleton(AlertService::class, fn(Container $c) => new AlertService($c->get(AlertRepository::class)));
+        $container->singleton(WatchlistService::class, fn(Container $c) => new WatchlistService($c->get(WatchlistRepository::class), $c->get(AlertService::class)));
 
         $container->singleton(DashboardController::class, fn(Container $c) => new DashboardController($c->get(DashboardService::class), $c->get(View::class)));
         $container->singleton(ApiController::class, fn(Container $c) => new ApiController($c->get(DashboardService::class)));
@@ -69,6 +79,8 @@ final class ApplicationServiceProvider
         $container->singleton(ParserReviewController::class, fn(Container $c) => new ParserReviewController($c->get(ParserReviewRepository::class), $c->get(View::class)));
         $container->singleton(StructuredMarketController::class, fn(Container $c) => new StructuredMarketController($c->get(StructuredMarketRepository::class), $c->get(View::class), $c->get(CurrencyDisplayService::class)));
         $container->singleton(AdminController::class, fn(Container $c) => new AdminController($c->get(View::class), $c->get(ItemImageService::class)));
+        $container->singleton(WatchlistController::class, fn(Container $c) => new WatchlistController($c->get(WatchlistService::class), $c->get(View::class)));
+        $container->singleton(AlertController::class, fn(Container $c) => new AlertController($c->get(AlertService::class), $c->get(WatchlistRepository::class), $c->get(CurrencyDisplayService::class), $c->get(View::class)));
         $container->singleton(PageController::class, fn(Container $c) => new PageController($c->get(ProjectPaths::class)));
         $container->singleton(MaintenanceController::class, fn(Container $c) => new MaintenanceController($c->get('pdo'), $c->get(View::class), $this->root));
 
