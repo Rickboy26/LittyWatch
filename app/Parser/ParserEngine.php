@@ -18,6 +18,10 @@ final class ParserEngine
     private SmartSegmenter $segmenter;
     private SemanticNormalizer $semantic;
     private SetQuantityResolver $setResolver;
+    private MarketMessageGate $messageGate;
+    private GrammarSegmenter $grammarSegmenter;
+    private MarketMetadataExtractor $metadataExtractor;
+    private GenericItemRecognizer $genericRecognizer;
     private ?CategoryExpander $categoryExpander = null;
     private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
     private ?AttributeMatcher $attributeMatcher = null;
@@ -43,6 +47,10 @@ final class ParserEngine
         $this->segmenter = new SmartSegmenter();
         $this->semantic = new SemanticNormalizer($dynamic);
         $this->setResolver = new SetQuantityResolver($dynamic);
+        $this->messageGate = new MarketMessageGate();
+        $this->grammarSegmenter = new GrammarSegmenter();
+        $this->metadataExtractor = new MarketMetadataExtractor();
+        $this->genericRecognizer = new GenericItemRecognizer();
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
@@ -54,16 +62,29 @@ final class ParserEngine
     public function parse(string $message): array
     {
         $normalized = $this->normalizer->normalize($message);
-        $results = [];
+        $gate = $this->messageGate->inspect($normalized);
+        if (!$gate['accepted']) return [];
 
+        $results = [];
         foreach ($this->splitter->split($normalized) as $block) {
             if ($this->classifier->classify($block['text'])['kind'] !== 'market') continue;
-            foreach ($this->segmenter->split($block['text']) as $segment) {
+
+            $segments = $this->grammarSegmenter->split($block['text']);
+            if ($segments === []) $segments = $this->segmenter->split($block['text']);
+
+            foreach ($segments as $segment) {
                 if ($this->classifier->classify($segment)['kind'] !== 'market') continue;
-                $results = array_merge($results, $this->parseSegment($block['trade_type'], $this->semantic->normalize($segment)));
+                $results = array_merge(
+                    $results,
+                    $this->parseSegment(
+                        $block['trade_type'],
+                        $this->semantic->normalize($segment)
+                    )
+                );
             }
         }
-        return $results;
+
+        return $this->deduplicate($results);
     }
 
     /** @return list<ParsedOffer> */
@@ -85,20 +106,29 @@ final class ParserEngine
             if (count($expanded) > count($items)) $items = $expanded;
         }
         if ($items === []) {
-            $price = $this->priceMatcher->parse($segment);
-            [$confidence, $status, $reason] = $this->confidenceScorer->score(null, [], $price, $segment);
-            return [new ParsedOffer(
-                $tradeType,
-                $this->fallbackName($segment, $price),
-                $this->key($this->fallbackName($segment, $price)),
-                $this->modifierMatcher->match($segment),
-                $price,
-                $confidence,
-                $status,
-                $reason,
-                $segment,
-                $this->tokenizer->tokenize($segment),
-            )];
+            $generic = $this->genericRecognizer->recognize($segment);
+            if ($generic !== null) {
+                $items = [$generic];
+            } else {
+                $price = $this->priceMatcher->parse($segment);
+                $metadata = array_merge(
+                    $this->modifierMatcher->match($segment),
+                    $this->metadataExtractor->extract($segment)
+                );
+                [$confidence, $status, $reason] = $this->confidenceScorer->score(null, $metadata, $price, $segment);
+                return [new ParsedOffer(
+                    $tradeType,
+                    $this->fallbackName($segment, $price),
+                    $this->key($this->fallbackName($segment, $price)),
+                    $metadata,
+                    $price,
+                    $confidence,
+                    $status,
+                    $reason,
+                    $segment,
+                    $this->tokenizer->tokenize($segment),
+                )];
+            }
         }
 
         // Multiple catalog items sharing one explicit package price stay a bundle.
@@ -132,7 +162,12 @@ final class ParserEngine
             if ($setQuantity !== null && $price->amount !== null) {
                 $price = new ParsedPrice($price->amount,$price->currency,$price->ecto,'set',$setQuantity,$price->ecto!==null?$price->ecto/$setQuantity:null,$price->raw);
             }
-            $modifiers = $this->modifierMatcher->match($slice);
+            $modifiers = array_merge(
+                $this->modifierMatcher->match($segment),
+                $this->metadataExtractor->extract($segment),
+                $this->modifierMatcher->match($slice),
+                $this->metadataExtractor->extract($slice)
+            );
 
             if (preg_match('/\b(?:q|rq|req(?:uirement)?)\s*([0-9]{1,2})\b/iu', $slice, $requirementMatch)) {
                 $modifiers['requirement'] = 'q' . $requirementMatch[1];
@@ -233,6 +268,29 @@ final class ParserEngine
         }
 
         return $offers;
+    }
+
+    /** @param list<ParsedOffer> $offers @return list<ParsedOffer> */
+    private function deduplicate(array $offers): array
+    {
+        $seen = [];
+        $result = [];
+
+        foreach ($offers as $offer) {
+            $data = $offer->toArray();
+            $signature = implode('|', [
+                (string)$data['trade_type'],
+                (string)$data['item_key'],
+                json_encode($data['modifiers'] ?? [], JSON_UNESCAPED_UNICODE),
+                (string)($data['exchange']['target_item_key'] ?? ''),
+            ]);
+
+            if (isset($seen[$signature])) continue;
+            $seen[$signature] = true;
+            $result[] = $offer;
+        }
+
+        return $result;
     }
 
     /** @return list<array<string,mixed>> */

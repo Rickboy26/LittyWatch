@@ -101,6 +101,7 @@ final class ParserBatchReviewService
                         'service' => 'Serviceadvertentie uitgesloten',
                         'character_name_sale' => 'Naamverkoop uitgesloten',
                         'guild_advertisement' => 'Guildadvertentie uitgesloten',
+                        'price_check' => 'Prijscheck uitgesloten',
                         default => 'Noise/contactregel uitgesloten',
                     };
                     $this->setMessageStatus($messageId, 'excluded', $summary, 0);

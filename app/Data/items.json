@@ -294,7 +294,8 @@
       "gold zaishen coin",
       "gold zaishen coins",
       "gold z coin",
-      "gold zcoin"
+      "gold zcoin",
+      "gold coin"
     ]
   },
   {
@@ -772,6 +773,239 @@
     "aliases": [
       "platinum wand",
       "plat wand"
+    ]
+  },
+  {
+    "key": "madruks-prophecy",
+    "name": "Madruk's Prophecy",
+    "category": "unique-weapon",
+    "aliases": [
+      "madruks prophecy",
+      "madruk's prophecy"
+    ]
+  },
+  {
+    "key": "envoy-axe",
+    "name": "Envoy Axe",
+    "category": "weapon",
+    "aliases": [
+      "envoy axe"
+    ]
+  },
+  {
+    "key": "birdseye",
+    "name": "Birdseye",
+    "category": "weapon",
+    "aliases": [
+      "birdseye",
+      "bird's eye"
+    ]
+  },
+  {
+    "key": "storm-bow",
+    "name": "Storm Bow",
+    "category": "weapon",
+    "aliases": [
+      "storm bow"
+    ]
+  },
+  {
+    "key": "silverwing-bow",
+    "name": "Silverwing Bow",
+    "category": "weapon",
+    "aliases": [
+      "silverwing bow"
+    ]
+  },
+  {
+    "key": "golden-machete",
+    "name": "Golden Machete",
+    "category": "weapon",
+    "aliases": [
+      "golden machete"
+    ]
+  },
+  {
+    "key": "zodiac-longbow",
+    "name": "Zodiac Longbow",
+    "category": "weapon",
+    "aliases": [
+      "zodiac longbow"
+    ]
+  },
+  {
+    "key": "soulbreaker-scythe",
+    "name": "Soulbreaker Scythe",
+    "category": "weapon",
+    "aliases": [
+      "soulbreaker scythe"
+    ]
+  },
+  {
+    "key": "bogroot-staff",
+    "name": "Bogroot Staff",
+    "category": "unique-weapon",
+    "aliases": [
+      "bogroot staff"
+    ]
+  },
+  {
+    "key": "oola-staff",
+    "name": "Oola's Staff",
+    "category": "unique-weapon",
+    "aliases": [
+      "oola staff",
+      "oola's staff"
+    ]
+  },
+  {
+    "key": "tormented-daggers",
+    "name": "Tormented Daggers",
+    "category": "weapon",
+    "aliases": [
+      "tormented daggers"
+    ]
+  },
+  {
+    "key": "tormented-shield",
+    "name": "Tormented Shield",
+    "category": "weapon",
+    "aliases": [
+      "tormented shield"
+    ]
+  },
+  {
+    "key": "tormented-spear",
+    "name": "Tormented Spear",
+    "category": "weapon",
+    "aliases": [
+      "tormented spear"
+    ]
+  },
+  {
+    "key": "magmas-shield",
+    "name": "Magma's Shield",
+    "category": "weapon",
+    "aliases": [
+      "magmas shield",
+      "magma shield",
+      "magma's shield"
+    ]
+  },
+  {
+    "key": "blue-dye",
+    "name": "Blue Dye",
+    "category": "dye",
+    "aliases": [
+      "blue dye"
+    ]
+  },
+  {
+    "key": "red-rock-candy",
+    "name": "Red Rock Candy",
+    "category": "consumable",
+    "aliases": [
+      "red rock candies",
+      "red rock candy"
+    ]
+  },
+  {
+    "key": "superb-charr-carving",
+    "name": "Superb Charr Carving",
+    "category": "trophy",
+    "aliases": [
+      "superb charr carvings",
+      "superb charr carving"
+    ]
+  },
+  {
+    "key": "destroyer-core",
+    "name": "Destroyer Core",
+    "category": "trophy",
+    "aliases": [
+      "destroyer cores",
+      "destroyer core"
+    ]
+  },
+  {
+    "key": "ruby",
+    "name": "Ruby",
+    "category": "material",
+    "aliases": [
+      "ruby",
+      "rubies"
+    ]
+  },
+  {
+    "key": "sapphire",
+    "name": "Sapphire",
+    "category": "material",
+    "aliases": [
+      "sapphire",
+      "sapphires"
+    ]
+  },
+  {
+    "key": "staff-wrapping-of-enchanting",
+    "name": "Staff Wrapping of Enchanting",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "staff wrapping of enchanting",
+      "wrapping of enchanting",
+      "staff wrapping of enchantin"
+    ]
+  },
+  {
+    "key": "focus-core-of-aptitude",
+    "name": "Focus Core of Aptitude",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "focus core of aptitude",
+      "core of aptitude"
+    ]
+  },
+  {
+    "key": "adept-staff-head",
+    "name": "Adept Staff Head",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "adept staff head",
+      "adept head"
+    ]
+  },
+  {
+    "key": "memory",
+    "name": "Memory",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "memory for wand",
+      "wand memory",
+      "memory"
+    ]
+  },
+  {
+    "key": "forget-me-not",
+    "name": "Forget Me Not",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "forget me not"
+    ]
+  },
+  {
+    "key": "aptitude-not-attitude",
+    "name": "Aptitude Not Attitude",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "aptitude not attitude",
+      "aptitude not attitude inscription"
+    ]
+  },
+  {
+    "key": "ebon-scythe-snathe",
+    "name": "Ebon Scythe Snathe",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "ebon scythe snathe"
     ]
   }
 ]

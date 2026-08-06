@@ -55,6 +55,19 @@ $tabs = [
   </div>
 </section>
 
+<?php if (!empty($reasonGroups)): ?>
+<section class="surface v5-reason-panel">
+  <div class="section-heading">
+    <div><span class="kicker">V5 DIAGNOSTIEK</span><h2>Resterende reviewredenen</h2></div>
+  </div>
+  <div class="v5-reason-grid">
+    <?php foreach ($reasonGroups as $reason): ?>
+      <span><strong><?= h($reason['reason']) ?></strong><?= (int)$reason['total'] ?></span>
+    <?php endforeach; ?>
+  </div>
+</section>
+<?php endif; ?>
+
 <nav class="review-tabs">
   <?php foreach ($tabs as $key => $label): ?>
     <a class="<?= $tab === $key ? 'active' : '' ?>"

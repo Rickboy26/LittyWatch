@@ -13,4 +13,21 @@ final class ParserReviewRepository{
  public function commonTerms():array{$rows=$this->pdo->query("SELECT m.message FROM parser_reviews pr JOIN structured_offers so ON so.id=pr.structured_offer_id JOIN messages m ON m.id=so.message_id WHERE pr.review_status='pending' ORDER BY pr.id DESC LIMIT 500")->fetchAll();$stop=['wts','wtb','wtt','pm','open','trade','each','stack','offers','offer'];$c=[];foreach($rows as$r){preg_match_all("/[A-Za-z][A-Za-z0-9'’+-]{2,}/u",mb_strtolower((string)$r['message']),$m);foreach($m[0]??[]as$t){if(in_array($t,$stop,true))continue;$c[$t]=($c[$t]??0)+1;}}arsort($c);$out=[];foreach(array_slice($c,0,20,true)as$t=>$n)$out[]=['term'=>$t,'count'=>$n];return$out;}
  public function knowledge():array{return['aliases'=>$this->knowledge->aliasRows(),'exclusions'=>$this->knowledge->exclusionRows(),'set_sizes'=>$this->knowledge->setSizeRows(),'corrections'=>$this->knowledge->corrections()];}
  public function knowledgeAction(string$action,array$data):void{match($action){'add_alias'=>$this->knowledge->addAlias((string)($data['alias']??''),(string)($data['item_name']??'')),'add_exclusion'=>$this->knowledge->addExclusion((string)($data['phrase']??''),(string)($data['kind']??'noise')),'add_set_size'=>$this->knowledge->addSetSize((string)($data['item_name']??''),(float)($data['set_size']??0)),'delete_alias'=>$this->knowledge->delete('parser_aliases',(int)($data['id']??0)),'delete_exclusion'=>$this->knowledge->delete('parser_exclusions',(int)($data['id']??0)),'delete_set_size'=>$this->knowledge->delete('parser_set_sizes',(int)($data['id']??0)),default=>null};}
+    /** @return list<array{reason:string,total:int}> */
+    public function reasonGroups(int $limit = 20): array
+    {
+        $statement = $this->pdo->prepare(
+            "SELECT COALESCE(so.quality_reason,'unknown') reason, COUNT(*) total
+             FROM parser_reviews pr
+             JOIN structured_offers so ON so.id=pr.structured_offer_id
+             WHERE pr.review_status='pending'
+             GROUP BY COALESCE(so.quality_reason,'unknown')
+             ORDER BY total DESC
+             LIMIT ?"
+        );
+        $statement->bindValue(1, max(1,min(100,$limit)), PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
 }

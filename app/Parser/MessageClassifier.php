@@ -8,6 +8,11 @@ final class MessageClassifier
     /** @return array{kind:string,reason:string} */
     public function classify(string $text): array
     {
+        $gate = (new MarketMessageGate())->inspect($text);
+        if (!$gate['accepted']) {
+            return ['kind'=>$gate['kind'],'reason'=>$gate['reason']];
+        }
+
         $clean = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
         if ($clean === '') return ['kind'=>'noise','reason'=>'empty'];
         $learned=$this->knowledge?->exclusion($clean);if($learned!==null)return$learned;

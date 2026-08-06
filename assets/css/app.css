@@ -181,3 +181,9 @@
 .batch-result-grid span{padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:10px;color:var(--muted)}
 .batch-result-grid strong{display:block;color:var(--text);font-size:1.15rem;margin-top:3px}
 @media(max-width:800px){.batch-result-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* V5 structured parser diagnostics */
+.v5-reason-panel{margin:14px 0;padding:16px}
+.v5-reason-grid{display:flex;flex-wrap:wrap;gap:8px}
+.v5-reason-grid span{display:flex;gap:9px;align-items:center;padding:8px 10px;border:1px solid rgba(255,255,255,.08);border-radius:999px;color:var(--muted)}
+.v5-reason-grid strong{color:var(--text)}

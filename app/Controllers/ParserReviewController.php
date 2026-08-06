@@ -56,6 +56,7 @@ final class ParserReviewController
             'selected' => $selected,
             'selectedKnowledge' => $selectedKnowledge,
             'terms' => $this->repo->commonTerms(),
+            'reasonGroups' => $this->repo->reasonGroups(),
             'knowledge' => $this->repo->knowledge(),
             'itemKnowledgeRows' => $this->itemKnowledge->all($request->string('knowledge_q'), 300),
             'status' => $status,
