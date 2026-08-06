@@ -1,0 +1,36 @@
+<?php
+declare(strict_types=1);
+namespace LittyWatch\Repositories;
+use LittyWatch\Market\MarketQualityService;
+use PDO;
+final class StructuredMarketRepository{
+ public function __construct(private readonly PDO $pdo,private readonly ?MarketQualityService $qualityService=null){}
+ private function marketExpr():string{return "COALESCE(NULLIF(so.normalized_market_key,''),so.market_key)";}
+ public function directory(string $query='',int $limit=300,string $status='active'):array{
+  $market=$this->marketExpr();$where="WHERE so.quality_status='accepted' AND $market<>''";$p=[];
+  if($status!=='all'){$where.=" AND so.lifecycle_status=:life";$p[':life']=$status;}
+  if($query!==''){$where.=" AND (so.item LIKE :q OR $market LIKE :q OR so.attribute_name LIKE :q)";$p[':q']='%'.$query.'%';}
+  $sql="SELECT $market market_key,MIN(so.item) item,MIN(so.requirement) requirement,MIN(so.attribute_name) attribute_name,MAX(so.is_oldschool) is_oldschool,MAX(so.is_inscribable) is_inscribable,COUNT(*) samples,COUNT(DISTINCT m.player) unique_traders,SUM(so.trade_type='buy') buys,SUM(so.trade_type='sell') sells,MAX(m.posted_at) latest_posted_at FROM structured_offers so JOIN messages m ON m.id=so.message_id $where GROUP BY $market ORDER BY samples DESC,item LIMIT ".max(1,min(1000,$limit));
+  $s=$this->pdo->prepare($sql);$s->execute($p);$rows=$s->fetchAll();
+  foreach($rows as &$row){
+   $analytics=$this->analytics((string)$row['market_key']);
+   $row['buy_median']=$analytics['buy_median'];$row['sell_median']=$analytics['sell_median'];
+   $row['buy_basis']=$analytics['buy_basis'];$row['sell_basis']=$analytics['sell_basis'];
+   $row['quality']=$this->quality()->score($analytics+['active_samples'=>(int)$row['samples'],'unique_traders'=>(int)$row['unique_traders']]);
+  }unset($row);return$rows;
+ }
+ public function detail(string $key):?array{$market=$this->marketExpr();$s=$this->pdo->prepare("SELECT $market market_key,MIN(so.item) item,MIN(so.requirement) requirement,MIN(so.attribute_name) attribute_name,MAX(so.is_oldschool) is_oldschool,MAX(so.is_inscribable) is_inscribable,COUNT(*) samples,SUM(so.trade_type='buy') buys,SUM(so.trade_type='sell') sells,COUNT(DISTINCT m.player) unique_traders,MAX(m.posted_at) latest_posted_at FROM structured_offers so JOIN messages m ON m.id=so.message_id WHERE $market=:k AND so.quality_status='accepted' AND so.lifecycle_status='active' GROUP BY $market");$s->execute([':k'=>$key]);$r=$s->fetch();if(!$r)return null;$r['quality']=$this->quality()->score($this->analytics($key)+['active_samples'=>(int)$r['samples'],'unique_traders'=>(int)$r['unique_traders']]);return$r;}
+ public function offers(string $key,int $limit=200,string $status='active'):array{$market=$this->marketExpr();$sql="SELECT so.*,m.player,m.message,m.posted_at FROM structured_offers so JOIN messages m ON m.id=so.message_id WHERE $market=:k AND so.quality_status='accepted'";if($status!=='all')$sql.=" AND so.lifecycle_status=:life";$sql.=" ORDER BY m.id DESC,so.id DESC LIMIT ".max(1,min(500,$limit));$s=$this->pdo->prepare($sql);$params=[':k'=>$key];if($status!=='all')$params[':life']=$status;$s->execute($params);return$s->fetchAll();}
+ public function analytics(string $key):array{
+  $market=$this->marketExpr();
+  $s=$this->pdo->prepare("SELECT so.trade_type,so.unit_price_ecto,so.price_basis,so.quantity,m.player,m.posted_at FROM structured_offers so JOIN messages m ON m.id=so.message_id WHERE $market=:k AND so.quality_status='accepted' AND so.lifecycle_status='active' AND so.unit_price_ecto IS NOT NULL AND COALESCE(so.price_basis,'') NOT IN ('bundle','currency_exchange') ORDER BY m.id ASC,so.id ASC");
+  $s->execute([':k'=>$key]);$rows=$s->fetchAll();$b=[];$w=[];$tr=[];$points=[];$basis=['buy'=>[],'sell'=>[]];
+  foreach($rows as$r){$v=(float)$r['unit_price_ecto'];if($v<=0)continue;$tr[$r['player']]=1;$type=(string)$r['trade_type'];if($type==='buy'){$b[]=$v;}elseif($type==='sell'){$w[]=$v;}else{continue;}$pb=(string)($r['price_basis']??'unknown');$basis[$type][$pb]=($basis[$type][$pb]??0)+1;$points[]=['type'=>$type,'price'=>$v,'player'=>$r['player'],'posted_at'=>$r['posted_at'],'price_basis'=>$pb,'quantity'=>$r['quantity']];}
+  $med=static function(array$v):?float{if(!$v)return null;sort($v,SORT_NUMERIC);$n=count($v);$m=intdiv($n,2);return$n%2?$v[$m]:($v[$m-1]+$v[$m])/2;};
+  $dominant=static function(array$v):string{if(!$v)return'unknown';arsort($v);return(string)array_key_first($v);};
+  $bm=$med($b);$wm=$med($w);return['points'=>$points,'buy_median'=>$bm,'sell_median'=>$wm,'spread'=>$bm!==null&&$wm!==null?$bm-$wm:null,'buy_count'=>count($b),'sell_count'=>count($w),'active_samples'=>count($points),'unique_traders'=>count($tr),'buy_min'=>$b?min($b):null,'buy_max'=>$b?max($b):null,'sell_min'=>$w?min($w):null,'sell_max'=>$w?max($w):null,'buy_basis'=>$dominant($basis['buy']),'sell_basis'=>$dominant($basis['sell']),'review_share'=>0.0];
+ }
+ public function lifecycleStats():array{$rows=$this->pdo->query("SELECT lifecycle_status,COUNT(*) count FROM structured_offers GROUP BY lifecycle_status")->fetchAll();$out=['active'=>0,'superseded'=>0,'expired'=>0,'rejected'=>0];foreach($rows as$r)$out[(string)$r['lifecycle_status']]=(int)$r['count'];return$out;}
+ public function biggestSpreads(int $limit=8):array{$markets=$this->directory('',500,'active');$rows=[];foreach($markets as$m){$a=$this->analytics((string)$m['market_key']);if($a['buy_median']===null||$a['sell_median']===null)continue;$spread=(float)$a['buy_median']-(float)$a['sell_median'];if($spread<=0)continue;$m['spread']=$spread;$m['buy_median']=$a['buy_median'];$m['sell_median']=$a['sell_median'];$rows[]=$m;}usort($rows,fn($a,$b)=>$b['spread']<=>$a['spread']);return array_slice($rows,0,$limit);}
+ private function quality():MarketQualityService{return$this->qualityService??new MarketQualityService();}
+}
