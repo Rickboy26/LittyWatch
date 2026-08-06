@@ -78,6 +78,14 @@ SQL);
     ensureColumn('offers','raw_segment','TEXT');
     ensureColumn('offers','quality_status',"TEXT NOT NULL DEFAULT 'review'");
     ensureColumn('offers','quality_reason','TEXT');
+    ensureColumn('offers','exchange_item','TEXT');
+    ensureColumn('offers','exchange_item_key','TEXT');
+    ensureColumn('offers','exchange_give_quantity','REAL');
+    ensureColumn('offers','exchange_receive_quantity','REAL');
+    ensureColumn('structured_offers','exchange_item','TEXT');
+    ensureColumn('structured_offers','exchange_item_key','TEXT');
+    ensureColumn('structured_offers','exchange_give_quantity','REAL');
+    ensureColumn('structured_offers','exchange_receive_quantity','REAL');
     ensureColumn('structured_offers','normalized_market_key','TEXT');
     ensureColumn('structured_offers','lifecycle_status',"TEXT NOT NULL DEFAULT 'active'");
     ensureColumn('structured_offers','superseded_by','INTEGER');
@@ -298,10 +306,60 @@ function parsePiece(string $piece,string $type,?string $inheritedItem=null): arr
     return [[ 'type'=>$type,'item'=>$item,'details'=>$details,'confidence'=>$confidence,'price'=>$price,'quantity'=>$qty,'basis'=>$basis,'segment'=>$piece ]];
 }
 
+/**
+ * @return list<array<string,mixed>>
+ */
+function parseBarterOffers(string $text): array {
+    $matcher = new \LittyWatch\Parser\ExchangeMatcher();
+    $exchange = $matcher->parse(trim($text));
+    if ($exchange === null) return [];
+
+    $left = $matcher->splitFallbackSources($exchange['left']);
+    $target = $matcher->normalizeFallbackName($exchange['right']);
+    $offers = [];
+
+    foreach ($left as $source) {
+        $source = trim($source);
+        if ($source === '') continue;
+
+        $offers[] = [
+            'type' => 'trade',
+            'item' => $source,
+            'item_key' => itemKey($source),
+            'details' => '',
+            'quantity' => (float)$exchange['give_quantity'],
+            'amount' => null,
+            'currency' => null,
+            'ecto' => null,
+            'unit_ecto' => null,
+            'confidence' => 0.9,
+            'basis' => 'barter',
+            'segment' => trim($text),
+            'quality_status' => 'accepted',
+            'quality_reason' => 'explicit_item_exchange',
+            'exchange_item' => $target,
+            'exchange_item_key' => itemKey($target),
+            'exchange_give_quantity' => (float)$exchange['give_quantity'],
+            'exchange_receive_quantity' => (float)$exchange['receive_quantity'],
+        ];
+    }
+
+    return $offers;
+}
+
 function parseOffers(string $message): array {
     $offers=[];
     foreach(splitTypeBlocks($message) as $block){
         if(!$block['type'])continue;
+
+        if($block['type']==='trade'){
+            $barter=parseBarterOffers($block['text']);
+            if($barter!==[]){
+                array_push($offers,...$barter);
+                continue;
+            }
+        }
+
         $parts=preg_split('/\s*[|;]\s*|\s*[,.]\s*(?=q\s*\d+\b)|\s*,\s*(?=[A-Za-z][A-Za-z +\'’.-]{2,}\s+[0-9]+(?:[.,][0-9]+)?\s*(?:a|e|k)\b)/iu',$block['text'])?:[$block['text']];
         $lastItem=null;
         foreach($parts as $part){
@@ -313,7 +371,8 @@ function parseOffers(string $message): array {
                 if($unit!==null&&$qty&&$qty>0&&in_array($basis,['ratio','exchange','total','stack'],true))$unit/=$qty;
                 if($basis==='exchange'&&$p['item']==='Glob of Ectoplasm')$basis='currency_exchange';
                 $candidate=['type'=>$p['type'],'item'=>$p['item'],'item_key'=>itemKey($p['item'].($p['details']?' '.$p['details']:'')),'details'=>$p['details'],'quantity'=>$qty,
-                    'amount'=>$price['amount']??null,'currency'=>$price['currency']??null,'ecto'=>$price['ecto']??null,'unit_ecto'=>$unit,'confidence'=>$p['confidence'],'basis'=>$basis,'segment'=>$p['segment']];
+                    'amount'=>$price['amount']??null,'currency'=>$price['currency']??null,'ecto'=>$price['ecto']??null,'unit_ecto'=>$unit,'confidence'=>$p['confidence'],'basis'=>$basis,'segment'=>$p['segment'],
+                    'exchange_item'=>null,'exchange_item_key'=>null,'exchange_give_quantity'=>null,'exchange_receive_quantity'=>null];
                 [$candidate['quality_status'],$candidate['quality_reason']]=qualityForOffer(['item'=>$p['item'],'confidence'=>$p['confidence'],'price'=>$price,'basis'=>$basis,'segment'=>$p['segment']]);
                 if($candidate['quality_status']!=='rejected')$offers[]=$candidate;
             }
@@ -325,12 +384,12 @@ function parseOffers(string $message): array {
 function parseTrade(string $message): array {$offers=parseOffers($message);$f=$offers[0]??null;return['type'=>$f['type']??detectType($message),'item'=>$f['item']??null,'amount'=>$f['amount']??null,'currency'=>$f['currency']??null,'ecto'=>$f['ecto']??null];}
 function saveOffers(int $messageId,string $message): int {
     db()->prepare('DELETE FROM offers WHERE message_id=?')->execute([$messageId]);
-    $ins=db()->prepare('INSERT OR IGNORE INTO offers(message_id,trade_type,item,item_key,details,quantity,price_amount,price_currency,price_ecto,unit_price_ecto,confidence,created_at,price_basis,raw_segment,quality_status,quality_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    $n=0;foreach(parseOffers($message) as $o){$ins->execute([$messageId,$o['type'],$o['item'],$o['item_key'],$o['details'],$o['quantity'],$o['amount'],$o['currency'],$o['ecto'],$o['unit_ecto'],$o['confidence'],date(DATE_ATOM),$o['basis'],$o['segment'],$o['quality_status'],$o['quality_reason']]);$n+=$ins->rowCount();}return$n;
+    $ins=db()->prepare('INSERT OR IGNORE INTO offers(message_id,trade_type,item,item_key,details,quantity,price_amount,price_currency,price_ecto,unit_price_ecto,confidence,created_at,price_basis,raw_segment,quality_status,quality_reason,exchange_item,exchange_item_key,exchange_give_quantity,exchange_receive_quantity) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    $n=0;foreach(parseOffers($message) as $o){$ins->execute([$messageId,$o['type'],$o['item'],$o['item_key'],$o['details'],$o['quantity'],$o['amount'],$o['currency'],$o['ecto'],$o['unit_ecto'],$o['confidence'],date(DATE_ATOM),$o['basis'],$o['segment'],$o['quality_status'],$o['quality_reason'],$o['exchange_item']??null,$o['exchange_item_key']??null,$o['exchange_give_quantity']??null,$o['exchange_receive_quantity']??null]);$n+=$ins->rowCount();}return$n;
 }
 
 function httpGet(string $url): array {global$config;$headers=['User-Agent: LittyWatch/0.5 (+personal project)'];$ch=curl_init($url);curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>$config['request_timeout'],CURLOPT_HTTPHEADER=>$headers,CURLOPT_ENCODING=>'']);$body=curl_exec($ch);$err=curl_error($ch);$code=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$type=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);curl_close($ch);if($body===false)throw new RuntimeException('cURL-fout: '.$err);return[$code,$type,$body];}
-function normalizeKamadanPayload(string $body): array {$json=json_decode($body,true);if(!is_array($json))return[];$rows=$json['messages']??$json['results']??$json;if(!is_array($rows))return[];$out=[];foreach($rows as $row){if(!is_array($row))continue;$message=(string)($row['m']??$row['message']??'');if($message==='')continue;$player=(string)($row['s']??$row['player']??'Unknown');$time=$row['t']??date(DATE_ATOM);if(is_numeric($time))$time=date(DATE_ATOM,(int)$time);$id=(string)($row['h']??hash('sha256',$player.'|'.$message.'|'.$time));$out[]=['key'=>'kamadan:'.$id,'player'=>$player,'message'=>$message,'posted_at'=>(string)$time,'source'=>'kamadan.gwtoolbox.com'];}return$out;}
+function normalizeKamadanPayload(string $body): array {$json=json_decode($body,true);if(!is_array($json))return[];$rows=$json['messages']??$json['results']??$json;if(!is_array($rows))return[];$out=[];foreach($rows as $row){if(!is_array($row))continue;$message=(string)($row['m']??$row['message']??'');if($message==='')continue;$player=(string)($row['s']??$row['player']??'Unknown');$time=$row['t']??date(DATE_ATOM);if(is_numeric($time)){$timestamp=(float)$time;while($timestamp>20000000000){$timestamp/=1000;}$time=date(DATE_ATOM,(int)$timestamp);}$id=(string)($row['h']??hash('sha256',$player.'|'.$message.'|'.$time));$out[]=['key'=>'kamadan:'.$id,'player'=>$player,'message'=>$message,'posted_at'=>(string)$time,'source'=>'kamadan.gwtoolbox.com'];}return$out;}
 function collectMessages(): array {global$config;installSchema();$messages=[];$used='';$error='';try{[$code,$type,$body]=httpGet($config['kamadan_endpoint']);if($code>=200&&$code<300)$messages=normalizeKamadanPayload($body);if(!$messages)throw new RuntimeException('Kamadan endpoint gaf geen herkenbare JSON terug.');$used=$config['kamadan_endpoint'];}catch(Throwable$e){$error=$e->getMessage();}$insert=db()->prepare('INSERT OR IGNORE INTO messages(source,source_key,player,message,trade_type,item,price_amount,price_currency,price_ecto,posted_at,collected_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)');$added=0;$offerCount=0;foreach(array_slice($messages,0,$config['max_messages_per_run'])as$row){$p=parseTrade($row['message']);$insert->execute([$row['source'],$row['key'],$row['player'],$row['message'],$p['type'],$p['item'],$p['amount'],$p['currency'],$p['ecto'],$row['posted_at'],date(DATE_ATOM)]);if($insert->rowCount()){$added++;$id=(int)db()->lastInsertId();$offerCount+=saveOffers($id,$row['message']);try{(new \LittyWatch\Market\StructuredOfferWriter(db(),parserV2(),new \LittyWatch\Market\VariantNormalizer(),new \LittyWatch\Market\OfferLifecycleService(db())))->parseMessage($id,$row['message'],true);}catch(Throwable $shadowError){error_log('Parser v2 shadow write failed: '.$shadowError->getMessage());}}}return['fetched'=>count($messages),'added'=>$added,'offers_added'=>$offerCount,'source'=>$used,'warning'=>$error];}
 
 function parserV2(): \LittyWatch\Parser\ParserEngine {

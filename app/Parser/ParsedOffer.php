@@ -19,6 +19,7 @@ final class ParsedOffer
         public readonly array $profile = [],
         public readonly array $relevantProperties = [],
         public readonly string $marketKey = '',
+        public readonly ?array $exchange = null,
     ) {}
 
     public function toArray(): array
@@ -37,6 +38,7 @@ final class ParsedOffer
             'profile' => $this->profile,
             'relevant_properties' => $this->relevantProperties,
             'market_key' => $this->marketKey,
+            'exchange' => $this->exchange,
         ];
     }
 }

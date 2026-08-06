@@ -5,10 +5,18 @@ $price = static function(mixed $value): string {
 };
 $rawPrice = static function(?array $offer) use ($price): string {
     if ($offer === null) return 'Geen aanbod';
+    if (($offer['price_basis'] ?? '') === 'barter' && !empty($offer['exchange_item'])) {
+        $give = (float)($offer['exchange_give_quantity'] ?? 1);
+        $receive = (float)($offer['exchange_receive_quantity'] ?? 1);
+        return rtrim(rtrim(number_format($give, 2, '.', ''), '0'), '.') . ' ↔ '
+            . rtrim(rtrim(number_format($receive, 2, '.', ''), '0'), '.') . ' '
+            . (string)$offer['exchange_item'];
+    }
     if ($offer['unit_price_ecto'] !== null) return $price($offer['unit_price_ecto']) . ' / stuk';
     if ($offer['price_amount'] !== null) return (string)$offer['price_amount'] . (string)$offer['price_currency'];
-    return 'Prijs op aanvraag';
+    return 'Geen geldprijs';
 };
+$tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool => ($offer['trade_type'] ?? '') === 'trade'));
 ?>
 <section class="item-detail-hero panel">
   <div class="item-identity">
@@ -159,6 +167,25 @@ $rawPrice = static function(?array $offer) use ($price): string {
   </section>
 </div>
 
+
+<?php if ($tradeOffers): ?>
+<section class="panel">
+  <div class="section-heading">
+    <div><span class="kicker">RUILAANBIEDINGEN</span><h2>WTT voor dit item</h2></div>
+    <span class="count-pill"><?= count($tradeOffers) ?></span>
+  </div>
+  <div class="offer-list">
+    <?php foreach ($tradeOffers as $offer): ?>
+      <article class="compact-offer trade-offer">
+        <div><strong><?= h($offer['player']) ?></strong><small><?= h($offer['posted_at']) ?></small></div>
+        <div class="compact-price"><?= h($rawPrice($offer)) ?></div>
+        <code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code>
+      </article>
+    <?php endforeach; ?>
+  </div>
+</section>
+<?php endif; ?>
+
 <details class="panel raw-offers">
   <summary>Alle recente aanbiedingen tonen (<?= count($offers) ?>)</summary>
   <div class="tablewrap"><table>
@@ -168,7 +195,7 @@ $rawPrice = static function(?array $offer) use ($price): string {
       <tr>
         <td><span class="badge <?= h($offer['trade_type']) ?>"><?= strtoupper(h($offer['trade_type'])) ?></span></td>
         <td><?= h($offer['details'] ?: 'Standaard') ?><div class="muted"><?= (int)round((float)$offer['confidence']*100) ?>% · <?= h($offer['quality_status']) ?></div></td>
-        <td><?= $offer['price_amount']!==null ? h($offer['price_amount']).h($offer['price_currency']) : '—' ?><?php if($offer['unit_price_ecto']!==null): ?><div class="muted"><?= $price($offer['unit_price_ecto']) ?>/stuk</div><?php endif; ?></td>
+        <td><?php if(($offer['price_basis']??'')==='barter'): ?><?=h($rawPrice($offer))?><?php else: ?><?= $offer['price_amount']!==null ? h($offer['price_amount']).h($offer['price_currency']) : '—' ?><?php if($offer['unit_price_ecto']!==null): ?><div class="muted"><?= $price($offer['unit_price_ecto']) ?>/stuk</div><?php endif; ?><?php endif; ?></td>
         <td><?= h($offer['player']) ?><div class="muted"><?= h($offer['posted_at']) ?></div></td>
         <td><code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code></td>
       </tr>

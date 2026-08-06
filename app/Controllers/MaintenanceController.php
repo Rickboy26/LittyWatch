@@ -35,6 +35,21 @@ final class MaintenanceController
     {
         $lifecycle = new OfferLifecycleService($this->pdo);
         $writer = new StructuredOfferWriter($this->pdo, parserV2(), new VariantNormalizer(), null);
+        // Repair historic millisecond timestamps that were previously
+        // interpreted as seconds and therefore produced years such as 58567.
+        $timestampRows = $this->pdo->query("SELECT id, posted_at FROM messages")->fetchAll();
+        $timestampRepair = $this->pdo->prepare("UPDATE messages SET posted_at=? WHERE id=?");
+        $timestampsRepaired = 0;
+        foreach ($timestampRows as $timestampRow) {
+            $postedAt = (string)$timestampRow['posted_at'];
+            if (preg_match('/^([0-9]{12,})$/', $postedAt, $match)) {
+                $unix = (float)$match[1];
+                while ($unix > 20000000000) $unix /= 1000;
+                $timestampRepair->execute([date(DATE_ATOM, (int)$unix), (int)$timestampRow['id']]);
+                $timestampsRepaired += $timestampRepair->rowCount();
+            }
+        }
+
         $rows = $this->pdo->query('SELECT id, message FROM messages ORDER BY id')->fetchAll();
         $legacyCreated = 0;
         $structuredCreated = 0;
@@ -55,7 +70,8 @@ final class MaintenanceController
             'offers_created' => $legacyCreated,
             'structured_offers_created' => $structuredCreated,
             'lifecycle' => $lifecycle->rebuild(),
-            'parser_fix' => 'Stacknotatie wordt niet meer onderdeel van de itemnaam.',
+            'parser_fix' => 'Stacknotatie en item-voor-item ruilingen worden correct verwerkt.',
+            'timestamps_repaired' => $timestampsRepaired,
         ], '/items');
     }
 

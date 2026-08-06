@@ -13,6 +13,7 @@ final class ParserEngine
     private PriceMatcher $priceMatcher;
     private ConfidenceScorer $confidenceScorer;
     private TradeNotationCleaner $tradeNotationCleaner;
+    private ExchangeMatcher $exchangeMatcher;
     private ?CategoryExpander $categoryExpander = null;
     private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
     private ?AttributeMatcher $attributeMatcher = null;
@@ -27,6 +28,7 @@ final class ParserEngine
         $this->priceMatcher = new PriceMatcher();
         $this->confidenceScorer = new ConfidenceScorer($catalog);
         $this->tradeNotationCleaner = new TradeNotationCleaner();
+        $this->exchangeMatcher = new ExchangeMatcher();
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
@@ -54,6 +56,13 @@ final class ParserEngine
     {
         $segment = trim($segment, " \t\n\r\0\x0B|,;");
         if ($segment === '') return [];
+
+        if ($tradeType === 'trade') {
+            $exchangeOffers = $this->parseExchangeSegment($segment);
+            if ($exchangeOffers !== []) {
+                return $exchangeOffers;
+            }
+        }
 
         $items = $this->itemMatcher->matchAll($segment);
         if ($this->categoryExpander !== null) {
@@ -129,6 +138,86 @@ final class ParserEngine
         }
         return $offers;
     }
+
+
+    /** @return list<ParsedOffer> */
+    private function parseExchangeSegment(string $segment): array
+    {
+        $exchange = $this->exchangeMatcher->parse($segment);
+        if ($exchange === null) {
+            return [];
+        }
+
+        $sources = $this->matchSide($exchange['left']);
+        $targets = $this->matchSide($exchange['right']);
+
+        $target = $targets[0] ?? [
+            'item' => $this->exchangeMatcher->normalizeFallbackName($exchange['right']),
+            'key' => $this->key($this->exchangeMatcher->normalizeFallbackName($exchange['right'])),
+        ];
+
+        if ($sources === []) {
+            foreach ($this->exchangeMatcher->splitFallbackSources($exchange['left']) as $sourceName) {
+                $sources[] = [
+                    'item' => $sourceName,
+                    'key' => $this->key($sourceName),
+                    'category' => 'exchange-fallback',
+                ];
+            }
+        }
+
+        $offers = [];
+        foreach ($sources as $source) {
+            $offers[] = new ParsedOffer(
+                'trade',
+                (string)$source['item'],
+                (string)$source['key'],
+                [],
+                new ParsedPrice(
+                    null,
+                    null,
+                    null,
+                    'barter',
+                    (float)$exchange['give_quantity'],
+                    null,
+                    (string)$exchange['raw_ratio'],
+                ),
+                0.9,
+                'accepted',
+                'explicit_item_exchange',
+                $segment,
+                $this->tokenizer->tokenize($segment),
+                [],
+                [],
+                (string)$source['key'],
+                [
+                    'target_item' => (string)$target['item'],
+                    'target_item_key' => (string)$target['key'],
+                    'give_quantity' => (float)$exchange['give_quantity'],
+                    'receive_quantity' => (float)$exchange['receive_quantity'],
+                    'ratio' => (string)$exchange['raw_ratio'],
+                ],
+            );
+        }
+
+        return $offers;
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function matchSide(string $text): array
+    {
+        $items = $this->itemMatcher->matchAll($text);
+
+        if ($this->categoryExpander !== null) {
+            $expanded = $this->categoryExpander->expand($text);
+            if (count($expanded) > count($items)) {
+                $items = $expanded;
+            }
+        }
+
+        return $items;
+    }
+
 
     /** @return list<string> */
     private function splitSegments(string $text): array
