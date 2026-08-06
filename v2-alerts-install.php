@@ -19,8 +19,8 @@ try {
 
     echo json_encode([
         'ok' => true,
-        'version' => '2.8.2-cleanup',
-        'message' => 'Watchlist- en alerttabellen zijn gecontroleerd en bijgewerkt.',
+        'version' => '2.9.1-cron-status',
+        'message' => 'Watchlist- en alerttabellen zijn gecontroleerd en bijgewerkt. Configureer daarna de alert-cronjob.',
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $e) {
     http_response_code(500);
