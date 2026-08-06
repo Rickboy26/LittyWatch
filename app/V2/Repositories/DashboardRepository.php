@@ -32,38 +32,85 @@ final class DashboardRepository
             return [];
         }
 
-        $sql = "SELECT market_key,
-                       MIN(item) AS item,
+        $marketExpr = $this->columnExists('structured_offers', 'normalized_market_key')
+            ? "COALESCE(NULLIF(so.normalized_market_key, ''), so.market_key)"
+            : 'so.market_key';
+
+        $qualityClause = $this->columnExists('structured_offers', 'quality_status')
+            ? "AND COALESCE(so.quality_status, 'review') = 'accepted'"
+            : '';
+
+        $lifecycleClause = $this->columnExists('structured_offers', 'lifecycle_status')
+            ? "AND COALESCE(so.lifecycle_status, 'active') = 'active'"
+            : '';
+
+        $sql = "SELECT {$marketExpr} AS market_key,
+                       MIN(so.item) AS item,
                        COUNT(*) AS offers,
-                       COUNT(DISTINCT player) AS traders,
-                       MAX(COALESCE(observed_at, created_at, '')) AS latest
-                FROM structured_offers
-                WHERE COALESCE(market_key, '') <> ''
-                  AND COALESCE(status, 'active') IN ('active', 'accepted')
-                GROUP BY market_key
+                       COUNT(DISTINCT m.player) AS traders,
+                       MAX(COALESCE(m.posted_at, '')) AS latest
+                FROM structured_offers so
+                JOIN messages m ON m.id = so.message_id
+                WHERE COALESCE({$marketExpr}, '') <> ''
+                  {$qualityClause}
+                  {$lifecycleClause}
+                GROUP BY {$marketExpr}
                 ORDER BY offers DESC, latest DESC
                 LIMIT :limit";
+
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', max(1, min(100, $limit)), PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll();
     }
 
     public function latestOffers(int $limit): array
     {
+        $limit = max(1, min(100, $limit));
+
         if ($this->tableExists('structured_offers')) {
-            $sql = "SELECT trade_type, item, requirement, attribute, price_amount, price_currency, player,
-                           COALESCE(observed_at, created_at, '') AS observed_at
-                    FROM structured_offers
-                    ORDER BY id DESC LIMIT :limit";
+            $attributeExpr = $this->columnExists('structured_offers', 'attribute_name')
+                ? 'so.attribute_name'
+                : ($this->columnExists('structured_offers', 'attribute') ? 'so.attribute' : 'NULL');
+
+            $qualityClause = $this->columnExists('structured_offers', 'quality_status')
+                ? "WHERE COALESCE(so.quality_status, 'review') = 'accepted'"
+                : '';
+            $lifecycleClause = $this->columnExists('structured_offers', 'lifecycle_status')
+                ? (($qualityClause === '' ? 'WHERE' : 'AND') . " COALESCE(so.lifecycle_status, 'active') = 'active'")
+                : '';
+
+            $sql = "SELECT so.trade_type,
+                           so.item,
+                           so.requirement,
+                           {$attributeExpr} AS attribute,
+                           so.price_amount,
+                           so.price_currency,
+                           m.player,
+                           COALESCE(m.posted_at, '') AS observed_at
+                    FROM structured_offers so
+                    JOIN messages m ON m.id = so.message_id
+                    {$qualityClause}
+                    {$lifecycleClause}
+                    ORDER BY m.id DESC, so.id DESC
+                    LIMIT :limit";
         } elseif ($this->tableExists('offers')) {
-            $sql = "SELECT type AS trade_type, item, NULL AS requirement, NULL AS attribute,
-                           price AS price_amount, currency AS price_currency, player,
-                           COALESCE(created_at, '') AS observed_at
-                    FROM offers ORDER BY id DESC LIMIT :limit";
+            $sql = "SELECT o.trade_type,
+                           o.item,
+                           NULL AS requirement,
+                           NULL AS attribute,
+                           o.price_amount,
+                           o.price_currency,
+                           m.player,
+                           COALESCE(m.posted_at, '') AS observed_at
+                    FROM offers o
+                    JOIN messages m ON m.id = o.message_id
+                    ORDER BY m.id DESC, o.id DESC
+                    LIMIT :limit";
         } else {
             return [];
         }
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
@@ -83,7 +130,14 @@ final class DashboardRepository
         if (!$this->tableExists('structured_offers')) {
             return 0;
         }
-        return (int) $this->pdo->query("SELECT COUNT(DISTINCT market_key) FROM structured_offers WHERE COALESCE(market_key, '') <> ''")->fetchColumn();
+
+        $expr = $this->columnExists('structured_offers', 'normalized_market_key')
+            ? "COALESCE(NULLIF(normalized_market_key, ''), market_key)"
+            : 'market_key';
+
+        return (int) $this->pdo
+            ->query("SELECT COUNT(DISTINCT {$expr}) FROM structured_offers WHERE COALESCE({$expr}, '') <> ''")
+            ->fetchColumn();
     }
 
     private function tableExists(string $table): bool
@@ -91,5 +145,20 @@ final class DashboardRepository
         $stmt = $this->pdo->prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:name");
         $stmt->execute([':name' => $table]);
         return (bool) $stmt->fetchColumn();
+    }
+
+    private function columnExists(string $table, string $column): bool
+    {
+        if (!$this->tableExists($table)) {
+            return false;
+        }
+
+        $rows = $this->pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll();
+        foreach ($rows as $row) {
+            if (($row['name'] ?? null) === $column) {
+                return true;
+            }
+        }
+        return false;
     }
 }
