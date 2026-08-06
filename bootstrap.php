@@ -92,7 +92,14 @@ function ensureColumn(string $table,string $column,string $type): void {
     db()->exec("ALTER TABLE $table ADD COLUMN $column $type");
 }
 
-function h(?string $value): string { return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8'); }
+function h(mixed $value): string {
+    if ($value === null) return '';
+    if (is_bool($value)) $value = $value ? '1' : '0';
+    if (is_scalar($value) || $value instanceof Stringable) {
+        return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+    return '';
+}
 function norm(string $s): string {
     $s=str_replace('_',' ',$s);
     $s=preg_replace('/\^{2,}/',' | ',$s)??$s;
