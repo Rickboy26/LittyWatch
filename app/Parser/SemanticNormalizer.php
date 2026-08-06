@@ -4,6 +4,7 @@ namespace LittyWatch\Parser;
 
 final class SemanticNormalizer
 {
+    public function __construct(private ?DynamicKnowledge $knowledge = null) {}
     private const PROFESSIONS = [
         'war'=>'Warrior','warr'=>'Warrior','warrior'=>'Warrior',
         'rang'=>'Ranger','ranger'=>'Ranger','mo'=>'Monk','monk'=>'Monk',
@@ -16,6 +17,7 @@ final class SemanticNormalizer
     public function normalize(string $text): string
     {
         $text = trim(preg_replace('/\s+/u',' ', $text) ?? $text);
+        $text=$this->knowledge?->aliases($text)??$text;
         $text = preg_replace('/\bpm(?:\s+me)?\b.*$/iu','',$text) ?? $text;
         $text = preg_replace('/\bopen\s+trade\b.*$/iu','',$text) ?? $text;
 

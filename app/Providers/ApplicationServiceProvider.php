@@ -31,6 +31,7 @@ use LittyWatch\Repositories\AlertRepository;
 use LittyWatch\Repositories\WatchlistRepository;
 use LittyWatch\Repositories\PlatformRepository;
 use LittyWatch\Repositories\ParserReviewRepository;
+use LittyWatch\Repositories\ParserKnowledgeRepository;
 use LittyWatch\Repositories\StructuredMarketRepository;
 use LittyWatch\Repositories\StructuredOfferRepository;
 use LittyWatch\Services\CurrencyDisplayService;
@@ -66,7 +67,8 @@ final class ApplicationServiceProvider
 
         $container->singleton(MarketRepository::class, fn(Container $c) => new MarketRepository($c->get('pdo')));
         $container->singleton(StructuredOfferRepository::class, fn(Container $c) => new StructuredOfferRepository($c->get('pdo')));
-        $container->singleton(ParserReviewRepository::class, fn(Container $c) => new ParserReviewRepository($c->get('pdo')));
+        $container->singleton(ParserKnowledgeRepository::class, fn(Container $c) => new ParserKnowledgeRepository($c->get('pdo')));
+        $container->singleton(ParserReviewRepository::class, fn(Container $c) => new ParserReviewRepository($c->get('pdo'),$c->get(ParserKnowledgeRepository::class)));
         $container->singleton(StructuredMarketRepository::class, fn(Container $c) => new StructuredMarketRepository($c->get('pdo')));
         $container->singleton(AlertRepository::class, fn(Container $c) => new AlertRepository($c->get('pdo')));
         $container->singleton(WatchlistRepository::class, fn(Container $c) => new WatchlistRepository($c->get('pdo')));

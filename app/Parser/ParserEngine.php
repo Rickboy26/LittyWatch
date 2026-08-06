@@ -33,10 +33,16 @@ final class ParserEngine
         $this->confidenceScorer = new ConfidenceScorer($catalog);
         $this->tradeNotationCleaner = new TradeNotationCleaner();
         $this->exchangeMatcher = new ExchangeMatcher();
-        $this->classifier = new MessageClassifier();
+        $dynamic = null;
+        if ($catalog->knowledgeBase() !== null) {
+            $knowledgeRepo = new \LittyWatch\Repositories\ParserKnowledgeRepository($catalog->knowledgeBase());
+            $knowledgeRepo->install();
+            $dynamic = new DynamicKnowledge($knowledgeRepo);
+        }
+        $this->classifier = new MessageClassifier($dynamic);
         $this->segmenter = new SmartSegmenter();
-        $this->semantic = new SemanticNormalizer();
-        $this->setResolver = new SetQuantityResolver();
+        $this->semantic = new SemanticNormalizer($dynamic);
+        $this->setResolver = new SetQuantityResolver($dynamic);
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());

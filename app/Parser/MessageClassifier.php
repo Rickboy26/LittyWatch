@@ -4,11 +4,13 @@ namespace LittyWatch\Parser;
 
 final class MessageClassifier
 {
+    public function __construct(private ?DynamicKnowledge $knowledge = null) {}
     /** @return array{kind:string,reason:string} */
     public function classify(string $text): array
     {
         $clean = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
         if ($clean === '') return ['kind'=>'noise','reason'=>'empty'];
+        $learned=$this->knowledge?->exclusion($clean);if($learned!==null)return$learned;
 
         if (preg_match('/^(?:pm(?:\s+me)?|wsp(?:\s+me)?|open\s+trade|trade\s+me|message\s+me|whisper\s+me|offers?|show\s+me|ty|thanks?)[.! ]*$/iu', $clean)) {
             return ['kind'=>'noise','reason'=>'contact_instruction'];
