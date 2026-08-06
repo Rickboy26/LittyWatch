@@ -54,8 +54,9 @@ final class ParserBatchReviewService
             $this->pdo,
             parserV2(),
             new VariantNormalizer(),
-            new OfferLifecycleService($this->pdo)
+            null
         );
+        $lifecycle = new OfferLifecycleService($this->pdo);
         $knowledgeRepository = new ParserKnowledgeRepository($this->pdo);
         $knowledgeRepository->install();
         $classifier = new MessageClassifier(
@@ -71,6 +72,7 @@ final class ParserBatchReviewService
             'next_cursor' => $cursor,
             'done' => false,
             'remaining' => 0,
+            'failure_samples' => [],
         ];
 
         foreach ($rows as $row) {
@@ -131,10 +133,26 @@ final class ParserBatchReviewService
                     $this->pdo->rollBack();
                 }
                 $result['failed']++;
-                error_log(
-                    'Batch parser review failed for message '
-                    . $messageId . ': ' . $exception->getMessage()
-                );
+                $failureText = 'Bericht ' . $messageId . ': '
+                    . $exception->getMessage();
+
+                if (count($result['failure_samples']) < 5) {
+                    $result['failure_samples'][] = $failureText;
+                }
+
+                error_log('Batch parser review failed for ' . $failureText);
+            }
+        }
+
+        if ($result['checked'] > 0 && $result['failed'] < $result['checked']) {
+            try {
+                $lifecycle->rebuild();
+            } catch (Throwable $exception) {
+                $failureText = 'Lifecycle rebuild: ' . $exception->getMessage();
+                if (count($result['failure_samples']) < 5) {
+                    $result['failure_samples'][] = $failureText;
+                }
+                error_log($failureText);
             }
         }
 

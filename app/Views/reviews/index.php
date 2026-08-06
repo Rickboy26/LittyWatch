@@ -514,9 +514,17 @@ $tabs = [
     paint(Number(result.remaining || 0));
 
     if (status) {
-      status.textContent = result.done
-        ? 'Herbeoordeling voltooid. De Review Queue wordt vernieuwd.'
-        : `${result.remaining} berichten wachten nog. Volgende batch wordt verwerkt…`;
+      const samples = Array.isArray(result.failure_samples)
+        ? result.failure_samples.filter(Boolean)
+        : [];
+
+      if (samples.length) {
+        status.textContent = 'Batch verwerkt met fouten: ' + samples.join(' | ');
+      } else {
+        status.textContent = result.done
+          ? 'Herbeoordeling voltooid. De Review Queue wordt vernieuwd.'
+          : `${result.remaining} berichten wachten nog. Volgende batch wordt verwerkt…`;
+      }
     }
 
     if (!result.done) {
