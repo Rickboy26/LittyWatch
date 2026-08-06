@@ -27,6 +27,6 @@ body{margin:0;background:#0b1220;color:#e7eefc;font:15px system-ui,sans-serif}.w
 <div><span class="badge <?=h($offer['status'])?>"><?=h(strtoupper($offer['trade_type']))?></span><span class="badge <?=h($offer['status'])?>"><?=h($offer['status'])?></span></div>
 <h2><?=h($offer['item'])?></h2><p class="muted"><?=h($offer['item_key'])?> · <?=number_format((float)$offer['confidence']*100,0)?>% · <?=h($offer['reason'])?></p>
 <p><strong>Prijs:</strong> <?=h($offer['price']['amount']===null?'-':(string)$offer['price']['amount'])?><?=h($offer['price']['currency']??'')?> · basis <?=h($offer['price']['basis'])?> · unit <?=h($offer['price']['unit_ecto']===null?'-':number_format((float)$offer['price']['unit_ecto'],2).'e')?></p>
-<p><strong>Modifiers:</strong> <?=h(json_encode($offer['modifiers'],JSON_UNESCAPED_UNICODE))?></p><pre><?=h($offer['segment'])?></pre>
+<p><strong>Profiel:</strong> <?=h($offer['profile']['name']??'Generic')?> · <code><?=h($offer['market_key']??'')?></code></p><p><strong>Relevante eigenschappen:</strong> <?=h(json_encode($offer['relevant_properties'],JSON_UNESCAPED_UNICODE))?></p><details><summary>Alle gevonden modifiers</summary><p><?=h(json_encode($offer['modifiers'],JSON_UNESCAPED_UNICODE))?></p></details><pre><?=h($offer['segment'])?></pre>
 </section><?php endforeach; ?></div>
 </main></body></html>

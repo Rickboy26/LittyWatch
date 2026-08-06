@@ -23,3 +23,6 @@ Er is geen MySQL-database nodig; de app gebruikt automatisch `data/market.sqlite
 
 ## Opmerking
 De collector probeert eerst het Kamadan GWToolbox JSON-endpoint en gebruikt bij problemen de publieke Decltype-feed als fallback. De parser is een MVP en ondersteunt een kleine aliaslijst.
+
+## v1.5 Structured Offers
+Open `/reparse-v2.php` en daarna `/structured-offers`. De legacy offers blijven onaangetast.
