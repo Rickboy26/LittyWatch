@@ -15,9 +15,15 @@ CREATE TABLE IF NOT EXISTS watchlist (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     market_key TEXT NOT NULL UNIQUE,
     label TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    target_buy_ecto REAL,
+    target_sell_ecto REAL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 SQL);
+        self::ensureColumn($pdo, 'watchlist', 'target_buy_ecto', 'REAL');
+        self::ensureColumn($pdo, 'watchlist', 'target_sell_ecto', 'REAL');
+        self::ensureColumn($pdo, 'watchlist', 'updated_at', "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
 
         $pdo->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS market_snapshots (
@@ -32,8 +38,18 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     captured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 SQL);
-
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_market_snapshots_key_time ON market_snapshots(market_key, captured_at)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_structured_market_active ON structured_offers(normalized_market_key, lifecycle_status, quality_status)');
+    }
+
+    private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void
+    {
+        $columns = $pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll();
+        foreach ($columns as $existing) {
+            if (($existing['name'] ?? '') === $column) {
+                return;
+            }
+        }
+        $pdo->exec(sprintf('ALTER TABLE %s ADD COLUMN %s %s', $table, $column, $definition));
     }
 }
