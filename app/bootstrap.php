@@ -18,6 +18,7 @@ use LittyWatch\Repositories\ParserReviewRepository;
 use LittyWatch\Repositories\StructuredMarketRepository;
 use LittyWatch\Services\DashboardService;
 use LittyWatch\Services\ExchangeRateService;
+use LittyWatch\Services\CurrencyDisplayService;
 use LittyWatch\Knowledge\KnowledgeBase;
 use LittyWatch\Knowledge\KnowledgeControllerData;
 use LittyWatch\Knowledge\Schema;
@@ -35,8 +36,9 @@ $container->singleton(StructuredOfferController::class, fn(Container $c) => new 
 $container->singleton(ParserReviewRepository::class, fn(Container $c) => new ParserReviewRepository($c->get('pdo')));
 $container->singleton(ParserReviewController::class, fn(Container $c) => new ParserReviewController($c->get(ParserReviewRepository::class), $c->get(View::class)));
 $container->singleton(StructuredMarketRepository::class, fn(Container $c) => new StructuredMarketRepository($c->get('pdo')));
-$container->singleton(StructuredMarketController::class, fn(Container $c) => new StructuredMarketController($c->get(StructuredMarketRepository::class), $c->get(View::class)));
+$container->singleton(StructuredMarketController::class, fn(Container $c) => new StructuredMarketController($c->get(StructuredMarketRepository::class), $c->get(View::class), $c->get(CurrencyDisplayService::class)));
 $container->singleton(ExchangeRateService::class, fn() => new ExchangeRateService(dirname(__DIR__) . '/config/exchange-rates.php'));
+$container->singleton(CurrencyDisplayService::class, fn(Container $c) => new CurrencyDisplayService($c->get(ExchangeRateService::class)));
 $container->singleton(DashboardService::class, fn(Container $c) => new DashboardService($c->get(MarketRepository::class), $c->get(ExchangeRateService::class)));
 $container->singleton(DashboardController::class, fn(Container $c) => new DashboardController($c->get(DashboardService::class), $c->get(View::class)));
 $container->singleton(ApiController::class, fn(Container $c) => new ApiController($c->get(DashboardService::class)));

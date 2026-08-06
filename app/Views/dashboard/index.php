@@ -27,9 +27,9 @@
     <?php foreach (($exchangeRates['rates'] ?? []) as $rate): ?>
       <article class="exchange-card">
         <span class="muted"><?= h((string)$rate['label']) ?></span>
-        <strong><?= number_format((float)$rate['left_amount'], ((float)$rate['left_amount'] % 1 !== 0.0) ? 2 : 0, ',', '.') ?> <?= h((string)$rate['left_unit']) ?></strong>
+        <strong><?= number_format((float)$rate['left_amount'], abs((float)$rate['left_amount'] - round((float)$rate['left_amount'])) > 0.000001 ? 2 : 0, ',', '.') ?> <?= h((string)$rate['left_unit']) ?></strong>
         <span class="exchange-equals">=</span>
-        <strong><?= number_format((float)$rate['right_amount'], ((float)$rate['right_amount'] % 1 !== 0.0) ? 2 : 0, ',', '.') ?> <?= h((string)$rate['right_unit']) ?></strong>
+        <strong><?= number_format((float)$rate['right_amount'], abs((float)$rate['right_amount'] - round((float)$rate['right_amount'])) > 0.000001 ? 2 : 0, ',', '.') ?> <?= h((string)$rate['right_unit']) ?></strong>
       </article>
     <?php endforeach; ?>
   </div>
