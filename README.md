@@ -1,25 +1,13 @@
 # LittyWatch
 
-LittyWatch is één Guild Wars 1 market-intelligence website.
+Guild Wars 1 market intelligence voor publieke Kamadan-handelsberichten.
 
-## Publieke routes
+## Huidige versie
 
-- `/` Dashboard
-- `/live` Live feed
-- `/markets` Markten
-- `/market?key=...` Marktvariant
-- `/items` Items
-- `/item?key=...` Item
-- `/traders` Traders
-- `/trader?player=...` Traderprofiel
-- `/trends` Trends
-- `/intelligence` Intelligence
-- `/watchlist` Watchlist
-- `/alerts` Alerts
-- `/assets` Lokale game-assets
-- `/system` Systeemstatus
-- `/admin` Beheer
+V4.0 refactor — fase 1.
 
-Er bestaan geen publieke V2/V3-versiepagina’s meer. Oude URL’s worden alleen permanent doorgestuurd naar de nieuwe route.
+De website gebruikt één front controller (`index.php`), één router en één
+servicecontainer. Routes staan onder `routes/`; services worden geregistreerd
+onder `app/Providers/`.
 
-Onderhoudsscripts staan onder `tools/maintenance`; periodieke taken staan onder `cron`.
+Lees `README-V4.0-PHASE1.md` voor installatie en wijzigingen.
