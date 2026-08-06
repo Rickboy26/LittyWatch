@@ -1,3 +1,7 @@
+## v1.8 Market Intelligence
+
+Zie `PATCH-v1.8.md` voor installatie en wijzigingen.
+
 # GW1 Market Scanner – testversie
 
 ## Eisen
