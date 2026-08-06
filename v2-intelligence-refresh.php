@@ -10,11 +10,23 @@ use LittyWatch\V2\Database;
 use LittyWatch\V2\Intelligence\MarketIntelligenceService;
 
 header('Content-Type: application/json; charset=utf-8');
+
 try {
     $pdo = Database::connect(__DIR__);
     $result = (new MarketIntelligenceService($pdo))->rebuild();
-    echo json_encode(['ok' => true, 'version' => '2.2', ...$result, 'next' => '/v2-intelligence.php'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+    echo json_encode([
+        'ok' => true,
+        'version' => '2.6.1-intelligence-rebuild',
+        ...$result,
+        'note' => 'Lifecycle-status is genegeerd; nieuwste offer per trader, markt en koop/verkoopzijde telt.',
+        'next' => '/v2-intelligence.php',
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    echo json_encode([
+        'ok' => false,
+        'version' => '2.6.1-intelligence-rebuild',
+        'error' => $e->getMessage(),
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 }
