@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS market_intelligence (
+    market_key TEXT PRIMARY KEY,
+    item TEXT NOT NULL,
+    best_wtb_ecto REAL NULL,
+    best_wts_ecto REAL NULL,
+    median_wtb_ecto REAL NULL,
+    median_wts_ecto REAL NULL,
+    spread_ecto REAL NULL,
+    buy_offers INTEGER NOT NULL DEFAULT 0,
+    sell_offers INTEGER NOT NULL DEFAULT 0,
+    unique_traders INTEGER NOT NULL DEFAULT 0,
+    liquidity_score INTEGER NOT NULL DEFAULT 0,
+    demand_score INTEGER NOT NULL DEFAULT 50,
+    confidence_score INTEGER NOT NULL DEFAULT 0,
+    deal_score INTEGER NOT NULL DEFAULT 0,
+    quality_label TEXT NOT NULL DEFAULT 'Onvoldoende data',
+    liquidity_label TEXT NOT NULL DEFAULT 'Laag',
+    demand_label TEXT NOT NULL DEFAULT 'Neutraal',
+    last_activity TEXT NULL,
+    updated_at TEXT NOT NULL
+);
