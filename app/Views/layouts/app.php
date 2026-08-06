@@ -1,6 +1,11 @@
 <?php declare(strict_types=1); $path=parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/';
 $active=static fn(string $target):string => $target==='/' ? ($path==='/'?'active':'') : ($path===$target||str_starts_with($path,$target.'?')?'active':''); ?>
-<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=h((string)($title??'LittyWatch'))?></title><meta name="theme-color" content="#071017"><link rel="stylesheet" href="/assets/css/app.css?v=310"><link rel="stylesheet" href="/assets/v2/platform.css?v=310"></head><body>
+<?php
+$rootPath = dirname(__DIR__, 3);
+$criticalCssPath = $rootPath . '/assets/css/app.css';
+$criticalCss = is_file($criticalCssPath) ? (string) file_get_contents($criticalCssPath) : '';
+?>
+<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=h((string)($title??'LittyWatch'))?></title><meta name="theme-color" content="#071017"><link rel="stylesheet" href="/assets/css/app.css?v=40201"><link rel="stylesheet" href="/assets/v2/platform.css?v=40201"><?php if ($criticalCss !== ''): ?><style data-littywatch-critical><?=$criticalCss?></style><?php endif; ?></head><body>
 <div class="app-shell"><aside class="sidebar"><a class="brand" href="/"><span class="brand-mark">L</span><span class="brand-copy"><strong>LittyWatch</strong><small>GW1 Market Intelligence</small></span></a>
 <span class="nav-label">Markt</span><nav class="main-nav"><a class="<?=$active('/')?>" href="/"><span class="nav-icon">⌂</span>Dashboard</a><a href="/live"><span class="nav-icon">●</span>Live feed</a><a class="<?=$active('/markets')?>" href="/markets"><span class="nav-icon">◆</span>Markten</a><a class="<?=$active('/items')?>" href="/items"><span class="nav-icon">◇</span>Items</a><a href="/traders"><span class="nav-icon">♟</span>Traders</a><a href="/trends"><span class="nav-icon">↗</span>Trends</a><a href="/intelligence"><span class="nav-icon">✦</span>Intelligence</a></nav>
 <span class="nav-label">Persoonlijk</span><nav class="main-nav"><a href="/watchlist"><span class="nav-icon">★</span>Watchlist</a><a href="/alerts"><span class="nav-icon">!</span>Alerts</a></nav>
