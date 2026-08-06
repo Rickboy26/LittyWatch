@@ -1,0 +1,42 @@
+name: Build GW1 item catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 1 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout LittyWatch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests==2.32.4
+
+      - name: Build Guild Wars catalog
+        run: python scripts/build_gw1_catalog.py --depth 2
+
+      - name: Package catalog
+        run: |
+          tar -czf gw1-item-catalog.tar.gz output
+
+      - name: Upload catalog
+        uses: actions/upload-artifact@v4
+        with:
+          name: gw1-item-catalog
+          path: |
+            output/
+            gw1-item-catalog.tar.gz
+          retention-days: 30
