@@ -38,6 +38,29 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
   </div>
 </section>
 
+<?php if ($itemKnowledge): ?>
+<section class="item-knowledge-banner <?= (int)$itemKnowledge['is_unique'] === 1 ? 'unique' : 'standard' ?>">
+  <div>
+    <span class="kicker">ITEMKENNIS</span>
+    <h2><?= h($itemKnowledge['item_name']) ?></h2>
+    <p><?= h($itemKnowledge['wiki_extract'] ?: 'Lokale itemclassificatie beschikbaar.') ?></p>
+  </div>
+  <div class="knowledge-badges">
+    <span><?= h(ucfirst($itemKnowledge['rarity'])) ?></span>
+    <span><?= (int)$itemKnowledge['fixed_stats'] === 1 ? 'Vaste stats' : 'Variabele stats' ?></span>
+    <span><?= (int)$itemKnowledge['modifiable'] === 1 ? 'Modificeerbaar' : 'Niet modificeerbaar' ?></span>
+    <?php if ($itemKnowledge['wiki_url']): ?>
+      <a href="<?= h($itemKnowledge['wiki_url']) ?>" target="_blank" rel="noopener">Guild Wars Wiki ↗</a>
+    <?php endif; ?>
+  </div>
+  <?php if (!empty($itemKnowledge['canonical_stats'])): ?>
+    <ul>
+      <?php foreach ($itemKnowledge['canonical_stats'] as $stat): ?><li><?= h($stat) ?></li><?php endforeach; ?>
+    </ul>
+  <?php endif; ?>
+</section>
+<?php endif; ?>
+
 <section class="market-price-grid">
   <article class="price-card buy-card">
     <span class="price-label">Hoogste WTB</span>

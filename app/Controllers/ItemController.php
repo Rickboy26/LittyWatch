@@ -7,11 +7,13 @@ use LittyWatch\Core\Request;
 use LittyWatch\Core\Response;
 use LittyWatch\Core\View;
 use LittyWatch\Repositories\MarketRepository;
+use LittyWatch\Repositories\ItemKnowledgeRepository;
 
 final class ItemController
 {
     public function __construct(
         private readonly MarketRepository $market,
+        private readonly ItemKnowledgeRepository $itemKnowledge,
         private readonly View $view,
     ) {}
 
@@ -60,6 +62,7 @@ final class ItemController
             'scope' => $scope,
             'selectedVariant' => $variant,
             'analytics' => $this->market->itemAnalytics($name, $scope, $variant),
+            'itemKnowledge' => $this->itemKnowledge->find($name),
         ]));
     }
 }

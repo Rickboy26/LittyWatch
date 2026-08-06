@@ -1,10 +1,116 @@
 <?php
 declare(strict_types=1);
+
 namespace LittyWatch\Controllers;
-use LittyWatch\Core\Request;use LittyWatch\Core\Response;use LittyWatch\Core\View;use LittyWatch\Repositories\ParserReviewRepository;
-final class ParserReviewController{
- public function __construct(private readonly ParserReviewRepository$repo,private readonly View$view){}
- public function index(Request$r):Response{$this->repo->seedPending();$status=$r->string('status','pending');$quality=$r->string('quality');$q=$r->string('q');return Response::html($this->view->render('reviews/index',['title'=>'Parser Review · LittyWatch','summary'=>$this->repo->summary(),'qualityStats'=>$this->repo->qualityStats(),'rows'=>$this->repo->queue($status,$quality,$q,200),'terms'=>$this->repo->commonTerms(),'knowledge'=>$this->repo->knowledge(),'status'=>$status,'quality'=>$quality,'query'=>$q,'message'=>$r->string('message')]));}
- public function update(Request$r):Response{$action=$r->string('action','review');if($action==='review'){$this->repo->save($r->int('id'),$r->string('review_status'),$r->string('expected_item'),$r->string('expected_requirement')!==''?$r->int('expected_requirement'):null,$r->string('expected_attribute'),$r->string('expected_market_key'),$r->string('notes'),$r->string('alias'));}else{$this->repo->knowledgeAction($action,$_POST);}return new Response('',302,['Location'=>'/parser-review?status='.$r->string('return_status','pending').'&message='.rawurlencode('Opgeslagen')]);}
- public function export(Request$r):Response{return Response::json(['version'=>'v4.3','exported_at'=>date(DATE_ATOM),'cases'=>$this->repo->export()]);}
+
+use LittyWatch\Core\Request;
+use LittyWatch\Core\Response;
+use LittyWatch\Core\View;
+use LittyWatch\Repositories\ItemKnowledgeRepository;
+use LittyWatch\Repositories\ParserReviewRepository;
+use Throwable;
+
+final class ParserReviewController
+{
+    public function __construct(
+        private readonly ParserReviewRepository $repo,
+        private readonly ItemKnowledgeRepository $itemKnowledge,
+        private readonly View $view,
+    ) {}
+
+    public function index(Request $request): Response
+    {
+        $this->repo->seedPending();
+
+        $status = $request->string('status', 'pending');
+        $quality = $request->string('quality');
+        $query = $request->string('q');
+        $tab = $request->string('tab', 'queue');
+        $selectedId = $request->int('selected');
+
+        $rows = $this->repo->queue($status, $quality, $query, 200);
+        if ($selectedId <= 0 && $rows !== []) {
+            $selectedId = (int)$rows[0]['id'];
+        }
+
+        $selected = null;
+        foreach ($rows as $row) {
+            if ((int)$row['id'] === $selectedId) {
+                $selected = $row;
+                break;
+            }
+        }
+
+        $selectedKnowledge = null;
+        if ($selected !== null) {
+            $selectedKnowledge = $this->itemKnowledge->find((string)$selected['item']);
+        }
+
+        return Response::html($this->view->render('reviews/index', [
+            'title' => 'Parser Review · LittyWatch',
+            'summary' => $this->repo->summary(),
+            'qualityStats' => $this->repo->qualityStats(),
+            'rows' => $rows,
+            'selected' => $selected,
+            'selectedKnowledge' => $selectedKnowledge,
+            'terms' => $this->repo->commonTerms(),
+            'knowledge' => $this->repo->knowledge(),
+            'itemKnowledgeRows' => $this->itemKnowledge->all($request->string('knowledge_q'), 300),
+            'status' => $status,
+            'quality' => $quality,
+            'query' => $query,
+            'tab' => $tab,
+            'message' => $request->string('message'),
+            'error' => $request->string('error'),
+        ]));
+    }
+
+    public function update(Request $request): Response
+    {
+        try {
+            $action = $request->string('action', 'review');
+
+            if ($action === 'review') {
+                $this->repo->save(
+                    $request->int('id'),
+                    $request->string('review_status'),
+                    $request->string('expected_item'),
+                    $request->string('expected_requirement') !== ''
+                        ? $request->int('expected_requirement')
+                        : null,
+                    $request->string('expected_attribute'),
+                    $request->string('expected_market_key'),
+                    $request->string('notes'),
+                    $request->string('alias')
+                );
+            } elseif ($action === 'save_item_knowledge') {
+                $this->itemKnowledge->save($request->post);
+            } elseif ($action === 'delete_item_knowledge') {
+                $this->itemKnowledge->delete($request->int('id'));
+            } else {
+                $this->repo->knowledgeAction($action, $request->post);
+            }
+
+            $location = '/parser-review?tab=' . rawurlencode($request->string('return_tab', 'queue'))
+                . '&status=' . rawurlencode($request->string('return_status', 'pending'))
+                . '&selected=' . $request->int('selected')
+                . '&message=' . rawurlencode('Opgeslagen');
+
+            return new Response('', 302, ['Location' => $location]);
+        } catch (Throwable $exception) {
+            return new Response('', 302, [
+                'Location' => '/parser-review?error=' . rawurlencode($exception->getMessage())
+            ]);
+        }
+    }
+
+    public function export(Request $request): Response
+    {
+        return Response::json([
+            'version' => 'v4.4',
+            'exported_at' => date(DATE_ATOM),
+            'cases' => $this->repo->export(),
+            'item_knowledge' => $this->itemKnowledge->all('', 1000),
+        ]);
+    }
 }

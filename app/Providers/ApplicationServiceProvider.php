@@ -27,6 +27,7 @@ use LittyWatch\Knowledge\KnowledgeBase;
 use LittyWatch\Knowledge\KnowledgeControllerData;
 use LittyWatch\Knowledge\Schema;
 use LittyWatch\Repositories\MarketRepository;
+use LittyWatch\Repositories\ItemKnowledgeRepository;
 use LittyWatch\Repositories\AlertRepository;
 use LittyWatch\Repositories\WatchlistRepository;
 use LittyWatch\Repositories\PlatformRepository;
@@ -66,6 +67,7 @@ final class ApplicationServiceProvider
         $container->singleton(View::class, fn() => new View($paths->views()));
 
         $container->singleton(MarketRepository::class, fn(Container $c) => new MarketRepository($c->get('pdo')));
+        $container->singleton(ItemKnowledgeRepository::class, fn(Container $c) => new ItemKnowledgeRepository($c->get('pdo')));
         $container->singleton(StructuredOfferRepository::class, fn(Container $c) => new StructuredOfferRepository($c->get('pdo')));
         $container->singleton(ParserKnowledgeRepository::class, fn(Container $c) => new ParserKnowledgeRepository($c->get('pdo')));
         $container->singleton(ParserReviewRepository::class, fn(Container $c) => new ParserReviewRepository($c->get('pdo'),$c->get(ParserKnowledgeRepository::class)));
@@ -83,9 +85,17 @@ final class ApplicationServiceProvider
 
         $container->singleton(DashboardController::class, fn(Container $c) => new DashboardController($c->get(DashboardService::class), $c->get(View::class)));
         $container->singleton(ApiController::class, fn(Container $c) => new ApiController($c->get(DashboardService::class)));
-        $container->singleton(ItemController::class, fn(Container $c) => new ItemController($c->get(MarketRepository::class), $c->get(View::class)));
+        $container->singleton(ItemController::class, fn(Container $c) => new ItemController(
+            $c->get(MarketRepository::class),
+            $c->get(ItemKnowledgeRepository::class),
+            $c->get(View::class)
+        ));
         $container->singleton(StructuredOfferController::class, fn(Container $c) => new StructuredOfferController($c->get(StructuredOfferRepository::class), $c->get(View::class)));
-        $container->singleton(ParserReviewController::class, fn(Container $c) => new ParserReviewController($c->get(ParserReviewRepository::class), $c->get(View::class)));
+        $container->singleton(ParserReviewController::class, fn(Container $c) => new ParserReviewController(
+            $c->get(ParserReviewRepository::class),
+            $c->get(ItemKnowledgeRepository::class),
+            $c->get(View::class)
+        ));
         $container->singleton(StructuredMarketController::class, fn(Container $c) => new StructuredMarketController($c->get(StructuredMarketRepository::class), $c->get(View::class), $c->get(CurrencyDisplayService::class)));
         $container->singleton(AdminController::class, fn(Container $c) => new AdminController($c->get(View::class), $c->get(ItemImageService::class)));
         $container->singleton(WatchlistController::class, fn(Container $c) => new WatchlistController($c->get(WatchlistService::class), $c->get(View::class)));
