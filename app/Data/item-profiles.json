@@ -1,0 +1,93 @@
+{
+  "profiles": [
+    {
+      "key":"staff-skin",
+      "name":"Staff skin",
+      "description":"Voor staff skins zoals Bone Dragon Staff zijn requirement en attribute de belangrijkste marktvelden. Weapon mods worden niet gebruikt voor de marktvariant.",
+      "track":["requirement","attribute"],
+      "ignore":["inherent","prefix","suffix","inscription","weapon_mods"],
+      "market_key":["item","requirement","attribute"]
+    },
+    {
+      "key":"inscribable-weapon",
+      "name":"Inscribable weapon",
+      "description":"Voor inscribable skins worden requirement, attribute en inscribable-status bijgehouden. Losse upgrade-mods tellen niet mee in de basisvariant.",
+      "track":["requirement","attribute","inscribable"],
+      "ignore":["prefix","suffix","weapon_mods"],
+      "market_key":["item","requirement","attribute","inscribable"]
+    },
+    {
+      "key":"oldschool-weapon",
+      "name":"Old-school weapon",
+      "description":"Bij OS-wapens zijn requirement en inherente mod essentieel voor prijsvergelijking.",
+      "track":["requirement","attribute","oldschool","inherent","damage"],
+      "ignore":["prefix","suffix"],
+      "market_key":["item","requirement","attribute","oldschool","inherent","damage"]
+    },
+    {
+      "key":"oldschool-shield",
+      "name":"Old-school shield",
+      "description":"Bij OS-shields bepalen requirement, attribute en beide shieldmods samen de marktvariant.",
+      "track":["requirement","attribute","oldschool","shield_mod_1","shield_mod_2","armor"],
+      "ignore":[],
+      "market_key":["item","requirement","attribute","oldschool","shield_mod_1","shield_mod_2","armor"]
+    },
+    {
+      "key":"miniature",
+      "name":"Miniature",
+      "description":"Bij miniatures is vooral dedicated/undedicated bepalend.",
+      "track":["dedication"],
+      "ignore":["requirement","attribute","weapon_mods"],
+      "market_key":["item","dedication"]
+    },
+    {
+      "key":"commodity",
+      "name":"Commodity",
+      "description":"Materialen, consumables en currency-items vergelijken op item en prijs per eenheid.",
+      "track":["quantity","price_basis"],
+      "ignore":["requirement","attribute","weapon_mods"],
+      "market_key":["item"]
+    },
+    {
+      "key":"generic",
+      "name":"Generic",
+      "description":"Veilige fallback wanneer nog geen gespecialiseerd profiel bekend is.",
+      "track":["requirement","attribute","oldschool","inscribable","dedication"],
+      "ignore":[],
+      "market_key":["item","requirement","attribute","oldschool","inscribable","dedication"]
+    }
+  ],
+  "item_profiles": {
+    "bone-dragon-staff":"staff-skin",
+    "eternal-staff":"staff-skin",
+    "ghostly-staff":"inscribable-weapon",
+    "zodiac-staff":"staff-skin",
+    "eternal-bow":"inscribable-weapon",
+    "eternal-blade":"inscribable-weapon",
+    "voltaic-spear":"inscribable-weapon",
+    "chaos-axe":"oldschool-weapon",
+    "shadow-bow":"oldschool-weapon",
+    "colossal-scimitar":"oldschool-weapon",
+    "eternal-shield":"oldschool-shield",
+    "bronze-guardian":"oldschool-shield",
+    "crude-shield":"oldschool-shield",
+    "rift-warden":"miniature",
+    "mad-kings-guard":"miniature",
+    "mallyx":"miniature",
+    "ghostly-hero":"miniature",
+    "gift-of-the-traveler":"commodity",
+    "nicholas-set":"commodity",
+    "armbrace-of-truth":"commodity",
+    "glob-of-ectoplasm":"commodity",
+    "zaishen-key":"commodity",
+    "obsidian-shard":"commodity",
+    "lockpick":"commodity",
+    "conset":"commodity"
+  },
+  "category_profiles": {
+    "miniature":"miniature",
+    "material":"commodity",
+    "currency":"commodity",
+    "consumable":"commodity"
+  }
+}

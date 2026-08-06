@@ -1,0 +1,20 @@
+<?php
+declare(strict_types=1);
+namespace LittyWatch\Market;
+use LittyWatch\Parser\ParsedOffer; use LittyWatch\Parser\ParserEngine; use PDO;
+final class StructuredOfferWriter {
+ public function __construct(private readonly PDO $pdo,private readonly ParserEngine $parser,private readonly ?VariantNormalizer $normalizer=null,private readonly ?OfferLifecycleService $lifecycle=null){}
+ public function parseMessage(int $messageId,string $message,bool $replace=true):int{
+  if($replace)$this->pdo->prepare('DELETE FROM structured_offers WHERE message_id=?')->execute([$messageId]);
+  $sql="INSERT OR IGNORE INTO structured_offers(message_id,trade_type,item,item_key,market_key,normalized_market_key,requirement,attribute_key,attribute_name,is_oldschool,is_inscribable,mods_json,relevant_json,profile_json,quantity,price_amount,price_currency,price_ecto,unit_price_ecto,price_basis,confidence,quality_status,quality_reason,raw_segment,parser_version,parsed_at,lifecycle_status,lifecycle_updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+  $ins=$this->pdo->prepare($sql);$n=0;
+  foreach($this->parser->parse($message) as $offer){$r=$this->map($offer);$ins->execute([$messageId,$r['trade_type'],$r['item'],$r['item_key'],$r['market_key'],$r['normalized_market_key'],$r['requirement'],$r['attribute_key'],$r['attribute_name'],$r['is_oldschool'],$r['is_inscribable'],$r['mods_json'],$r['relevant_json'],$r['profile_json'],$r['quantity'],$r['price_amount'],$r['price_currency'],$r['price_ecto'],$r['unit_price_ecto'],$r['price_basis'],$r['confidence'],$r['quality_status'],$r['quality_reason'],$r['raw_segment'],'v2.2',date(DATE_ATOM),$r['quality_status']==='accepted'?'active':'rejected',date(DATE_ATOM)]);$n+=$ins->rowCount();}
+  if($this->lifecycle!==null)$this->lifecycle->rebuild($messageId);
+  return $n;
+ }
+ private function map(ParsedOffer $o):array{$p=$o->relevantProperties;$m=$o->modifiers;$req=$this->requirement($p['requirement']??$m['requirement']??null);$an=$p['attribute']??$m['attribute']??null;$ak=$p['attribute_key']??($an?$this->key((string)$an):null);$os=$this->truthy($p['oldschool']??$m['oldschool']??false);$insc=$this->truthy($p['inscribable']??$m['inscribable']??false);$profile=$o->profile;$normalizer=$this->normalizer??new VariantNormalizer();$normalized=$normalizer->normalize($o->itemKey,$req,$ak,$an,$os,$insc,$p,$profile);return['trade_type'=>$o->tradeType,'item'=>$o->item,'item_key'=>$normalized['item_key'],'market_key'=>$o->marketKey!==''?$o->marketKey:$o->itemKey,'normalized_market_key'=>$normalized['market_key'],'requirement'=>$req,'attribute_key'=>$normalized['attribute_key'],'attribute_name'=>$an,'is_oldschool'=>$os?1:0,'is_inscribable'=>$insc?1:0,'mods_json'=>$this->json($m),'relevant_json'=>$this->json($p),'profile_json'=>$this->json($profile),'quantity'=>$o->price->quantity,'price_amount'=>$o->price->amount,'price_currency'=>$o->price->currency,'price_ecto'=>$o->price->ectoValue,'unit_price_ecto'=>$o->price->unitEcto,'price_basis'=>$o->price->basis,'confidence'=>$o->confidence,'quality_status'=>$o->status,'quality_reason'=>$o->reason,'raw_segment'=>$o->segment];}
+ private function requirement(mixed $v):?int{if(is_int($v))return$v;if(is_float($v))return(int)$v;if(is_string($v)&&preg_match('/(?:q|r|req)?\s*([0-9]{1,2})/i',$v,$m))return(int)$m[1];return null;}
+ private function truthy(mixed $v):bool{if(is_bool($v))return$v;if(is_numeric($v))return(int)$v===1;return in_array(mb_strtolower((string)$v),['1','true','yes','ja','os','insc','inscribable'],true);}
+ private function key(string $v):string{return trim(preg_replace('/[^a-z0-9]+/','_',mb_strtolower($v))??'');}
+ private function json(array $v):string{return json_encode($v,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?:'{}';}
+}

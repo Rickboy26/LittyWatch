@@ -13,6 +13,8 @@ final class ParserEngine
     private PriceMatcher $priceMatcher;
     private ConfidenceScorer $confidenceScorer;
     private ?CategoryExpander $categoryExpander = null;
+    private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
+    private ?AttributeMatcher $attributeMatcher = null;
 
     public function __construct(Catalog $catalog)
     {
@@ -23,7 +25,11 @@ final class ParserEngine
         $this->modifierMatcher = new ModifierMatcher($catalog);
         $this->priceMatcher = new PriceMatcher();
         $this->confidenceScorer = new ConfidenceScorer($catalog);
-        if ($catalog->knowledgeBase() !== null) $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
+        if ($catalog->knowledgeBase() !== null) {
+            $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
+            $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
+            $this->attributeMatcher = new AttributeMatcher($catalog->knowledgeBase());
+        }
     }
 
     /** @return list<ParsedOffer> */
@@ -97,7 +103,12 @@ final class ParserEngine
             $price = $this->priceMatcher->parse($slice);
             if ($price->amount === null && count($items) === 1) $price = $wholePrice;
             $modifiers = $this->modifierMatcher->match($slice);
+            $attribute = $this->attributeMatcher?->match($slice);
+            if ($attribute !== null) $modifiers['attribute'] = $attribute['name'];
             [$confidence, $status, $reason] = $this->confidenceScorer->score($item, $modifiers, $price, $slice);
+            $profileData = $this->profileResolver?->resolve($item['key'], $item['category'] ?? 'unknown', $modifiers) ?? [
+                'profile' => [], 'relevant' => $modifiers, 'market_key' => $item['key']
+            ];
             $offers[] = new ParsedOffer(
                 $tradeType,
                 $item['item'],
@@ -109,6 +120,9 @@ final class ParserEngine
                 $reason,
                 $slice,
                 $this->tokenizer->tokenize($slice),
+                $profileData['profile'],
+                $profileData['relevant'],
+                $profileData['market_key'],
             );
         }
         return $offers;

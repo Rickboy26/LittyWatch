@@ -42,6 +42,35 @@ CREATE TABLE IF NOT EXISTS kb_groups (
  item_keys_json TEXT NOT NULL DEFAULT '[]',
  source TEXT NOT NULL DEFAULT 'local'
 );
+CREATE TABLE IF NOT EXISTS kb_attributes (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ key TEXT NOT NULL UNIQUE,
+ name TEXT NOT NULL,
+ profession TEXT,
+ aliases_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE TABLE IF NOT EXISTS kb_profiles (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ key TEXT NOT NULL UNIQUE,
+ name TEXT NOT NULL,
+ description TEXT NOT NULL DEFAULT '',
+ track_json TEXT NOT NULL DEFAULT '[]',
+ ignore_json TEXT NOT NULL DEFAULT '[]',
+ market_key_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE TABLE IF NOT EXISTS kb_item_profiles (
+ item_key TEXT PRIMARY KEY,
+ profile_key TEXT NOT NULL,
+ source TEXT NOT NULL DEFAULT 'local',
+ FOREIGN KEY(item_key) REFERENCES kb_items(key) ON DELETE CASCADE,
+ FOREIGN KEY(profile_key) REFERENCES kb_profiles(key) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS kb_category_profiles (
+ category_key TEXT PRIMARY KEY,
+ profile_key TEXT NOT NULL,
+ source TEXT NOT NULL DEFAULT 'local',
+ FOREIGN KEY(profile_key) REFERENCES kb_profiles(key) ON DELETE CASCADE
+);
 CREATE TABLE IF NOT EXISTS kb_import_runs (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  source TEXT NOT NULL,

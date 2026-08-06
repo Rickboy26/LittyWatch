@@ -16,6 +16,9 @@ final class ParsedOffer
         public readonly string $reason,
         public readonly string $segment,
         public readonly array $tokens = [],
+        public readonly array $profile = [],
+        public readonly array $relevantProperties = [],
+        public readonly string $marketKey = '',
     ) {}
 
     public function toArray(): array
@@ -31,6 +34,9 @@ final class ParsedOffer
             'reason' => $this->reason,
             'segment' => $this->segment,
             'tokens' => $this->tokens,
+            'profile' => $this->profile,
+            'relevant_properties' => $this->relevantProperties,
+            'market_key' => $this->marketKey,
         ];
     }
 }

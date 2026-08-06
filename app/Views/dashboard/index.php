@@ -15,6 +15,27 @@
 
 <div class="statusline muted">Laatste dashboardupdate: <span id="lastUpdated">laden…</span> · nieuwste marktbericht: <span id="latestMessage"><?= h((string)($counters['latest_posted_at'] ?? '-')) ?></span></div>
 
+<section class="exchange-panel" aria-labelledby="exchange-title">
+  <div class="exchange-head">
+    <div>
+      <div class="eyebrow">KAMADAN VALUTA</div>
+      <h2 id="exchange-title">Standaard betaalmethodes</h2>
+    </div>
+    <div class="muted exchange-meta">Bijgewerkt: <?= h((string)($exchangeRates['updated_at'] ?? '-')) ?> · <?= h((string)($exchangeRates['source'] ?? '')) ?></div>
+  </div>
+  <div class="exchange-grid" id="exchangeGrid">
+    <?php foreach (($exchangeRates['rates'] ?? []) as $rate): ?>
+      <article class="exchange-card">
+        <span class="muted"><?= h((string)$rate['label']) ?></span>
+        <strong><?= number_format((float)$rate['left_amount'], ((float)$rate['left_amount'] % 1 !== 0.0) ? 2 : 0, ',', '.') ?> <?= h((string)$rate['left_unit']) ?></strong>
+        <span class="exchange-equals">=</span>
+        <strong><?= number_format((float)$rate['right_amount'], ((float)$rate['right_amount'] % 1 !== 0.0) ? 2 : 0, ',', '.') ?> <?= h((string)$rate['right_unit']) ?></strong>
+      </article>
+    <?php endforeach; ?>
+  </div>
+  <p class="muted exchange-note">Indicatieve handelsverhoudingen. Pas <code>config/exchange-rates.php</code> aan wanneer de markt verandert.</p>
+</section>
+
 <div class="cards" id="counterCards">
 <?php foreach (['messages'=>'Berichten','offers'=>'Aanbiedingen','accepted'=>'Geaccepteerd','buy'=>'WTB','sell'=>'WTS','review'=>'Te controleren'] as $key=>$label): ?>
 <div class="card" data-counter="<?= h($key) ?>"><span class="muted"><?= h($label) ?></span><b><?= (int)$counters[$key] ?></b></div>
@@ -70,6 +91,13 @@
     return new URLSearchParams([...data.entries()].filter(([,value]) => value !== ''));
   }
 
+  function renderExchange(exchangeRates) {
+    const grid = document.getElementById('exchangeGrid');
+    if (!grid || !exchangeRates || !Array.isArray(exchangeRates.rates)) return;
+    const format = value => Number(value).toLocaleString('nl-NL', {maximumFractionDigits: 2});
+    grid.innerHTML = exchangeRates.rates.map(rate => `<article class="exchange-card"><span class="muted">${escapeHtml(rate.label)}</span><strong>${format(rate.left_amount)} ${escapeHtml(rate.left_unit)}</strong><span class="exchange-equals">=</span><strong>${format(rate.right_amount)} ${escapeHtml(rate.right_unit)}</strong></article>`).join('');
+  }
+
   function renderCounters(counters) {
     document.querySelectorAll('[data-counter]').forEach(card => {
       const key = card.dataset.counter;
@@ -106,6 +134,7 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
       renderCounters(payload.data.counters);
+      renderExchange(payload.data.exchangeRates);
       renderFlips(payload.data.flips || []);
       renderOffers(payload.data.offers || []);
       lastUpdated.textContent = new Date(payload.generated_at).toLocaleTimeString('nl-NL');
