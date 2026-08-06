@@ -66,7 +66,7 @@ $tabs = [
       <?php if (!$rows): ?><div class="empty-inline">Geen reviewregels gevonden.</div><?php endif; ?>
       <?php foreach ($rows as $row): ?>
         <a class="queue-item <?= $selected && (int)$selected['id'] === (int)$row['id'] ? 'active' : '' ?>"
-           href="/parser-review?tab=queue&status=<?= h($status) ?>&q=<?= rawurlencode($query) ?>&selected=<?= (int)$row['id'] ?>">
+           href="/parser-review?tab=queue&status=<?= h($status) ?>&q=<?= rawurlencode($query) ?>&selected=<?= (int)$row['id'] ?>#review-detail">
           <div class="queue-head">
             <strong><?= h($row['player']) ?></strong>
             <span><?= number_format((float)$row['confidence'] * 100, 0) ?>%</span>
@@ -81,7 +81,7 @@ $tabs = [
     </div>
   </section>
 
-  <section class="review-detail surface">
+  <section id="review-detail" class="review-detail surface">
     <?php if (!$selected): ?>
       <div class="empty-state">
         <h2>Selecteer een bericht</h2>
