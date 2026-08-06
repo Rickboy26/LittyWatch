@@ -1,19 +1,72 @@
-<?php declare(strict_types=1); ?>
-<section class="page-intro"><div class="item-hero"><img class="item-thumb lg" src="/item-image.php?item=<?=rawurlencode((string)$item['item'])?>&size=96" alt=""><div><span class="kicker">ITEMOVERZICHT</span><h1><?=h((string)$item['item'])?></h1><p>Prijsindicaties zijn gebaseerd op advertenties, niet op bevestigde transacties.</p></div></div><a class="btn secondary" href="/items">← Alle items</a></section>
-<div class="statgrid">
-  <div class="stat"><span>Aanbiedingen</span><b><?= (int)$item['offers'] ?></b></div>
-  <div class="stat"><span>WTB</span><b><?= (int)$item['buy_count'] ?></b></div>
-  <div class="stat"><span>WTS</span><b><?= (int)$item['sell_count'] ?></b></div>
-  <div class="stat"><span>Mediaan WTB</span><b><?= $analytics['buy_median']!==null?number_format((float)$analytics['buy_median'],2,',','.').'e':'—' ?></b></div>
-  <div class="stat"><span>Mediaan WTS</span><b><?= $analytics['sell_median']!==null?number_format((float)$analytics['sell_median'],2,',','.').'e':'—' ?></b></div>
-  <div class="stat"><span>Mediaan spread</span><b><?= $analytics['spread']!==null?number_format((float)$analytics['spread'],2,',','.').'e':'—' ?></b></div>
-</div>
+<?php declare(strict_types=1);
+
+$price = static function(mixed $value): string {
+    return $value !== null ? number_format((float)$value, 2, ',', '.') . 'e' : '—';
+};
+$rawPrice = static function(?array $offer) use ($price): string {
+    if ($offer === null) return 'Geen aanbod';
+    if ($offer['unit_price_ecto'] !== null) return $price($offer['unit_price_ecto']) . ' / stuk';
+    if ($offer['price_amount'] !== null) return (string)$offer['price_amount'] . (string)$offer['price_currency'];
+    return 'Prijs op aanvraag';
+};
+?>
+<section class="item-detail-hero panel">
+  <div class="item-identity">
+    <img class="item-art" src="/item-image.php?item=<?= rawurlencode((string)$item['item']) ?>&size=192" alt="<?= h($item['item']) ?>">
+    <div>
+      <span class="kicker">GUILD WARS MARKTITEM</span>
+      <h1><?= h($item['item']) ?></h1>
+      <p>Prijsinformatie uit advertenties in Kamadan. Dit zijn vraag- en aanbodprijzen, geen bevestigde transacties.</p>
+      <div class="item-meta">
+        <span><?= (int)$item['offers'] ?> aanbiedingen</span>
+        <span><?= (int)$analytics['unique_traders'] ?> unieke traders</span>
+        <span>Laatst gezien: <?= h($item['latest_posted_at'] ?: 'onbekend') ?></span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-actions">
+    <a class="btn" href="/watchlist?item=<?= rawurlencode((string)$item['item']) ?>">☆ Watchlist</a>
+    <a class="btn secondary" href="/items">← Alle items</a>
+  </div>
+</section>
+
+<section class="market-price-grid">
+  <article class="price-card buy-card">
+    <span class="price-label">Hoogste WTB</span>
+    <strong><?= $price($item['highest_buy']) ?></strong>
+    <small><?= $bestOffers['buy'] ? 'door ' . h($bestOffers['buy']['player']) : 'Nog geen bruikbare koopprijs' ?></small>
+  </article>
+  <article class="price-card sell-card">
+    <span class="price-label">Laagste WTS</span>
+    <strong><?= $price($item['lowest_sell']) ?></strong>
+    <small><?= $bestOffers['sell'] ? 'door ' . h($bestOffers['sell']['player']) : 'Nog geen bruikbare verkoopprijs' ?></small>
+  </article>
+  <article class="price-card">
+    <span class="price-label">Mediaan WTB</span>
+    <strong><?= $price($analytics['buy_median']) ?></strong>
+    <small><?= (int)$analytics['buy_count'] ?> prijsdatapunten</small>
+  </article>
+  <article class="price-card">
+    <span class="price-label">Mediaan WTS</span>
+    <strong><?= $price($analytics['sell_median']) ?></strong>
+    <small><?= (int)$analytics['sell_count'] ?> prijsdatapunten</small>
+  </article>
+  <article class="price-card spread-card">
+    <span class="price-label">Mediaan spread</span>
+    <strong><?= $price($analytics['spread']) ?></strong>
+    <small>WTB minus WTS</small>
+  </article>
+</section>
 
 <section class="panel chartpanel">
   <div class="top">
-    <div><h2 style="margin-bottom:4px">Marktverloop</h2><p class="muted" style="margin-top:0">Prijs per stuk in ecto, chronologisch op basis van de laatst opgeslagen aanbiedingen.</p></div>
-    <form class="filters" method="get" action="item">
-      <input type="hidden" name="name" value="<?= h((string)$item['item']) ?>">
+    <div>
+      <span class="kicker">PRIJSHISTORIE</span>
+      <h2>Marktverloop</h2>
+      <p class="muted">Chronologisch prijsverloop per stuk in ecto.</p>
+    </div>
+    <form class="filters" method="get" action="/item">
+      <input type="hidden" name="name" value="<?= h($item['item']) ?>">
       <select name="variant">
         <option value="">Alle varianten</option>
         <?php foreach($variants as $variant): $v=(string)$variant['variant']; ?>
@@ -28,25 +81,101 @@
       <button class="btn">Toepassen</button>
     </form>
   </div>
-  <div class="chartlegend"><span><i class="dot buy-dot"></i> WTB</span><span><i class="dot sell-dot"></i> WTS</span><span><?= (int)$analytics['unique_traders'] ?> unieke traders</span></div>
-  <div id="priceChart" class="pricechart" aria-label="Prijsverloop"></div>
-  <div class="analyticsgrid">
-    <div class="callout"><strong>WTB bereik</strong><p><?= $analytics['buy_min']!==null?number_format((float)$analytics['buy_min'],2,',','.').'e – '.number_format((float)$analytics['buy_max'],2,',','.').'e':'Geen prijsdata' ?></p></div>
-    <div class="callout"><strong>WTS bereik</strong><p><?= $analytics['sell_min']!==null?number_format((float)$analytics['sell_min'],2,',','.').'e – '.number_format((float)$analytics['sell_max'],2,',','.').'e':'Geen prijsdata' ?></p></div>
-    <div class="callout"><strong>Datapunten</strong><p><?= (int)$analytics['buy_count'] ?> WTB · <?= (int)$analytics['sell_count'] ?> WTS</p></div>
+  <div class="chartlegend">
+    <span><i class="dot buy-dot"></i> WTB</span>
+    <span><i class="dot sell-dot"></i> WTS</span>
+    <span><?= (int)$analytics['unique_traders'] ?> unieke traders</span>
   </div>
+  <div id="priceChart" class="pricechart" aria-label="Prijsverloop"></div>
 </section>
 
-<div class="twocol">
-<section class="panel"><h2>Varianten</h2><div class="tablewrap"><table><thead><tr><th>Variant</th><th>Offers</th><th>WTB</th><th>WTS</th><th>Gem. WTB</th><th>Gem. WTS</th></tr></thead><tbody>
-<?php foreach($variants as $variant): ?><tr><td><a class="itemlink" href="item?name=<?= rawurlencode((string)$item['item']) ?>&variant=<?= rawurlencode((string)$variant['variant']) ?>&scope=<?= h($scope) ?>"><?= h((string)$variant['variant']) ?></a></td><td><?= (int)$variant['offers'] ?></td><td><?= (int)$variant['buy_count'] ?></td><td><?= (int)$variant['sell_count'] ?></td><td><?= $variant['avg_buy']!==null?number_format((float)$variant['avg_buy'],2,',','.').'e':'—' ?></td><td><?= $variant['avg_sell']!==null?number_format((float)$variant['avg_sell'],2,',','.').'e':'—' ?></td></tr><?php endforeach; ?>
-</tbody></table></div></section>
-<section class="panel"><h2>Snelle beoordeling</h2><div class="callout"><strong>Vraagzijde</strong><p><?= (int)$item['buy_count'] ?> koopadvertenties geregistreerd.</p></div><div class="callout"><strong>Aanbodzijde</strong><p><?= (int)$item['sell_count'] ?> verkoopadvertenties geregistreerd.</p></div><div class="callout"><strong>Datakwaliteit</strong><p><?= (int)$item['review_count'] ?> aanbiedingen staan nog ter controle.</p></div></section>
+<div class="market-columns">
+  <section class="panel offer-side buy-side">
+    <div class="section-heading">
+      <div><span class="kicker">KOPERS</span><h2>Actieve WTB</h2></div>
+      <span class="count-pill"><?= count($buyOffers) ?></span>
+    </div>
+    <?php if (!$buyOffers): ?>
+      <div class="empty-inline">Nog geen actieve koopadvertenties.</div>
+    <?php else: ?>
+      <div class="offer-list">
+        <?php foreach ($buyOffers as $offer): ?>
+          <article class="compact-offer">
+            <div><strong><?= h($offer['player']) ?></strong><small><?= h($offer['posted_at']) ?></small></div>
+            <div class="compact-price"><?= $rawPrice($offer) ?></div>
+            <code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+  </section>
+
+  <section class="panel offer-side sell-side">
+    <div class="section-heading">
+      <div><span class="kicker">VERKOPERS</span><h2>Actieve WTS</h2></div>
+      <span class="count-pill"><?= count($sellOffers) ?></span>
+    </div>
+    <?php if (!$sellOffers): ?>
+      <div class="empty-inline">Nog geen actieve verkoopadvertenties.</div>
+    <?php else: ?>
+      <div class="offer-list">
+        <?php foreach ($sellOffers as $offer): ?>
+          <article class="compact-offer">
+            <div><strong><?= h($offer['player']) ?></strong><small><?= h($offer['posted_at']) ?></small></div>
+            <div class="compact-price"><?= $rawPrice($offer) ?></div>
+            <code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+  </section>
 </div>
 
-<section class="panel"><h2>Recente aanbiedingen</h2><div class="tablewrap"><table><thead><tr><th>Type</th><th>Variant</th><th>Prijs</th><th>Speler</th><th>Advertentie</th></tr></thead><tbody>
-<?php foreach($offers as $offer): ?><tr><td><span class="badge <?= h((string)$offer['trade_type']) ?>"><?= strtoupper(h((string)$offer['trade_type'])) ?></span></td><td><?= h((string)($offer['details'] ?: 'Standaard')) ?><div class="muted"><?= (int)round((float)$offer['confidence']*100) ?>% · <?= h((string)$offer['quality_status']) ?></div></td><td><?= $offer['price_amount']!==null?h((string)$offer['price_amount']).h((string)$offer['price_currency']):'—' ?><?php if($offer['unit_price_ecto']!==null): ?><div class="muted"><?= number_format((float)$offer['unit_price_ecto'],2,',','.') ?>e/stuk</div><?php endif; ?></td><td><?= h((string)$offer['player']) ?><div class="muted"><?= h((string)$offer['posted_at']) ?></div></td><td><code><?= h((string)($offer['raw_segment'] ?: $offer['message'])) ?></code></td></tr><?php endforeach; ?>
-</tbody></table></div></section>
+<div class="twocol">
+  <section class="panel">
+    <div class="section-heading"><div><span class="kicker">VARIANTEN</span><h2>Marktvarianten</h2></div></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Variant</th><th>Offers</th><th>WTB</th><th>WTS</th><th>Gem. WTB</th><th>Gem. WTS</th></tr></thead>
+      <tbody>
+      <?php foreach($variants as $variant): ?>
+        <tr>
+          <td><a class="itemlink" href="/item?name=<?= rawurlencode((string)$item['item']) ?>&variant=<?= rawurlencode((string)$variant['variant']) ?>&scope=<?= h($scope) ?>"><?= h($variant['variant']) ?></a></td>
+          <td><?= (int)$variant['offers'] ?></td>
+          <td><?= (int)$variant['buy_count'] ?></td>
+          <td><?= (int)$variant['sell_count'] ?></td>
+          <td><?= $price($variant['avg_buy']) ?></td>
+          <td><?= $price($variant['avg_sell']) ?></td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table></div>
+  </section>
+  <section class="panel">
+    <span class="kicker">DATAKWALITEIT</span>
+    <h2>Snelle beoordeling</h2>
+    <div class="callout"><strong>Vraagzijde</strong><p><?= (int)$item['buy_count'] ?> koopadvertenties geregistreerd.</p></div>
+    <div class="callout"><strong>Aanbodzijde</strong><p><?= (int)$item['sell_count'] ?> verkoopadvertenties geregistreerd.</p></div>
+    <div class="callout"><strong>Controle</strong><p><?= (int)$item['review_count'] ?> aanbiedingen wachten nog op controle.</p></div>
+  </section>
+</div>
+
+<details class="panel raw-offers">
+  <summary>Alle recente aanbiedingen tonen (<?= count($offers) ?>)</summary>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Type</th><th>Variant</th><th>Prijs</th><th>Speler</th><th>Advertentie</th></tr></thead>
+    <tbody>
+    <?php foreach($offers as $offer): ?>
+      <tr>
+        <td><span class="badge <?= h($offer['trade_type']) ?>"><?= strtoupper(h($offer['trade_type'])) ?></span></td>
+        <td><?= h($offer['details'] ?: 'Standaard') ?><div class="muted"><?= (int)round((float)$offer['confidence']*100) ?>% · <?= h($offer['quality_status']) ?></div></td>
+        <td><?= $offer['price_amount']!==null ? h($offer['price_amount']).h($offer['price_currency']) : '—' ?><?php if($offer['unit_price_ecto']!==null): ?><div class="muted"><?= $price($offer['unit_price_ecto']) ?>/stuk</div><?php endif; ?></td>
+        <td><?= h($offer['player']) ?><div class="muted"><?= h($offer['posted_at']) ?></div></td>
+        <td><code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code></td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table></div>
+</details>
 
 <script>
 (() => {
@@ -70,7 +199,8 @@
     const value=min+(max-min)*(4-i)/4, yy=pad.t+i*(height-pad.t-pad.b)/4;
     svg += `<line x1="${pad.l}" y1="${yy}" x2="${width-pad.r}" y2="${yy}" class="gridline"/><text x="${pad.l-10}" y="${yy+4}" text-anchor="end" class="axislabel">${value.toFixed(1)}e</text>`;
   }
-  const groups={buy:[],sell:[]}; points.forEach((p,i)=>{ if(groups[p.type]) groups[p.type].push([x(i),y(Number(p.price)),p]); });
+  const groups={buy:[],sell:[]};
+  points.forEach((p,i)=>{ if(groups[p.type]) groups[p.type].push([x(i),y(Number(p.price)),p]); });
   for(const type of ['buy','sell']){
     if(groups[type].length>1) svg += `<polyline points="${groups[type].map(v=>v[0]+','+v[1]).join(' ')}" class="chartline ${type}-line"/>`;
     for(const [cx,cy,p] of groups[type]) svg += `<circle cx="${cx}" cy="${cy}" r="5" class="chartpoint ${type}-point"><title>${esc(type.toUpperCase())}: ${Number(p.price).toFixed(2)}e · ${esc(p.player)}</title></circle>`;

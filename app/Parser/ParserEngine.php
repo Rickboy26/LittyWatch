@@ -12,6 +12,7 @@ final class ParserEngine
     private ModifierMatcher $modifierMatcher;
     private PriceMatcher $priceMatcher;
     private ConfidenceScorer $confidenceScorer;
+    private TradeNotationCleaner $tradeNotationCleaner;
     private ?CategoryExpander $categoryExpander = null;
     private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
     private ?AttributeMatcher $attributeMatcher = null;
@@ -25,6 +26,7 @@ final class ParserEngine
         $this->modifierMatcher = new ModifierMatcher($catalog);
         $this->priceMatcher = new PriceMatcher();
         $this->confidenceScorer = new ConfidenceScorer($catalog);
+        $this->tradeNotationCleaner = new TradeNotationCleaner();
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
@@ -140,8 +142,8 @@ final class ParserEngine
     {
         $name = preg_replace('/\b(?:wtb|wts|wtt|buying|selling)\b/i', '', $segment) ?? $segment;
         if ($price->raw !== null) $name = str_replace($price->raw, '', $name);
-        $name = preg_replace('/\b(?:pm|wsp|offer|offers|each|ea)\b.*$/i', '', $name) ?? $name;
-        $name = trim($name, " \t\n\r\0\x0B-:;,/|<>+=");
+        $name = preg_replace('/\b(?:pm|wsp|offer|offers)\b.*$/i', '', $name) ?? $name;
+        $name = $this->tradeNotationCleaner->cleanItemCandidate($name);
         return mb_substr($name !== '' ? $name : 'Unknown', 0, 120);
     }
 

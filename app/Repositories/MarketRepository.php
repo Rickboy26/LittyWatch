@@ -197,4 +197,57 @@ final class MarketRepository
     }
 
 
+
+    /** @return list<array<string,mixed>> */
+    public function activeOffersForItem(string $name, string $type, int $limit = 30): array
+    {
+        if (!in_array($type, ['buy', 'sell'], true)) {
+            return [];
+        }
+
+        $order = $type === 'buy' ? 'o.unit_price_ecto DESC' : 'o.unit_price_ecto ASC';
+        $statement = $this->pdo->prepare(
+            "SELECT o.*,m.player,m.message,m.posted_at
+             FROM offers o
+             JOIN messages m ON m.id=o.message_id
+             WHERE o.item=:item
+               AND o.trade_type=:type
+               AND o.quality_status='accepted'
+             ORDER BY CASE WHEN o.unit_price_ecto IS NULL THEN 1 ELSE 0 END,
+                      {$order},
+                      datetime(m.posted_at) DESC,
+                      o.id DESC
+             LIMIT " . max(1, min(100, $limit))
+        );
+        $statement->execute([':item' => $name, ':type' => $type]);
+        return $statement->fetchAll();
+    }
+
+    /** @return array{buy:?array,sell:?array} */
+    public function bestOffersForItem(string $name): array
+    {
+        $buy = $this->activeOffersForItem($name, 'buy', 1);
+        $sell = $this->activeOffersForItem($name, 'sell', 1);
+        return [
+            'buy' => $buy[0] ?? null,
+            'sell' => $sell[0] ?? null,
+        ];
+    }
+
+    public function canonicalItemName(string $name): ?string
+    {
+        $statement = $this->pdo->prepare(
+            "SELECT item
+             FROM offers
+             WHERE quality_status='accepted'
+               AND lower(item)=lower(:item)
+             GROUP BY item
+             ORDER BY COUNT(*) DESC
+             LIMIT 1"
+        );
+        $statement->execute([':item' => trim($name)]);
+        $value = $statement->fetchColumn();
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
 }

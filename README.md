@@ -1,3 +1,7 @@
+# LittyWatch V4.1
+
+Zie `README-V4.1.md` voor de parserfix en de vernieuwde itemdetailpagina.
+
 # LittyWatch V4 Rewrite
 
 Deze versie heeft één router, één layout en voor alle zichtbare hoofdonderdelen eigen controllers en views. De oude `app/Pages` frontend is verwijderd. Bestaande database, parser, repositories, cronjobs en onderhoudsfuncties zijn behouden.

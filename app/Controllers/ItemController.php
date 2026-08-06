@@ -34,10 +34,15 @@ final class ItemController
             return Response::html('<h1>Item ontbreekt</h1><p>Geef een itemnaam mee.</p>', 400);
         }
 
-        $item = $this->market->itemSummary($name);
+        $canonicalName = $this->market->canonicalItemName($name) ?? $name;
+        $item = $this->market->itemSummary($canonicalName);
         if ($item === null) {
-            return Response::html('<h1>Item niet gevonden</h1><p>Er zijn nog geen aanbiedingen voor dit item.</p>', 404);
+            return Response::html($this->view->render('items/not-found', [
+                'title' => 'Item niet gevonden · LittyWatch',
+                'name' => $name,
+            ]), 404);
         }
+        $name = (string)$item['item'];
 
         $scope = $request->string('scope');
         if (!in_array($scope, ['30','100','all'], true)) $scope = '100';
@@ -48,6 +53,9 @@ final class ItemController
             'title' => $name.' · LittyWatch',
             'item' => $item,
             'offers' => $this->market->offersForItem($name, 200),
+            'buyOffers' => $this->market->activeOffersForItem($name, 'buy', 30),
+            'sellOffers' => $this->market->activeOffersForItem($name, 'sell', 30),
+            'bestOffers' => $this->market->bestOffersForItem($name),
             'variants' => $variants,
             'scope' => $scope,
             'selectedVariant' => $variant,

@@ -36,15 +36,27 @@ final class MaintenanceController
         $lifecycle = new OfferLifecycleService($this->pdo);
         $writer = new StructuredOfferWriter($this->pdo, parserV2(), new VariantNormalizer(), null);
         $rows = $this->pdo->query('SELECT id, message FROM messages ORDER BY id')->fetchAll();
-        $created = 0;
+        $legacyCreated = 0;
+        $structuredCreated = 0;
+
         foreach ($rows as $row) {
-            $created += $writer->parseMessage((int)$row['id'], (string)$row['message'], true);
+            $messageId = (int)$row['id'];
+            $message = (string)$row['message'];
+
+            // Rebuild the table used by Dashboard, Items and item detail.
+            $legacyCreated += saveOffers($messageId, $message);
+
+            // Rebuild the structured market/intelligence shadow table.
+            $structuredCreated += $writer->parseMessage($messageId, $message, true);
         }
-        return $this->resultPage('Parser v2 opnieuw uitgevoerd', [
+
+        return $this->resultPage('Alle aanbiedingen opnieuw geparsed', [
             'messages_reparsed' => count($rows),
-            'structured_offers_created' => $created,
+            'offers_created' => $legacyCreated,
+            'structured_offers_created' => $structuredCreated,
             'lifecycle' => $lifecycle->rebuild(),
-        ], '/structured-offers');
+            'parser_fix' => 'Stacknotatie wordt niet meer onderdeel van de itemnaam.',
+        ], '/items');
     }
 
     public function marketMaintenance(Request $request): Response

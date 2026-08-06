@@ -214,8 +214,8 @@ function fallbackItem(string $segment): array {
     $clean=norm($segment);$details=extractDetails($clean);
     $fallback=preg_replace('/\b(wtb|wts|wtt|buying|selling)\b/i','',$clean);
     $fallback=preg_replace('/[0-9]+(?:[.,][0-9]+)?\s*(?:a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)(?:\b|\/|$)/i','',$fallback??'');
-    $fallback=preg_replace('/\b(pm|offer|offers|each|ea|per)\b.*$/i','',$fallback??'');
-    $fallback=trim($fallback," \t\n\r\0\x0B-:;,/|<>+=");
+    $fallback=preg_replace('/\b(pm|wsp|offer|offers)\b.*$/i','',$fallback??'');
+    $fallback=(new \LittyWatch\Parser\TradeNotationCleaner())->cleanItemCandidate((string)$fallback);
     return [$fallback!==''?mb_substr($fallback,0,100):'Onbekend',$details,0.45];
 }
 
