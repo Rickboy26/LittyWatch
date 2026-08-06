@@ -5,6 +5,23 @@ RewriteEngine On
   Require all denied
 </FilesMatch>
 
+# Oude versie-URL's bestaan niet meer; stuur bookmarks permanent door.
+Redirect 301 /v2.php /
+Redirect 301 /v2-hub.php /
+Redirect 301 /v2-live.php /live
+Redirect 301 /v2-markets.php /markets
+Redirect 301 /v2-market.php /market
+Redirect 301 /v2-items.php /items
+Redirect 301 /v2-item.php /item
+Redirect 301 /v2-traders.php /traders
+Redirect 301 /v2-trader.php /trader
+Redirect 301 /v2-trends.php /trends
+Redirect 301 /v2-intelligence.php /intelligence
+Redirect 301 /v2-watchlist.php /watchlist
+Redirect 301 /v2-alerts.php /alerts
+Redirect 301 /v3-assets.php /assets
+Redirect 301 /v2-health.php /system
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]

@@ -1,12 +1,25 @@
-LittyWatch V2.8.1 SQLite fix
+# LittyWatch
 
-Deze bestanden lossen:
-Cannot add a column with non-constant default
+LittyWatch is één Guild Wars 1 market-intelligence website.
 
-op bij SQLite.
+## Publieke routes
 
-Upload v2-alerts-install.php en voer hem opnieuw uit.
+- `/` Dashboard
+- `/live` Live feed
+- `/markets` Markten
+- `/market?key=...` Marktvariant
+- `/items` Items
+- `/item?key=...` Item
+- `/traders` Traders
+- `/trader?player=...` Traderprofiel
+- `/trends` Trends
+- `/intelligence` Intelligence
+- `/watchlist` Watchlist
+- `/alerts` Alerts
+- `/assets` Lokale game-assets
+- `/system` Systeemstatus
+- `/admin` Beheer
 
-Let op:
-Dit bestand vervangt alleen de migratie. Als jouw repository een afwijkende
-Schema.php heeft, behoud die versie.
+Er bestaan geen publieke V2/V3-versiepagina’s meer. Oude URL’s worden alleen permanent doorgestuurd naar de nieuwe route.
+
+Onderhoudsscripts staan onder `tools/maintenance`; periodieke taken staan onder `cron`.

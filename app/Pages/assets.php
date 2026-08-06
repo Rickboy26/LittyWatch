@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/app/V2/Database.php';
-require __DIR__ . '/app/V2/Assets/AssetCatalogService.php';
+$root = dirname($root, 2);
+
+require $root . '/app/V2/Database.php';
+require $root . '/app/V2/Assets/AssetCatalogService.php';
 
 use LittyWatch\V2\Assets\AssetCatalogService;
 use LittyWatch\V2\Database;
 
-function h(mixed $value): string { return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function uploadError(int $code): string {
     return match ($code) {
         UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Het bestand is groter dan de PHP-uploadlimiet.',
@@ -21,8 +22,8 @@ function uploadError(int $code): string {
     };
 }
 
-$pdo = Database::connect(__DIR__);
-$service = new AssetCatalogService($pdo, __DIR__);
+$pdo = Database::connect($root);
+$service = new AssetCatalogService($pdo, $root);
 $service->install();
 $message = null;
 $error = null;
@@ -76,15 +77,15 @@ $postMax = ini_get('post_max_size') ?: '?';
 <html lang="nl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LittyWatch V3.0 Game Assets</title>
-<link rel="stylesheet" href="/assets/v2/platform.css">
+<title>LittyWatch  Game Assets</title>
+<link rel="stylesheet" href="/assets/v2/platform.css?v=310">
 <style>
 :root{color-scheme:dark;--bg:#080b10;--panel:#121824;--line:#293548;--text:#eef2f8;--muted:#9eabba;--gold:#d9b870;--green:#6bdba6;--red:#ef9191}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#1b2738 0,#080b10 44%);color:var(--text);font:14px/1.45 Inter,system-ui,sans-serif}.wrap{max-width:1580px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;gap:20px}.eyebrow{font-size:11px;color:var(--gold);font-weight:900;letter-spacing:.16em}h1{margin:4px 0}.muted{color:var(--muted)}nav a{color:var(--muted);text-decoration:none;margin-left:14px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin:20px 0}.card,.panel{background:rgba(18,24,36,.95);border:1px solid var(--line);border-radius:15px}.card{padding:15px}.card small{color:var(--muted)}.card strong{display:block;font-size:23px;margin-top:5px}.panel{padding:16px;margin-bottom:16px}.forms{display:grid;grid-template-columns:1fr 1fr;gap:16px}.form{display:grid;gap:10px}.form input,.form select,.form button,.toolbar input,.toolbar select,.toolbar button{border:1px solid var(--line);border-radius:10px;background:#0e141d;color:var(--text);padding:11px}.form button,.toolbar button{background:linear-gradient(135deg,#735a2b,#b68d46);font-weight:850;cursor:pointer}.message{padding:12px 14px;border-radius:10px;margin-bottom:16px}.ok{background:rgba(107,219,166,.12);color:var(--green)}.error{background:rgba(239,145,145,.12);color:var(--red)}.toolbar{display:flex;gap:8px;margin-bottom:16px}.toolbar input{flex:1}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:12px}.asset{padding:12px}.asset img{width:76px;height:76px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#090e15;image-rendering:auto}.asset-head{display:flex;gap:12px;align-items:center}.asset strong{display:block}.asset small{color:var(--muted);display:block}.link-form{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:11px}.link-form input,.link-form button{min-width:0;border:1px solid var(--line);border-radius:8px;background:#0e141d;color:var(--text);padding:8px}.link-form button{background:#28384d;font-weight:800}.linked{color:var(--green);margin-top:9px}.imports{width:100%;border-collapse:collapse}.imports td,.imports th{padding:9px;border-bottom:1px solid var(--line);text-align:left}.pager{display:flex;justify-content:center;gap:10px;margin:20px}.pager a{color:var(--text);text-decoration:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px}@media(max-width:800px){.wrap{padding:17px}.top{flex-direction:column}.stats,.forms{grid-template-columns:1fr 1fr}.toolbar{flex-direction:column}}@media(max-width:520px){.stats,.forms{grid-template-columns:1fr}}
 </style>
 </head>
 <body><main class="wrap">
-<header class="top"><div><div class="eyebrow">LITTYWATCH V3.0</div><h1>Guild Wars Asset Catalog</h1><div class="muted">Importeer originele Gw.dat-iconen en koppel ze aan bestaande marktitems.</div></div><nav><a href="/v2-hub.php">Command Center</a><a href="/v2-items.php">Items</a><a href="/v2-health.php">Systeem</a></nav></header>
+<header class="top"><div><div class="eyebrow">LITTYWATCH </div><h1>Guild Wars Asset Catalog</h1><div class="muted">Importeer originele Gw.dat-iconen en koppel ze aan bestaande marktitems.</div></div><nav><a href="/">Command Center</a><a href="/items">Items</a><a href="/system">Systeem</a></nav></header>
 <section class="stats">
 <article class="card"><small>Imports</small><strong><?= (int)$summary['imports'] ?></strong></article>
 <article class="card"><small>Iconen</small><strong><?= number_format((int)$summary['assets'],0,',','.') ?></strong></article>
@@ -115,4 +116,5 @@ $postMax = ini_get('post_max_size') ?: '?';
 </section>
 <div class="pager"><?php if($page>1):?><a href="?q=<?=rawurlencode($query)?>&filter=<?=h($filter)?>&page=<?=$page-1?>">← Vorige</a><?php endif;?><a href="?q=<?=rawurlencode($query)?>&filter=<?=h($filter)?>&page=<?=$page+1?>">Volgende →</a></div>
 <?php if($imports):?><section class="panel"><h2>Recente imports</h2><div style="overflow:auto"><table class="imports"><tr><th>Bestand</th><th>Versie</th><th>Geïmporteerd</th><th>Overgeslagen</th><th>Datum</th></tr><?php foreach($imports as $import):?><tr><td><?=h($import['source_name'])?></td><td><?=h($import['extractor_version']?:'—')?></td><td><?=(int)$import['imported_icons']?></td><td><?=(int)$import['skipped_icons']?></td><td><?=h($import['created_at'])?></td></tr><?php endforeach;?></table></div></section><?php endif;?>
-</main></body></html>
+</main><script src="/assets/v2/platform.js?v=310"></script>
+</body></html>

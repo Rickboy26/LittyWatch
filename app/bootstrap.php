@@ -6,6 +6,7 @@ use LittyWatch\Controllers\AdminController;
 use LittyWatch\Controllers\DashboardController;
 use LittyWatch\Controllers\ItemController;
 use LittyWatch\Controllers\KnowledgeController;
+use LittyWatch\Controllers\PageController;
 use LittyWatch\Controllers\StructuredOfferController;
 use LittyWatch\Controllers\ParserReviewController;
 use LittyWatch\Controllers\StructuredMarketController;
@@ -50,6 +51,7 @@ $container->singleton(ItemController::class, fn(Container $c) => new ItemControl
 $container->singleton(KnowledgeBase::class, function(Container $c){ Schema::install($c->get('pdo')); return new KnowledgeBase($c->get('pdo')); });
 $container->singleton(KnowledgeControllerData::class, fn(Container $c) => new KnowledgeControllerData($c->get(KnowledgeBase::class)));
 $container->singleton(KnowledgeController::class, fn(Container $c) => new KnowledgeController($c->get(KnowledgeControllerData::class), $c->get(View::class)));
+$container->singleton(PageController::class, fn() => new PageController(dirname(__DIR__)));
 
 $router = new Router();
 $router->get('/', fn($request) => $container->get(DashboardController::class)->index($request));
@@ -64,5 +66,20 @@ $router->get('/parser-review/export', fn($request) => $container->get(ParserRevi
 $router->get('/markets', fn($request) => $container->get(StructuredMarketController::class)->index($request));
 $router->get('/market', fn($request) => $container->get(StructuredMarketController::class)->show($request));
 $router->get('/admin', fn($request) => $container->get(AdminController::class)->index($request));
+
+$router->get('/live', fn($request) => $container->get(PageController::class)->show($request, 'live'));
+$router->get('/traders', fn($request) => $container->get(PageController::class)->show($request, 'traders'));
+$router->get('/trader', fn($request) => $container->get(PageController::class)->show($request, 'trader'));
+$router->get('/trends', fn($request) => $container->get(PageController::class)->show($request, 'trends'));
+$router->get('/intelligence', fn($request) => $container->get(PageController::class)->show($request, 'intelligence'));
+$router->post('/intelligence', fn($request) => $container->get(PageController::class)->show($request, 'intelligence'));
+$router->get('/watchlist', fn($request) => $container->get(PageController::class)->show($request, 'watchlist'));
+$router->post('/watchlist', fn($request) => $container->get(PageController::class)->show($request, 'watchlist'));
+$router->get('/alerts', fn($request) => $container->get(PageController::class)->show($request, 'alerts'));
+$router->post('/alerts', fn($request) => $container->get(PageController::class)->show($request, 'alerts'));
+$router->get('/assets', fn($request) => $container->get(PageController::class)->show($request, 'assets'));
+$router->post('/assets', fn($request) => $container->get(PageController::class)->show($request, 'assets'));
+$router->get('/system', fn($request) => $container->get(PageController::class)->show($request, 'system'));
+
 
 return new Application($container, $router);

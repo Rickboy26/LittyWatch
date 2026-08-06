@@ -59,7 +59,7 @@ SQL);
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_metadata_name ON item_metadata(canonical_name)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_wiki_sync_item ON wiki_sync_log(item_key, created_at)');
 
-        // V3.0 local Gw.dat asset catalog.
+        //  local Gw.dat asset catalog.
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS item_assets (id INTEGER PRIMARY KEY AUTOINCREMENT, import_id INTEGER NOT NULL, dat_file_id INTEGER, source_filename TEXT NOT NULL, relative_path TEXT NOT NULL, web_path TEXT NOT NULL, sha256 TEXT NOT NULL UNIQUE, bytes INTEGER, width INTEGER, height INTEGER, source_model_id INTEGER, source_name TEXT, source_type TEXT, source_rarity TEXT, linked_item_key TEXT, linked_item_name TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_assets_link ON item_assets(linked_item_key)');
     }
