@@ -10,7 +10,7 @@ var side=document.createElement('aside');side.className='lw-sidebar';side.innerH
 <span class="lw-nav-label">Markt</span><nav class="lw-nav">
 <a href="/"><i>⌂</i>Dashboard</a><a href="/live"><i>●</i>Live feed</a><a href="/markets"><i>◆</i>Markten</a><a href="/items"><i>◇</i>Items</a><a href="/traders"><i>♟</i>Traders</a><a href="/trends"><i>↗</i>Trends</a><a href="/intelligence"><i>✦</i>Intelligence</a></nav>
 <span class="lw-nav-label">Persoonlijk</span><nav class="lw-nav"><a href="/watchlist"><i>★</i>Watchlist</a><a href="/alerts"><i>!</i>Alerts</a></nav>
-<span class="lw-nav-label">Beheer</span><nav class="lw-nav"><a href="/assets"><i>▧</i>Game assets</a><a href="/system"><i>⚙</i>Systeem</a><a href="/admin"><i>⌘</i>Beheer</a></nav>
+<span class="lw-nav-label">Beheer</span><nav class="lw-nav"><a href="/game-assets"><i>▧</i>Game assets</a><a href="/system"><i>⚙</i>Systeem</a><a href="/admin"><i>⌘</i>Beheer</a></nav>
 <div class="lw-side-foot">LittyWatch<br>Eén platform · één interface</div>`;
 var area=document.createElement('div');area.className='lw-main-area';
 var top=document.createElement('header');top.className='lw-topbar';

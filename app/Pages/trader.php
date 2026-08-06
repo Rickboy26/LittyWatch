@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-$root = dirname($root, 2);
+$root = dirname(__DIR__, 2);
 
 require $root . '/app/V2/Database.php';
 require $root . '/app/V2/Intelligence/CurrencyFormatter.php';

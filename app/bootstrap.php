@@ -77,8 +77,8 @@ $router->get('/watchlist', fn($request) => $container->get(PageController::class
 $router->post('/watchlist', fn($request) => $container->get(PageController::class)->show($request, 'watchlist'));
 $router->get('/alerts', fn($request) => $container->get(PageController::class)->show($request, 'alerts'));
 $router->post('/alerts', fn($request) => $container->get(PageController::class)->show($request, 'alerts'));
-$router->get('/assets', fn($request) => $container->get(PageController::class)->show($request, 'assets'));
-$router->post('/assets', fn($request) => $container->get(PageController::class)->show($request, 'assets'));
+$router->get('/game-assets', fn($request) => $container->get(PageController::class)->show($request, 'assets'));
+$router->post('/game-assets', fn($request) => $container->get(PageController::class)->show($request, 'assets'));
 $router->get('/system', fn($request) => $container->get(PageController::class)->show($request, 'system'));
 
 

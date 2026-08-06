@@ -19,7 +19,7 @@ Redirect 301 /v2-trends.php /trends
 Redirect 301 /v2-intelligence.php /intelligence
 Redirect 301 /v2-watchlist.php /watchlist
 Redirect 301 /v2-alerts.php /alerts
-Redirect 301 /v3-assets.php /assets
+Redirect 301 /v3-assets.php /game-assets
 Redirect 301 /v2-health.php /system
 
 RewriteCond %{REQUEST_FILENAME} !-f
