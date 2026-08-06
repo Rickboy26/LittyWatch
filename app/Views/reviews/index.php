@@ -44,9 +44,64 @@ $tabs = [
   <?php endforeach; ?>
 </nav>
 
+
+<style>
+#lw-review-workbench{
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:flex-start !important;
+  gap:16px !important;
+  width:100% !important;
+  min-width:0 !important;
+}
+#lw-review-workbench > #lw-review-list{
+  flex:0 0 390px !important;
+  width:390px !important;
+  min-width:320px !important;
+  max-width:390px !important;
+  position:sticky !important;
+  top:86px !important;
+  max-height:calc(100vh - 105px) !important;
+  overflow:hidden !important;
+}
+#lw-review-workbench > #lw-review-detail{
+  flex:1 1 auto !important;
+  width:auto !important;
+  min-width:0 !important;
+  position:sticky !important;
+  top:86px !important;
+  max-height:calc(100vh - 105px) !important;
+  overflow:auto !important;
+}
+#lw-review-list .lw-review-items{
+  max-height:calc(100vh - 245px) !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+}
+@media (max-width:760px){
+  #lw-review-workbench{
+    display:block !important;
+  }
+  #lw-review-workbench > #lw-review-list,
+  #lw-review-workbench > #lw-review-detail{
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    position:static !important;
+    max-height:none !important;
+  }
+  #lw-review-workbench > #lw-review-detail{
+    margin-top:16px !important;
+  }
+  #lw-review-list .lw-review-items{
+    max-height:420px !important;
+  }
+}
+</style>
+
 <?php if ($tab === 'queue'): ?>
-<div class="lw-review-split">
-  <section class="lw-review-list-panel surface">
+<div id="lw-review-workbench" class="lw-review-split">
+  <section id="lw-review-list" class="lw-review-list-panel surface">
     <form class="lw-review-filter" method="get">
       <input type="hidden" name="tab" value="queue">
       <select name="status">
@@ -66,7 +121,7 @@ $tabs = [
       <?php if (!$rows): ?><div class="empty-inline">Geen reviewregels gevonden.</div><?php endif; ?>
       <?php foreach ($rows as $row): ?>
         <a class="lw-review-item <?= $selected && (int)$selected['id'] === (int)$row['id'] ? 'active' : '' ?>"
-           href="/parser-review?tab=queue&status=<?= h($status) ?>&q=<?= rawurlencode($query) ?>&selected=<?= (int)$row['id'] ?>#lw-review-detail-panel">
+           href="/parser-review?tab=queue&status=<?= h($status) ?>&q=<?= rawurlencode($query) ?>&selected=<?= (int)$row['id'] ?>">
           <div class="queue-head">
             <strong><?= h($row['player']) ?></strong>
             <span><?= number_format((float)$row['confidence'] * 100, 0) ?>%</span>
@@ -81,7 +136,7 @@ $tabs = [
     </div>
   </section>
 
-  <section id="lw-review-detail-panel" class="lw-review-detail-panel surface">
+  <section id="lw-review-detail" class="lw-review-detail-panel surface">
     <?php if (!$selected): ?>
       <div class="empty-state">
         <h2>Selecteer een bericht</h2>
@@ -457,16 +512,4 @@ $tabs = [
 })();
 </script>
 
-<script>
-(() => {
-  const selected = document.querySelector('.lw-review-item.active');
-  const detail = document.getElementById('review-detail');
 
-  // Only jump on genuinely narrow screens.
-  if (selected && detail && window.matchMedia('(max-width: 720px)').matches) {
-    requestAnimationFrame(() => {
-      detail.scrollIntoView({behavior: 'smooth', block: 'start'});
-    });
-  }
-})();
-</script>
