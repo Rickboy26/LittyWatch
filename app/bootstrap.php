@@ -29,7 +29,7 @@ require_once dirname(__DIR__) . '/bootstrap.php';
 installSchema();
 
 $container = new Container();
-$container->singleton('config', fn() => $config + ['debug' => true]);
+$container->singleton('config', fn() => $config + ['debug' => false, 'log_path' => dirname(__DIR__) . '/logs/application.log']);
 $container->singleton('pdo', fn() => db());
 $container->singleton(View::class, fn() => new View(__DIR__ . '/Views'));
 $container->singleton(MarketRepository::class, fn(Container $c) => new MarketRepository($c->get('pdo')));
