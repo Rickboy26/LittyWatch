@@ -1,9 +1,5 @@
 <?php declare(strict_types=1); ?>
-<div class="pagehead">
-  <div><div class="eyebrow">ITEMOVERZICHT</div><h1><?= h((string)$item['item']) ?></h1><p class="muted">Prijsindicaties zijn gebaseerd op advertenties, niet op bevestigde transacties.</p></div>
-  <a class="btn secondary" href="items">← Alle items</a>
-</div>
-
+<section class="page-intro"><div class="item-hero"><img class="item-thumb lg" src="/item-image.php?item=<?=rawurlencode((string)$item['item'])?>&size=96" alt=""><div><span class="kicker">ITEMOVERZICHT</span><h1><?=h((string)$item['item'])?></h1><p>Prijsindicaties zijn gebaseerd op advertenties, niet op bevestigde transacties.</p></div></div><a class="btn secondary" href="/items">← Alle items</a></section>
 <div class="statgrid">
   <div class="stat"><span>Aanbiedingen</span><b><?= (int)$item['offers'] ?></b></div>
   <div class="stat"><span>WTB</span><b><?= (int)$item['buy_count'] ?></b></div>

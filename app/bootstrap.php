@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use LittyWatch\Controllers\ApiController;
+use LittyWatch\Controllers\AdminController;
 use LittyWatch\Controllers\DashboardController;
 use LittyWatch\Controllers\ItemController;
 use LittyWatch\Controllers\KnowledgeController;
@@ -19,6 +20,7 @@ use LittyWatch\Repositories\StructuredMarketRepository;
 use LittyWatch\Services\DashboardService;
 use LittyWatch\Services\ExchangeRateService;
 use LittyWatch\Services\CurrencyDisplayService;
+use LittyWatch\Services\ItemImageService;
 use LittyWatch\Knowledge\KnowledgeBase;
 use LittyWatch\Knowledge\KnowledgeControllerData;
 use LittyWatch\Knowledge\Schema;
@@ -39,6 +41,8 @@ $container->singleton(StructuredMarketRepository::class, fn(Container $c) => new
 $container->singleton(StructuredMarketController::class, fn(Container $c) => new StructuredMarketController($c->get(StructuredMarketRepository::class), $c->get(View::class), $c->get(CurrencyDisplayService::class)));
 $container->singleton(ExchangeRateService::class, fn() => new ExchangeRateService(dirname(__DIR__) . '/config/exchange-rates.php'));
 $container->singleton(CurrencyDisplayService::class, fn(Container $c) => new CurrencyDisplayService($c->get(ExchangeRateService::class)));
+$container->singleton(ItemImageService::class, fn() => new ItemImageService(dirname(__DIR__)));
+$container->singleton(AdminController::class, fn(Container $c) => new AdminController($c->get(View::class), $c->get(ItemImageService::class)));
 $container->singleton(DashboardService::class, fn(Container $c) => new DashboardService($c->get(MarketRepository::class), $c->get(ExchangeRateService::class)));
 $container->singleton(DashboardController::class, fn(Container $c) => new DashboardController($c->get(DashboardService::class), $c->get(View::class)));
 $container->singleton(ApiController::class, fn(Container $c) => new ApiController($c->get(DashboardService::class)));
@@ -59,5 +63,6 @@ $router->post('/parser-review', fn($request) => $container->get(ParserReviewCont
 $router->get('/parser-review/export', fn($request) => $container->get(ParserReviewController::class)->export($request));
 $router->get('/markets', fn($request) => $container->get(StructuredMarketController::class)->index($request));
 $router->get('/market', fn($request) => $container->get(StructuredMarketController::class)->show($request));
+$router->get('/admin', fn($request) => $container->get(AdminController::class)->index($request));
 
 return new Application($container, $router);
