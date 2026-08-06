@@ -19,7 +19,7 @@ function price(array $offer): string {
 <aside class="sidebar">
   <div class="brand"><span class="brand-mark">L</span><div><strong>LittyWatch</strong><small>Guild Wars Market Intelligence</small></div></div>
   <nav>
-    <a class="active" href="/v2.php">Overzicht</a>
+    <a class="active" href="/">Overzicht</a>
     <a href="/markets">Markten</a>
     <a href="/items">Items</a>
     <a href="/parser-review">Parser Review</a>

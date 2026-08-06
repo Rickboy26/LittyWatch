@@ -36,7 +36,7 @@ function scoreClass(int $score): string { return $score >= 75 ? 'good' : ($score
 <main class="wrap">
 <header class="top">
 <div><div class="eyebrow">LITTYWATCH</div><h1>Market Intelligence</h1><div class="muted">Scores op basis van actieve, geaccepteerde structured offers.</div></div>
-<div><nav><a href="/">Dashboard</a><a href="/watchlist">Watchlist</a><a href="/trends">Trends</a></nav><div class="actions"><a class="button" href="/v2-intelligence-refresh.php">Herberekenen</a></div></div>
+<div><nav><a href="/">Dashboard</a><a href="/watchlist">Watchlist</a><a href="/trends">Trends</a></nav><div class="actions"><a class="button" href="/admin/intelligence-refresh">Herberekenen</a></div></div>
 </header>
 <?php
 $totalMarkets = count($markets);

@@ -1,5 +1,5 @@
 <?php declare(strict_types=1); ?>
-<section class="pagehead"><div><div class="eyebrow">GUILD WARS KNOWLEDGE BASE</div><h1>Itemprofielen & attributes</h1><p class="muted">LittyWatch gebruikt per itemtype alleen de eigenschappen die werkelijk de marktvariant bepalen.</p></div><div class="actions"><a href="knowledge-install.php">Knowledge Base opnieuw seeden</a><a class="btn secondary" href="parser-v2-test.php">Parser Lab</a></div></section>
+<section class="pagehead"><div><div class="eyebrow">GUILD WARS KNOWLEDGE BASE</div><h1>Itemprofielen & attributes</h1><p class="muted">LittyWatch gebruikt per itemtype alleen de eigenschappen die werkelijk de marktvariant bepalen.</p></div><div class="actions"><a href="/admin/knowledge-seed">Knowledge Base opnieuw seeden</a><a class="btn secondary" href="/admin/parser-lab">Parser Lab</a></div></section>
 <div class="statgrid">
   <div class="stat"><span>Items</span><b><?=h((string)$stats['items'])?></b></div>
   <div class="stat"><span>Aliassen</span><b><?=h((string)$stats['aliases'])?></b></div>

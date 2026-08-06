@@ -16,7 +16,7 @@ final class Database
             return self::$pdo;
         }
 
-        $config = require dirname(__DIR__, 3) . '/config/v2.php';
+        $config = require dirname(__DIR__, 3) . '/config/';
         $path = $config['database_path'] ?? null;
         if (!is_string($path) || $path === '') {
             throw new RuntimeException('V2 database_path ontbreekt.');
