@@ -217,7 +217,70 @@ final class MarketQualityService
             return ['unit'=>$ecto,'basis'=>'each'];
         }
 
+        // Phase 3L.6: use catalog-owned quote semantics for a single bare money
+        // quote. This mirrors ParserEngine's canonicalization, but runs on the
+        // final accepted offer slice so multi-offer context cannot erase safe
+        // per-item/per-stack knowledge. Ambiguous lists, ranges and multi-price
+        // segments are deliberately excluded before catalog inference.
+        if (!$this->isSafeBareCatalogQuote($segment)) return null;
+        $semantics=$this->catalogSemantics((string)($row['item_key']??''));
+        if ($semantics===null) return null;
+        if ($semantics['basis']==='stack' && $semantics['size']>1) {
+            return ['unit'=>$ecto/$semantics['size'],'basis'=>'stack_inferred'];
+        }
+        if ($semantics['basis']==='each') {
+            return ['unit'=>$ecto,'basis'=>'each_inferred'];
+        }
+
         return null;
+    }
+
+
+    private function isSafeBareCatalogQuote(string $segment): bool
+    {
+        // Exactly one money token. Multiple amounts usually mean a range,
+        // alternative prices, a package split or another item's price.
+        preg_match_all('/(?<![a-z0-9.])\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment,$money);
+        if (count($money[0]??[])!==1) return false;
+
+        // Numeric ranges (225-675e) and shared item lists remain uncertain.
+        if (preg_match('/\d+(?:[.,]\d+)?\s*[-–—]\s*\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment)) return false;
+        if (preg_match('/\s\/\s/', $segment)) return false;
+
+        // Package / bundle wording is never an implicit each/stack quote.
+        if (preg_match('/\b(?:bundle|package|pack|set of|all for|together)\b/i',$segment)) return false;
+        return true;
+    }
+
+    /** @return array{basis:string,size:float}|null */
+    private function catalogSemantics(string $itemKey): ?array
+    {
+        if ($itemKey==='') return null;
+        static $map=null;
+        if ($map===null) {
+            $map=[];
+            $path=dirname(__DIR__).'/Data/items.json';
+            $decoded=is_file($path) ? json_decode((string)file_get_contents($path),true) : null;
+            if (is_array($decoded)) {
+                foreach ($decoded as $item) {
+                    if (!is_array($item) || empty($item['key'])) continue;
+                    $basis=strtolower(trim((string)($item['market_quote_basis']??'')));
+                    $category=strtolower(trim((string)($item['category']??'')));
+                    $size=(float)($item['market_quote_size']??$item['market_stack_size']??0);
+                    if ($basis==='stack') {
+                        if ($size<=1) $size=250.0;
+                        $map[(string)$item['key']]=['basis'=>'stack','size'=>$size];
+                    } elseif ($basis==='each') {
+                        $map[(string)$item['key']]=['basis'=>'each','size'=>1.0];
+                    } elseif (!in_array($category,['currency','material','consumable'],true)) {
+                        // Same conservative default as ParserEngine: concrete
+                        // non-commodity catalog items are quoted per item.
+                        $map[(string)$item['key']]=['basis'=>'each','size'=>1.0];
+                    }
+                }
+            }
+        }
+        return $map[$itemKey]??null;
     }
 
     /** @param array<string,mixed> $row */

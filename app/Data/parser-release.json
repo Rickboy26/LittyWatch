@@ -1,6 +1,6 @@
 {
-  "release": "V5.2 Phase 3L.5",
-  "phase": "3L.5",
-  "description": "Safe offer-level price recovery now promotes canonical price basis before market-quality classification",
-  "version": "V5.2 Phase 3L.5"
+  "release": "V5.2 Phase 3L.6",
+  "phase": "3L.6",
+  "description": "Catalog-aware bare price recovery for safe single-offer quotes",
+  "version": "V5.2 Phase 3L.6"
 }
