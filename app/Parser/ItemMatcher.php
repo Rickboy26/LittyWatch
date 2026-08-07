@@ -5,7 +5,12 @@ namespace LittyWatch\Parser;
 
 final class ItemMatcher
 {
-    public function __construct(private readonly Catalog $catalog) {}
+    private ItemTaxonomy $taxonomy;
+
+    public function __construct(private readonly Catalog $catalog)
+    {
+        $this->taxonomy = new ItemTaxonomy($catalog->taxonomy());
+    }
 
     /** @return list<array{item:string,key:string,category:string,start:int,length:int,alias:string,score:float}> */
     public function matchAll(string $text): array
@@ -71,7 +76,13 @@ final class ItemMatcher
             || ($name === 'kuuna' && $a === 'kuuna')
             || ($name === 'ruby' && $a === 'ruby')
             || ($name === 'sapphire' && $a === 'sapphire')
-            || ($name === "dhuum's soul reaper" && $a === 'dsr')) {
+            || ($name === "dhuum's soul reaper" && $a === 'dsr')
+            || ($name === 'glob of ectoplasm' && in_array($a, ['ecto','ectos','ekto','ektos'], true))
+            || ($name === 'armbrace of truth' && in_array($a, ['arms','ambr','ambraces','armbrace','armbraces'], true))
+            || ($name === 'miniature polar bear' && in_array($a, ['polar','polar bear','mini polar bear'], true))
+            || ($name === 'ruby' && in_array($a, ['ruby','rubies','rubys'], true))
+            || ($name === 'sapphire' && in_array($a, ['sapphire','sapphires','saphire'], true))
+            || ($name === 'soup' && $a === 'soup')) {
             return 0.88;
         }
         return min(0.99, 0.72 + min(0.24, mb_strlen($a) / 50));

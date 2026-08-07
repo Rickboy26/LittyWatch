@@ -1,48 +1,207 @@
 {
-  "version": "2M",
+  "version": "2N",
   "hierarchy": {
-    "weapon": {"parent": "item", "kind": "concrete"},
-    "unique-weapon": {"parent": "weapon", "kind": "concrete"},
-    "sword": {"parent": "weapon", "kind": "concrete"},
-    "axe": {"parent": "weapon", "kind": "concrete"},
-    "bow": {"parent": "weapon", "kind": "family"},
-    "staff": {"parent": "caster-weapon", "kind": "concrete"},
-    "wand": {"parent": "caster-weapon", "kind": "concrete"},
-    "focus": {"parent": "caster-weapon", "kind": "concrete"},
-    "daggers": {"parent": "weapon", "kind": "concrete"},
-    "shield": {"parent": "item", "kind": "concrete"},
-    "caster-weapon": {"parent": "weapon", "kind": "family"},
-    "generic-weapon-family": {"parent": "weapon", "kind": "family"},
-    "weapon-upgrade": {"parent": "upgrade", "kind": "component"},
-    "inscription": {"parent": "upgrade", "kind": "component"},
-    "rune": {"parent": "upgrade", "kind": "component"},
-    "miniature": {"parent": "collectible", "kind": "concrete"},
-    "tonic": {"parent": "consumable", "kind": "concrete"},
-    "summoning-stone": {"parent": "consumable", "kind": "concrete"},
-    "sweet": {"parent": "consumable", "kind": "concrete"},
-    "alcohol": {"parent": "consumable", "kind": "concrete"},
-    "festive": {"parent": "consumable", "kind": "concrete"},
-    "consumable": {"parent": "item", "kind": "concrete"},
-    "trophy": {"parent": "collectible", "kind": "concrete"},
-    "reward-trophy": {"parent": "collectible", "kind": "concrete"},
-    "material": {"parent": "item", "kind": "concrete"},
-    "currency": {"parent": "item", "kind": "concrete"},
-    "present": {"parent": "container", "kind": "concrete"},
-    "container": {"parent": "item", "kind": "concrete"},
-    "hero-armor": {"parent": "item", "kind": "concrete"},
-    "tome": {"parent": "item", "kind": "concrete"},
-    "set": {"parent": "item", "kind": "concrete"},
-    "polymock": {"parent": "collectible", "kind": "concrete"},
-    "dye": {"parent": "item", "kind": "concrete"},
-    "kit": {"parent": "item", "kind": "concrete"}
+    "weapon": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "unique-weapon": {
+      "parent": "weapon",
+      "kind": "concrete"
+    },
+    "sword": {
+      "parent": "weapon",
+      "kind": "concrete"
+    },
+    "axe": {
+      "parent": "weapon",
+      "kind": "concrete"
+    },
+    "bow": {
+      "parent": "weapon",
+      "kind": "family"
+    },
+    "staff": {
+      "parent": "caster-weapon",
+      "kind": "concrete"
+    },
+    "wand": {
+      "parent": "caster-weapon",
+      "kind": "concrete"
+    },
+    "focus": {
+      "parent": "caster-weapon",
+      "kind": "concrete"
+    },
+    "daggers": {
+      "parent": "weapon",
+      "kind": "concrete"
+    },
+    "shield": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "caster-weapon": {
+      "parent": "weapon",
+      "kind": "family"
+    },
+    "generic-weapon-family": {
+      "parent": "weapon",
+      "kind": "family"
+    },
+    "weapon-upgrade": {
+      "parent": "upgrade",
+      "kind": "component"
+    },
+    "inscription": {
+      "parent": "upgrade",
+      "kind": "component"
+    },
+    "rune": {
+      "parent": "upgrade",
+      "kind": "component"
+    },
+    "miniature": {
+      "parent": "collectible",
+      "kind": "concrete"
+    },
+    "tonic": {
+      "parent": "consumable",
+      "kind": "concrete"
+    },
+    "summoning-stone": {
+      "parent": "consumable",
+      "kind": "concrete"
+    },
+    "sweet": {
+      "parent": "consumable",
+      "kind": "concrete"
+    },
+    "alcohol": {
+      "parent": "consumable",
+      "kind": "concrete"
+    },
+    "festive": {
+      "parent": "consumable",
+      "kind": "concrete"
+    },
+    "consumable": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "trophy": {
+      "parent": "collectible",
+      "kind": "concrete"
+    },
+    "reward-trophy": {
+      "parent": "collectible",
+      "kind": "concrete"
+    },
+    "material": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "currency": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "present": {
+      "parent": "container",
+      "kind": "concrete"
+    },
+    "container": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "hero-armor": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "tome": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "set": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "polymock": {
+      "parent": "collectible",
+      "kind": "concrete"
+    },
+    "dye": {
+      "parent": "item",
+      "kind": "concrete"
+    },
+    "kit": {
+      "parent": "item",
+      "kind": "concrete"
+    }
   },
   "generic_item_names": [
-    "Miniature", "Unique item", "Staff", "Wand", "Focus", "Bow", "Axe", "Sword", "Spear", "Scythe", "Daggers", "Shield", "Hammer", "Flatbow", "Longbow", "Shortbow", "Recurve Bow", "Hornbow"
+    "Miniature",
+    "Unique item",
+    "Staff",
+    "Wand",
+    "Focus",
+    "Bow",
+    "Axe",
+    "Sword",
+    "Spear",
+    "Scythe",
+    "Daggers",
+    "Shield",
+    "Hammer",
+    "Flatbow",
+    "Longbow",
+    "Shortbow",
+    "Recurve Bow",
+    "Hornbow",
+    "Focus item",
+    "Weapon",
+    "Caster weapon"
   ],
   "professions": [
-    "warrior", "war", "ranger", "rang", "monk", "mo", "necromancer", "necro", "mesmer", "mes", "elementalist", "ele", "assassin", "sin", "ritualist", "rit", "paragon", "para", "dervish", "derv"
+    "warrior",
+    "war",
+    "ranger",
+    "rang",
+    "monk",
+    "mo",
+    "necromancer",
+    "necro",
+    "mesmer",
+    "mes",
+    "elementalist",
+    "ele",
+    "assassin",
+    "sin",
+    "ritualist",
+    "rit",
+    "paragon",
+    "para",
+    "dervish",
+    "derv"
   ],
-  "quantity_context": ["stack", "stacks", "each", "ea"],
-  "market_context": ["sale", "trade", "pm", "offer", "offers", "obo", "wsp"],
-  "dedication_context": ["ded", "unded", "dedicated", "undedicated"]
+  "quantity_context": [
+    "stack",
+    "stacks",
+    "each",
+    "ea"
+  ],
+  "market_context": [
+    "sale",
+    "trade",
+    "pm",
+    "offer",
+    "offers",
+    "obo",
+    "wsp"
+  ],
+  "dedication_context": [
+    "ded",
+    "unded",
+    "dedicated",
+    "undedicated"
+  ]
 }

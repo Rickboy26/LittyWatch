@@ -102,7 +102,7 @@ final class ParserEngine
             }
         }
 
-        return $this->deduplicate($results);
+        return $this->deduplicate($this->suppressLowConfidenceGenericShadows($results));
     }
 
     /** @return list<ParsedOffer> */
@@ -317,6 +317,55 @@ final class ParserEngine
         }
 
         return $offers;
+    }
+
+    /**
+     * Phase 2N: a low-confidence generic family produced by learned knowledge is
+     * never better than the dedicated generic recognizer and frequently shadows a
+     * concrete item (Miniature Polar Bear -> Miniature, Plagueborn Staff -> Staff).
+     * Drop only review-level generic shadows; accepted generic market searches are
+     * preserved.
+     *
+     * @param list<ParsedOffer> $offers
+     * @return list<ParsedOffer>
+     */
+    private function suppressLowConfidenceGenericShadows(array $offers): array
+    {
+        return array_values(array_filter($offers, function (ParsedOffer $offer) use ($offers): bool {
+            if ($offer->status !== 'review' || $offer->reason !== 'low_confidence') return true;
+            if (!$this->taxonomy->isGenericName($offer->item)) return true;
+
+            $generic = mb_strtolower(trim($offer->item));
+            $segment = mb_strtolower(trim($offer->segment));
+
+            // Generic collector buckets never form a useful price observation by
+            // themselves. In the live queue they are shadow rows next to a concrete
+            // mini/green, or broad category prose with no single item price.
+            if (in_array($generic, ['miniature','unique item'], true)) return false;
+
+            // Upgrade/component requests must not become the base weapon family.
+            if (preg_match('/\b(?:wrap|wrapping|head|haft|grip|string|bowstring|pommel|core|mod|mods|vamp|zealous|swift|hale|patron|insightful|sundering|furious)\b/iu', $segment)) {
+                return false;
+            }
+
+            // If an accepted concrete offer from the same parse clearly contains
+            // this family name, the generic row is only a specificity shadow.
+            foreach ($offers as $other) {
+                if ($other === $offer || $other->status !== 'accepted') continue;
+                if ($this->taxonomy->isGenericName($other->item)) continue;
+                $otherItem = mb_strtolower($other->item);
+                $otherSegment = mb_strtolower($other->segment);
+                if (!str_contains($otherItem, $generic)) continue;
+                $g = preg_replace('/[^a-z0-9]+/u', ' ', $segment) ?? $segment;
+                $o = preg_replace('/[^a-z0-9]+/u', ' ', $otherSegment) ?? $otherSegment;
+                $g = trim($g); $o = trim($o);
+                if ($g === '' || $o === '' || str_contains($o, $g) || str_contains($g, $o) || str_contains($o, $generic)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
     }
 
     /** @param list<ParsedOffer> $offers @return list<ParsedOffer> */
