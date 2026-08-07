@@ -8,32 +8,44 @@ final class PriceMatcher
     public function parse(string $segment): ParsedPrice
     {
         // Ratio shorthand: 5:1e means five units for one ecto total.
-        if (preg_match('/(?<!\d)(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)\s*(a|e|k)\b/i', $segment, $m)) {
+        if (preg_match('/(?<!\d)(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $quantity = $this->number($m[1]);
             $amount = $this->number($m[2]);
-            return $this->make($amount, strtolower($m[3]), 'ratio', $quantity, $m[0]);
+            return $this->make($amount, $this->currency((string)$m[3]), 'ratio', $quantity, $m[0]);
+        }
+
+        // Phase 3L: Kamadan quantity/total shorthand:
+        // "3/1e", "5/11e", "7/100k" mean N units for the following total price.
+        // Keep this before ordinary money-token parsing so the quantity cannot
+        // be mistaken for part of another item segment.
+        if (preg_match('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
+            $quantity = $this->number($m[1]);
+            $amount = $this->number($m[2]);
+            if ($quantity > 0) {
+                return $this->make($amount, $this->currency((string)$m[3]), 'total', $quantity, $m[0]);
+            }
         }
 
         // Explicit quantity-for-total: "6 arms for 162e".
-        if (preg_match('/(?<!\d)(\d+(?:[.,]\d+)?)\s+[^|;,]{1,45}?\bfor\s+(\d+(?:[.,]\d+)?)\s*(a|e|k)\b/i', $segment, $m)) {
+        if (preg_match('/(?<!\d)(\d+(?:[.,]\d+)?)\s+[^|;,]{1,45}?\bfor\s+(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $quantity = $this->number($m[1]);
             $amount = $this->number($m[2]);
-            return $this->make($amount, strtolower($m[3]), 'total', $quantity, $m[0]);
+            return $this->make($amount, $this->currency((string)$m[3]), 'total', $quantity, $m[0]);
         }
 
         // Legacy "5=1e" shorthand, not currency conversion such as 1750e=64a.
-        if (preg_match('/(?<![a-z0-9])(\d+(?:[.,]\d+)?)\s*=\s*(\d+(?:[.,]\d+)?)\s*(a|e|k)\b/i', $segment, $m)) {
+        if (preg_match('/(?<![a-z0-9])(\d+(?:[.,]\d+)?)\s*=\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $quantity = $this->number($m[1]);
             $amount = $this->number($m[2]);
-            return $this->make($amount, strtolower($m[3]), 'exchange', $quantity, $m[0]);
+            return $this->make($amount, $this->currency((string)$m[3]), 'exchange', $quantity, $m[0]);
         }
 
         // Explicit multi-stack total: "Royal Gift Stacks (x8) 8a" means
         // eight full stacks for 8a total. A full GW1 stack contains 250 items.
-        if (preg_match('/\bstacks?\b\s*(?:\(\s*)?x\s*(\d+)(?:\s*\))?[^|;,]{0,24}?(\d+(?:[.,]\d+)?)\s*(a|e|k)\b/i', $segment, $m)) {
+        if (preg_match('/\bstacks?\b\s*(?:\(\s*)?x\s*(\d+)(?:\s*\))?[^|;,]{0,24}?(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $stackCount = $this->number($m[1]);
             $amount = $this->number($m[2]);
-            return $this->make($amount, strtolower($m[3]), 'stack_total', $stackCount * 250.0, $m[0]);
+            return $this->make($amount, $this->currency((string)$m[3]), 'stack_total', $stackCount * 250.0, $m[0]);
         }
 
         // Inspect every money token and prefer an explicit per-unit observation.
@@ -128,6 +140,14 @@ final class PriceMatcher
             }
         }
         return new ParsedPrice($amount, $currency, $ecto, $basis, $quantity, $unit, $raw);
+    }
+
+    private function currency(string $value): string
+    {
+        $value = mb_strtolower(trim($value));
+        if (str_starts_with($value, 'a')) return 'a';
+        if (str_starts_with($value, 'e')) return 'e';
+        return 'k';
     }
 
     private function number(string $value): float

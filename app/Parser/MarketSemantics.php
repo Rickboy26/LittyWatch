@@ -40,4 +40,9 @@ final class MarketSemantics
     {
         return $this->quoteBasis === 'stack' && $this->quoteSize > 1;
     }
+
+    public function isEachQuoted(): bool
+    {
+        return $this->quoteBasis === 'each';
+    }
 }

@@ -12,7 +12,10 @@
       "nick gifts",
       "nickgift",
       "nickgifts"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "nicholas-set",
@@ -54,7 +57,10 @@
       "ectos",
       "ekto",
       "ektos"
-    ]
+    ],
+    "market_quote_basis": "each",
+    "market_quote_size": 1,
+    "market_display_basis": "each"
   },
   {
     "key": "zaishen-key",
@@ -65,7 +71,10 @@
       "zaishen keys",
       "zkey",
       "zkeys"
-    ]
+    ],
+    "market_quote_basis": "each",
+    "market_quote_size": 1,
+    "market_display_basis": "each"
   },
   {
     "key": "obsidian-shard",
@@ -192,7 +201,10 @@
     "aliases": [
       "black dye",
       "black dyes"
-    ]
+    ],
+    "market_quote_basis": "each",
+    "market_quote_size": 1,
+    "market_display_basis": "each"
   },
   {
     "key": "unidentified-gold",
@@ -214,7 +226,10 @@
     "aliases": [
       "cupcake",
       "cupcakes"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "stalkers-ration",
@@ -250,7 +265,10 @@
       "tengu flare",
       "tengu flares",
       "tengu"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "seal-of-the-dragon-empire",
@@ -286,7 +304,10 @@
       "lockpick",
       "lockpicks",
       "picks"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "silver-zaishen-coin",
@@ -301,7 +322,10 @@
       "silver zcoin",
       "silver zcoins",
       "szc"
-    ]
+    ],
+    "market_quote_basis": "each",
+    "market_quote_size": 1,
+    "market_display_basis": "each"
   },
   {
     "key": "gold-zaishen-coin",
@@ -317,7 +341,10 @@
       "gold zcoins",
       "gzc",
       "gold coins"
-    ]
+    ],
+    "market_quote_basis": "each",
+    "market_quote_size": 1,
+    "market_display_basis": "each"
   },
   {
     "key": "ghostly-hero",
@@ -579,7 +606,10 @@
       "war supplies",
       "war supply",
       "war supp"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "ghastly-summoning-stone",
@@ -1166,7 +1196,10 @@
       "res scrolls",
       "resurrection scroll",
       "resurrection scrolls"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "candy-apple",
@@ -1177,7 +1210,10 @@
       "candy apples",
       "apple",
       "apples"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "slice-of-pumpkin-pie",
@@ -1189,7 +1225,10 @@
       "pumpkin pies",
       "pie",
       "pies"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "pumpkin-cookie",
@@ -1237,7 +1276,10 @@
       "lunars",
       "lunar's fortune",
       "lunar's fortunes"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "scroll-of-the-lightbringer",
@@ -1509,7 +1551,10 @@
       "iced tea",
       "icetea",
       "ice tea"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "birthday-cupcake",
@@ -1853,7 +1898,10 @@
       "Iron Ingot",
       "Iron Ingots",
       "stack of iron"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "raging-menzies",
@@ -1921,7 +1969,10 @@
       "Essence of Celerity",
       "BU",
       "BUs"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "four-leaf-clover",
@@ -1932,7 +1983,10 @@
       "Four Leaf Clover",
       "Clover",
       "Clovers"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "miniature-celestial-horse",
@@ -2011,7 +2065,10 @@
       "Golden Eggs",
       "gold egg",
       "gold eggs"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "jadeite-summoning-stone",
@@ -2254,7 +2311,10 @@
       "Stars of Transference",
       "Star of Transf",
       "Stars of Transf"
-    ]
+    ],
+    "market_quote_basis": "each",
+    "market_quote_size": 1,
+    "market_display_basis": "each"
   },
   {
     "key": "strategists-zaishen-strongbox",

@@ -241,6 +241,23 @@ final class ParserEngine
             )];
         }
 
+        // Phase 3L: if several concrete items share a segment but the text has
+        // fewer money quotes than item mentions, do not let the lone price bind
+        // to whichever slice happens to contain it. Explicit bundles were
+        // handled above; ordinary shared-price lists stay review-safe.
+        $moneyTokenCount = preg_match_all('/(?<![a-z0-9])\d+(?:[.,]\d+)?\s*(?:a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)(?=\b|\/|$)/iu', $segment);
+        $slashSharedList = $moneyTokenCount === 1
+            && preg_match('/[A-Za-z][^|;,]{0,40}\s\/\s[A-Za-z][^|;,]{0,40}(?:\s\/\s[A-Za-z][^|;,]{0,40})?/u', $segment);
+        $compactCommodityList = $moneyTokenCount === 1
+            && preg_match('/\b(?:warsupps?|war\s*supplies|eggs?|honeycombs?)\b/iu', $segment)
+            && preg_match('/\b(?:cupcakes?|pumpkin\s+pie|slice\s+of\s+pumpkin\s+pie)\b/iu', $segment);
+        $ambiguousSharedPrice = $wholePrice->amount !== null
+            && (
+                (count($items) > 1 && $moneyTokenCount > 0 && $moneyTokenCount < count($items))
+                || $slashSharedList
+                || $compactCommodityList
+            );
+
         $offers = [];
         foreach ($items as $index => $item) {
             $start = $item['start'];
@@ -252,6 +269,17 @@ final class ParserEngine
                 $price = $wholePrice;
             }
             $price = $this->resolvePriceSemantics($price, $item, $slice);
+            if ($ambiguousSharedPrice && $price->amount !== null) {
+                $price = new ParsedPrice(
+                    $price->amount,
+                    $price->currency,
+                    $price->ectoValue,
+                    'uncertain',
+                    $price->quantity,
+                    null,
+                    $price->raw,
+                );
+            }
             $setQuantity = $this->setResolver->resolve((string)$item['item'], $slice);
             if ($setQuantity !== null && $price->amount !== null) {
                 $price = new ParsedPrice($price->amount,$price->currency,$price->ectoValue,'set',$setQuantity,$price->ectoValue!==null?$price->ectoValue/$setQuantity:null,$price->raw);
@@ -368,6 +396,21 @@ final class ParserEngine
                 'stack_inferred',
                 $market->quoteSize,
                 $ecto !== null ? $ecto / $market->quoteSize : null,
+                $price->raw,
+            );
+        }
+
+        // Phase 3L: explicit catalog metadata can also declare that bare
+        // Kamadan quotes are per item. This is intentionally item-specific:
+        // currencies/consumables are never promoted category-wide.
+        if ($market->isEachQuoted()) {
+            return new ParsedPrice(
+                $price->amount,
+                $price->currency,
+                $ecto,
+                'each_inferred',
+                1.0,
+                $ecto,
                 $price->raw,
             );
         }
