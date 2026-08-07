@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-use LittyWatch\Controllers\{AdminController,AlertController,AssetController,DashboardController,IntelligenceController,ItemController,KnowledgeController,LiveController,MaintenanceController,ParserReviewController,StructuredMarketController,StructuredOfferController,SystemController,TraderController,TrendController,WatchlistController};
+use LittyWatch\Controllers\{AdminController,AlertController,AssetController,DashboardController,IntelligenceController,ItemController,KnowledgeController,KnowledgePackController,LiveController,MaintenanceController,ParserReviewController,StructuredMarketController,StructuredOfferController,SystemController,TraderController,TrendController,WatchlistController};
 use LittyWatch\Core\{Container,Router};
 return static function(Router $router,Container $c):void{
  $router->get('/',fn($r)=>$c->get(DashboardController::class)->index($r));
@@ -13,6 +13,10 @@ return static function(Router $router,Container $c):void{
  $router->get('/alerts',fn($r)=>$c->get(AlertController::class)->index($r));$router->post('/alerts',fn($r)=>$c->get(AlertController::class)->update($r));
  $router->get('/game-assets',fn($r)=>$c->get(AssetController::class)->index($r));$router->get('/system',fn($r)=>$c->get(SystemController::class)->index($r));
  $router->get('/structured-offers',fn($r)=>$c->get(StructuredOfferController::class)->index($r));$router->get('/knowledge',fn($r)=>$c->get(KnowledgeController::class)->index($r));
+ $router->get('/knowledge-pack',fn($r)=>$c->get(KnowledgePackController::class)->index($r));
+ $router->post('/knowledge-pack/stage',fn($r)=>$c->get(KnowledgePackController::class)->stage($r));
+ $router->post('/knowledge-pack/compile',fn($r)=>$c->get(KnowledgePackController::class)->compile($r));
+ $router->post('/knowledge-pack/clear',fn($r)=>$c->get(KnowledgePackController::class)->clear($r));
  $router->get('/parser-review',fn($r)=>$c->get(ParserReviewController::class)->index($r));$router->post('/parser-review',fn($r)=>$c->get(ParserReviewController::class)->update($r));$router->post('/parser-review/re-evaluate',fn($r)=>$c->get(ParserReviewController::class)->batchReview($r));$router->get('/parser-review/export',fn($r)=>$c->get(ParserReviewController::class)->export($r));
  $router->get('/admin',fn($r)=>$c->get(AdminController::class)->index($r));
  foreach(['collect'=>'collect','reparse'=>'reparse','market-maintenance'=>'marketMaintenance','knowledge-seed'=>'seedKnowledge','intelligence-refresh'=>'intelligence','snapshot'=>'snapshot','parser-lab'=>'parserLab'] as$path=>$method){$router->get('/admin/'.$path,fn($r)=>$c->get(MaintenanceController::class)->$method($r));}

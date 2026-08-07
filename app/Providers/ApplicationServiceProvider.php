@@ -10,6 +10,7 @@ use LittyWatch\Controllers\DashboardController;
 use LittyWatch\Controllers\WatchlistController;
 use LittyWatch\Controllers\ItemController;
 use LittyWatch\Controllers\KnowledgeController;
+use LittyWatch\Controllers\KnowledgePackController;
 use LittyWatch\Controllers\MaintenanceController;
 use LittyWatch\Controllers\LiveController;
 use LittyWatch\Controllers\TraderController;
@@ -27,6 +28,7 @@ use LittyWatch\Knowledge\KnowledgeBase;
 use LittyWatch\Knowledge\KnowledgeControllerData;
 use LittyWatch\Knowledge\Schema;
 use LittyWatch\Repositories\MarketRepository;
+use LittyWatch\Repositories\KnowledgePackRepository;
 use LittyWatch\Repositories\ItemKnowledgeRepository;
 use LittyWatch\Repositories\AlertRepository;
 use LittyWatch\Repositories\WatchlistRepository;
@@ -42,6 +44,7 @@ use LittyWatch\Services\DashboardService;
 use LittyWatch\Services\ExchangeRateService;
 use LittyWatch\Services\ItemImageService;
 use LittyWatch\Services\ParserBatchReviewService;
+use LittyWatch\Services\KnowledgePackService;
 use LittyWatch\Support\ProjectPaths;
 
 final class ApplicationServiceProvider
@@ -76,6 +79,10 @@ final class ApplicationServiceProvider
         $container->singleton(AlertRepository::class, fn(Container $c) => new AlertRepository($c->get('pdo')));
         $container->singleton(WatchlistRepository::class, fn(Container $c) => new WatchlistRepository($c->get('pdo')));
         $container->singleton(PlatformRepository::class, fn(Container $c) => new PlatformRepository($c->get('pdo')));
+        $container->singleton(KnowledgePackRepository::class, fn(Container $c) => new KnowledgePackRepository(
+            $this->root . '/app/Data/knowledge-pack',
+            $this->root . '/data/wiki-knowledge'
+        ));
 
         $container->singleton(ExchangeRateService::class, fn() => new ExchangeRateService($paths->config('exchange-rates.php')));
         $container->singleton(CurrencyDisplayService::class, fn(Container $c) => new CurrencyDisplayService($c->get(ExchangeRateService::class)));
@@ -83,7 +90,10 @@ final class ApplicationServiceProvider
         $container->singleton(DashboardService::class, fn(Container $c) => new DashboardService($c->get(MarketRepository::class), $c->get(ExchangeRateService::class)));
         $container->singleton(AlertService::class, fn(Container $c) => new AlertService($c->get(AlertRepository::class)));
         $container->singleton(WatchlistService::class, fn(Container $c) => new WatchlistService($c->get(WatchlistRepository::class), $c->get(AlertService::class)));
-        $container->singleton(ParserBatchReviewService::class, fn(Container $c) => new ParserBatchReviewService(
+                $container->singleton(KnowledgePackService::class, fn(Container $c) => new KnowledgePackService(
+            $c->get(KnowledgePackRepository::class)
+        ));
+$container->singleton(ParserBatchReviewService::class, fn(Container $c) => new ParserBatchReviewService(
             $c->get('pdo'),
             $c->get(ParserReviewRepository::class)
         ));
@@ -120,5 +130,9 @@ final class ApplicationServiceProvider
         });
         $container->singleton(KnowledgeControllerData::class, fn(Container $c) => new KnowledgeControllerData($c->get(KnowledgeBase::class)));
         $container->singleton(KnowledgeController::class, fn(Container $c) => new KnowledgeController($c->get(KnowledgeControllerData::class), $c->get(View::class)));
+        $container->singleton(KnowledgePackController::class, fn(Container $c) => new KnowledgePackController(
+            $c->get(KnowledgePackService::class),
+            $c->get(View::class)
+        ));
     }
 }

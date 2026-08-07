@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "wiki_api": "https://wiki.guildwars.com/api.php",
+  "profiles": [
+    {
+      "key": "unique-items",
+      "label": "Green / unique items",
+      "category": "Category:Unique items",
+      "kind": "unique-item"
+    },
+    {
+      "key": "weapon-upgrades",
+      "label": "Weapon upgrades",
+      "category": "Category:Weapon upgrades",
+      "kind": "weapon-upgrade"
+    },
+    {
+      "key": "inscriptions",
+      "label": "Inscriptions",
+      "category": "Category:Inscriptions",
+      "kind": "inscription"
+    },
+    {
+      "key": "miniatures",
+      "label": "Miniatures",
+      "category": "Category:Miniatures",
+      "kind": "miniature"
+    },
+    {
+      "key": "tonics",
+      "label": "Tonics",
+      "category": "Category:Tonics",
+      "kind": "tonic"
+    },
+    {
+      "key": "consumables",
+      "label": "Consumables",
+      "category": "Category:Consumables",
+      "kind": "consumable"
+    },
+    {
+      "key": "tomes",
+      "label": "Tomes",
+      "category": "Category:Tomes",
+      "kind": "tome"
+    },
+    {
+      "key": "weapon-skins",
+      "label": "Weapon skins",
+      "category": "Category:Weapon skins",
+      "kind": "weapon"
+    }
+  ]
+}

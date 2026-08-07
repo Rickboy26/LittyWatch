@@ -1,0 +1,48 @@
+[
+  {
+    "key": "green-monk-weapons",
+    "label": "Green Monk Weapons",
+    "type": "collection",
+    "aliases": [
+      "green monk weapons"
+    ]
+  },
+  {
+    "key": "q8-bows",
+    "label": "Q8 Bows",
+    "type": "collection",
+    "aliases": [
+      "q8 bows",
+      "r8 bows"
+    ]
+  },
+  {
+    "key": "oldschool-weapons",
+    "label": "Oldschool Weapons",
+    "type": "collection",
+    "aliases": [
+      "os weapons",
+      "oldschool weapons",
+      "gold oldschool weapon"
+    ]
+  },
+  {
+    "key": "normal-tomes",
+    "label": "Normal Tomes",
+    "type": "collection",
+    "aliases": [
+      "normal tomes",
+      "reg tomes",
+      "regular tomes"
+    ]
+  },
+  {
+    "key": "elite-tomes",
+    "label": "Elite Tomes",
+    "type": "collection",
+    "aliases": [
+      "elite tomes",
+      "elite skill tomes"
+    ]
+  }
+]

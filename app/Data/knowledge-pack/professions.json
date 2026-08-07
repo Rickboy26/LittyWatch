@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Warrior",
+    "aliases": [
+      "war",
+      "warr",
+      "w"
+    ]
+  },
+  {
+    "name": "Ranger",
+    "aliases": [
+      "rang",
+      "r"
+    ]
+  },
+  {
+    "name": "Monk",
+    "aliases": [
+      "mo",
+      "monk"
+    ]
+  },
+  {
+    "name": "Necromancer",
+    "aliases": [
+      "n",
+      "necro"
+    ]
+  },
+  {
+    "name": "Mesmer",
+    "aliases": [
+      "mes",
+      "me"
+    ]
+  },
+  {
+    "name": "Elementalist",
+    "aliases": [
+      "ele",
+      "e"
+    ]
+  },
+  {
+    "name": "Assassin",
+    "aliases": [
+      "sin",
+      "assa",
+      "a"
+    ]
+  },
+  {
+    "name": "Ritualist",
+    "aliases": [
+      "rit",
+      "rt"
+    ]
+  },
+  {
+    "name": "Paragon",
+    "aliases": [
+      "para",
+      "p"
+    ]
+  },
+  {
+    "name": "Dervish",
+    "aliases": [
+      "derv",
+      "d"
+    ]
+  }
+]
