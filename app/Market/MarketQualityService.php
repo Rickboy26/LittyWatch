@@ -422,20 +422,51 @@ final class MarketQualityService
     {
         if ((string)($row['price_quality_reason'] ?? '') === 'handmatig_goedgekeurd') return false;
         $key=$this->canonicalCatalogKey((string)($row['item_key']??''));
-        if (!$this->isMixedBasisMarket($key)) return false;
         $segment=trim((string)($row['raw_segment']??''));
         if ($segment==='') return false;
 
+        // Phase 3L.12: evaluate the item's own first clause. A second product
+        // after a comma/semicolon must not rescue an ambiguous first quote,
+        // e.g. "gott 2e, materials 2k s".
+        $ownClause=trim((string)preg_split('/\s*[,;|]\s*/',$segment,2)[0]);
+
+        if ($this->isMixedBasisMarket($key)) {
+            preg_match_all('/(?<![a-z0-9.])\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$ownClause,$money);
+            if (count($money[0]??[])!==1) return false;
+
+            // Explicit basis signals are safe and are handled by recoverCanonicalPrice.
+            if (preg_match('/\b(?:stack|stacks)\b/i',$ownClause)) return false;
+            if (preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*(?:(?:[\/.\-]\s*)?(?:ea|each)\b|(?:\/|\-|\bper\s+)(?:st|stk|stack)\b|\bper\s+(?:unit|piece)\b)/i',$ownClause)) return false;
+            if (preg_match('/(?<![a-z0-9.])\d+(?:[.,]\d+)?\s*(?::|=|\/)\s*\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$ownClause)) return false;
+
+            // A trailing slash, tilde or a plain bare quote still has no basis.
+            return true;
+        }
+
+        // Bare plural commodity/lot offers do not establish a unit basis.
+        // "consets 13e" and "lockpicks 100k" are intentionally uncertain;
+        // singular forms and explicit ea/stack/ratio notation remain eligible.
+        if (in_array($key,['conset','lockpick'],true)
+            && $this->isBarePluralAmbiguousQuote($key,$ownClause)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function isBarePluralAmbiguousQuote(string $canonicalKey,string $segment): bool
+    {
         preg_match_all('/(?<![a-z0-9.])\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment,$money);
         if (count($money[0]??[])!==1) return false;
-
-        // Explicit basis signals are safe and are handled by recoveryCanonicalPrice.
         if (preg_match('/\b(?:stack|stacks)\b/i',$segment)) return false;
         if (preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*(?:(?:[\/.\-]\s*)?(?:ea|each)\b|(?:\/|\-|\bper\s+)(?:st|stk|stack)\b|\bper\s+(?:unit|piece)\b)/i',$segment)) return false;
         if (preg_match('/(?<![a-z0-9.])\d+(?:[.,]\d+)?\s*(?::|=|\/)\s*\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment)) return false;
 
-        // A trailing slash, tilde or a plain bare quote still has no basis.
-        return true;
+        return match($canonicalKey){
+            'conset'=>(bool)preg_match('/\b(?:cons|consets)\b/i',$segment),
+            'lockpick'=>(bool)preg_match('/\blockpicks\b/i',$segment),
+            default=>false,
+        };
     }
 
     private function isMixedBasisMarket(string $canonicalKey): bool
