@@ -24,7 +24,7 @@ final class SemanticNormalizer
         $text = preg_replace('/\b([qr])\s+([0-9]{1,2})\b/iu', '$1$2', $text) ?? $text;
         $text = preg_replace('/\brq\s*([0-9]{1,2})\b/iu', 'q$1', $text) ?? $text;
         $text = preg_replace('/\breq(?:uirement)?\s*([0-9]{1,2})\b/iu', 'q$1', $text) ?? $text;
-        $text = preg_replace('/\binsc(?:r(?:ibable|iptable)?)?\b/iu', 'inscribable', $text) ?? $text;
+        $text = preg_replace('/\b(?:insc|inscr|inscrib|inscribable|inscriptable)\b/iu', 'inscribable', $text) ?? $text;
 
         // Compact currency/item notation from Kamadan: ZKey1.3e -> ZKey 1.3e.
         $text = preg_replace('/\b(zkey|szc)(?=\d)/iu', '$1 ', $text) ?? $text;
@@ -71,6 +71,33 @@ final class SemanticNormalizer
         $text = preg_replace('/\bDeldrimor Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Deldrimor Armor Remnant', $text) ?? $text;
         $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
         $text = preg_replace('/\bPrimeval Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
+
+        // Phase 2G: recurring market shorthand / typo normalization.
+        $text = preg_replace('/\bstrenght\s*&\s*honor\b/iu', 'Strength and Honor', $text) ?? $text;
+        $text = preg_replace('/\bstrenght\s+and\s+honor\b/iu', 'Strength and Honor', $text) ?? $text;
+        $text = preg_replace('/\bmaster\s+fo\s+my\s+domain\b/iu', 'Master of My Domain', $text) ?? $text;
+        $text = preg_replace('/\bapt\s+not\s+att\b/iu', 'Aptitude not Attitude', $text) ?? $text;
+        $text = preg_replace('/\b(?:gold\s+zcoins?|gzc)\b/iu', 'Gold Zaishen Coin', $text) ?? $text;
+        $text = preg_replace('/\b(?:silver\s+zcoins?|szc)\b/iu', 'Silver Zaishen Coin', $text) ?? $text;
+        $text = preg_replace('/\bhero(?:s|\'s)?\s+strong\s*boxes?\b/iu', "Hero's Strongbox", $text) ?? $text;
+        $text = preg_replace('/\bprimeval\s+remnants?\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
+        $text = preg_replace('/\bforest\s+griff(?:on|in|en)\b/iu', 'Miniature Forest Griffon', $text) ?? $text;
+        $text = preg_replace('/\bwaili(?:ng\s+lord)?\b/iu', 'Miniature Wailing Lord', $text) ?? $text;
+        $text = preg_replace('/\bmadr(?:uk)?\b(?!\s+dhuum)/iu', 'Miniature Madruk Dhuum', $text) ?? $text;
+        $text = preg_replace('/\bd\.?\s*cake\b/iu', 'Birthday Cupcake', $text) ?? $text;
+        $text = preg_replace('/\bice\s*tea\b/iu', 'Battle Isle Iced Tea', $text) ?? $text;
+        // Common three-item consumable request.
+        $text = preg_replace('/\bbeacon\s*\/\s*tea\s*\/\s*cake\b/iu',
+            'Party Beacon | Battle Isle Iced Tea | Birthday Cupcake', $text) ?? $text;
+
+        $text = preg_replace('/\bred\s+rocks?\b/iu', 'Red Rock Candy', $text) ?? $text;
+        $text = preg_replace('/\brainbows?\b/iu', 'Rainbow Candy Cane', $text) ?? $text;
+        $text = preg_replace('/\bm4m\b/iu', 'Measure for Measure', $text) ?? $text;
+        $text = preg_replace('/\bcrested\s*machette\b/iu', 'Crested Machete', $text) ?? $text;
+        $text = preg_replace('/\bnick\s+sete\b/iu', 'Nicholas Set', $text) ?? $text;
+        $text = preg_replace('/\bperf(?:ect)?\s+salvage\s+kits?\b/iu', 'Perfect Salvage Kit', $text) ?? $text;
+        $text = preg_replace('/\bblessings\s+of\s+war\b/iu', 'Blessing of War', $text) ?? $text;
+        $text = preg_replace('/\b(?:hero(?:s|\'s)?\s+strong\s*box|hero\s+boxes?)\b/iu', "Hero's Strongbox", $text) ?? $text;
 
         // Birthday items are commonly advertised as ranges/shorthand in Kamadan.
         $birthdayRange = implode(' | ', [

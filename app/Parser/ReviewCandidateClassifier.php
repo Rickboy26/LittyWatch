@@ -40,6 +40,22 @@ final class ReviewCandidateClassifier
             return ['kind'=>'generic','reason'=>'generic_upgrade_category'];
         }
 
+        if (preg_match('/^(?:mods?\s+)?(?:soul\s+reaping|spawning\s+power|fast\s+casting|domination|inspiration|illusion|death\s+magic|blood\s+magic|fire\s+magic|air\s+magic|earth\s+magic|water\s+magic)(?:\s+[+f]\s*\d*|\s+f)?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'attribute_upgrade_search'];
+        }
+        if (preg_match('/^\d{1,2}%\s+mods?$/iu', $c) || preg_match('/^bowstrings?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'upgrade_family'];
+        }
+        if (preg_match('/^(?:tormented|zodiac|celestial)\s+weapons?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'weapon_family_search'];
+        }
+        if (preg_match('/^(?:gold\s+)?unids?(?:\s+per)?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'unidentified_item_category'];
+        }
+        if (preg_match('/^\d+\s*point\s+alcohol\s+stacks?$/iu', $c) || preg_match('/^point\s+alcohol\s+stacks?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'alcohol_point_category'];
+        }
+
         // Residual review phrases that describe a build/stat family rather than
         // one concrete inventory item. Keep them out of no_catalog_item.
         if (preg_match('/^(?:dom(?:ination)?|heal(?:ing)?|prot(?:ection)?|smite|fc|sr|df|spaw(?:ning)?|resto(?:ration)?|com(?:muning)?|inspi(?:ration)?|illu(?:sion)?)\s+sets?$/iu', $c)) {

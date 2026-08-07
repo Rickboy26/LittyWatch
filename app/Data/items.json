@@ -278,24 +278,31 @@
   {
     "key": "silver-zaishen-coin",
     "name": "Silver Zaishen Coin",
-    "category": "currency",
+    "category": "reward-trophy",
     "aliases": [
+      "Silver Zaishen Coin",
       "silver zaishen coin",
       "silver zaishen coins",
       "silver z coin",
-      "silver z coins"
+      "silver z coins",
+      "silver zcoin",
+      "silver zcoins",
+      "szc"
     ]
   },
   {
     "key": "gold-zaishen-coin",
     "name": "Gold Zaishen Coin",
-    "category": "currency",
+    "category": "reward-trophy",
     "aliases": [
+      "Gold Zaishen Coin",
       "gold zaishen coin",
       "gold zaishen coins",
       "gold z coin",
       "gold zcoin",
-      "gold coin"
+      "gold coin",
+      "gold zcoins",
+      "gzc"
     ]
   },
   {
@@ -479,8 +486,11 @@
     "name": "Primeval Armor Remnant",
     "category": "armor",
     "aliases": [
+      "Primeval Armor Remnant",
       "primeval armor remnant",
-      "primeval armor remnants"
+      "primeval armor remnants",
+      "primeval remnant",
+      "primeval remnants"
     ]
   },
   {
@@ -905,8 +915,11 @@
     "name": "Red Rock Candy",
     "category": "consumable",
     "aliases": [
+      "Red Rock Candy",
       "red rock candies",
-      "red rock candy"
+      "red rock candy",
+      "red rocks",
+      "red rock"
     ]
   },
   {
@@ -1358,6 +1371,343 @@
     "category": "weapon",
     "aliases": [
       "razorclaw scythe"
+    ]
+  },
+  {
+    "key": "firebrand",
+    "name": "Firebrand",
+    "category": "unique-weapon",
+    "aliases": [
+      "Firebrand",
+      "firebrand"
+    ]
+  },
+  {
+    "key": "chunk-of-drake-flesh",
+    "name": "Chunk of Drake Flesh",
+    "category": "trophy",
+    "aliases": [
+      "Chunk of Drake Flesh",
+      "drake flesh",
+      "chunk of drake flesh",
+      "chunks of drake flesh"
+    ]
+  },
+  {
+    "key": "blessing-of-war",
+    "name": "Blessing of War",
+    "category": "reward-trophy",
+    "aliases": [
+      "Blessing of War",
+      "blessing of war",
+      "blessings of war",
+      "bow"
+    ]
+  },
+  {
+    "key": "large-equipment-pack",
+    "name": "Large Equipment Pack",
+    "category": "container",
+    "aliases": [
+      "Large Equipment Pack",
+      "large equipment pack",
+      "large equip pack"
+    ]
+  },
+  {
+    "key": "ministerial-commendation",
+    "name": "Ministerial Commendation",
+    "category": "reward-trophy",
+    "aliases": [
+      "Ministerial Commendation",
+      "ministerial commendation",
+      "ministerial commendations"
+    ]
+  },
+  {
+    "key": "charr-bag",
+    "name": "Charr Bag",
+    "category": "container",
+    "aliases": [
+      "Charr Bag",
+      "charr bag",
+      "charr bags"
+    ]
+  },
+  {
+    "key": "heros-strongbox",
+    "name": "Hero's Strongbox",
+    "category": "present",
+    "aliases": [
+      "Hero's Strongbox",
+      "hero's strongbox",
+      "hero strongbox",
+      "hero strongboxes",
+      "heros strong box",
+      "heros strongbox",
+      "hero boxes",
+      "all hero boxes"
+    ]
+  },
+  {
+    "key": "miniature-polar-bear",
+    "name": "Miniature Polar Bear",
+    "category": "miniature",
+    "aliases": [
+      "Miniature Polar Bear",
+      "miniature polar bear",
+      "mini polar bear",
+      "polar bear",
+      "polar"
+    ]
+  },
+  {
+    "key": "miniature-evennia",
+    "name": "Miniature Evennia",
+    "category": "miniature",
+    "aliases": [
+      "Miniature Evennia",
+      "miniature evennia",
+      "mini evennia",
+      "evennia"
+    ]
+  },
+  {
+    "key": "battle-isle-iced-tea",
+    "name": "Battle Isle Iced Tea",
+    "category": "alcohol",
+    "aliases": [
+      "Battle Isle Iced Tea",
+      "battle isle iced tea",
+      "iced tea",
+      "icetea",
+      "ice tea"
+    ]
+  },
+  {
+    "key": "birthday-cupcake",
+    "name": "Birthday Cupcake",
+    "category": "sweet",
+    "aliases": [
+      "Birthday Cupcake",
+      "birthday cupcake",
+      "cupcake",
+      "d.cake",
+      "dcake"
+    ]
+  },
+  {
+    "key": "perfect-salvage-kit",
+    "name": "Perfect Salvage Kit",
+    "category": "kit",
+    "aliases": [
+      "Perfect Salvage Kit",
+      "perfect salvage kit",
+      "perfect salvage kits",
+      "perf salvage kit",
+      "perf salvage kits"
+    ]
+  },
+  {
+    "key": "diessa-chalice",
+    "name": "Diessa Chalice",
+    "category": "trophy",
+    "aliases": [
+      "Diessa Chalice",
+      "diessa chalice",
+      "diessa chalices",
+      "diessa ch"
+    ]
+  },
+  {
+    "key": "inscription-strength-and-honor",
+    "name": "Strength and Honor",
+    "category": "inscription",
+    "aliases": [
+      "Strength and Honor",
+      "strength and honor",
+      "strength & honor",
+      "strenght and honor",
+      "strenght & honor"
+    ]
+  },
+  {
+    "key": "inscription-live-for-today",
+    "name": "Live for Today",
+    "category": "inscription",
+    "aliases": [
+      "Live for Today",
+      "live for today"
+    ]
+  },
+  {
+    "key": "inscription-dance-with-death",
+    "name": "Dance with Death",
+    "category": "inscription",
+    "aliases": [
+      "Dance with Death",
+      "dance with death"
+    ]
+  },
+  {
+    "key": "inscription-dont-think-twice",
+    "name": "Don't Think Twice",
+    "category": "inscription",
+    "aliases": [
+      "Don't Think Twice",
+      "don't think twice",
+      "dont think twice"
+    ]
+  },
+  {
+    "key": "inscription-i-have-the-power",
+    "name": "I have the power!",
+    "category": "inscription",
+    "aliases": [
+      "I have the power!",
+      "i have the power",
+      "i have the power!"
+    ]
+  },
+  {
+    "key": "inscription-master-of-my-domain",
+    "name": "Master of My Domain",
+    "category": "inscription",
+    "aliases": [
+      "Master of My Domain",
+      "master of my domain",
+      "master fo my domain"
+    ]
+  },
+  {
+    "key": "inscription-aptitude-not-attitude",
+    "name": "Aptitude not Attitude",
+    "category": "inscription",
+    "aliases": [
+      "Aptitude not Attitude",
+      "aptitude not attitude",
+      "apt not att",
+      "ana"
+    ]
+  },
+  {
+    "key": "shield-handle-of-fortitude",
+    "name": "Shield Handle of Fortitude",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "Shield Handle of Fortitude",
+      "shield handle of fortitude"
+    ]
+  },
+  {
+    "key": "miniature-madruk-dhuum",
+    "name": "Miniature Madruk Dhuum",
+    "category": "miniature",
+    "aliases": [
+      "Miniature Madruk Dhuum",
+      "miniature madruk dhuum",
+      "mini madruk",
+      "madruk",
+      "madr"
+    ]
+  },
+  {
+    "key": "miniature-wailing-lord",
+    "name": "Miniature Wailing Lord",
+    "category": "miniature",
+    "aliases": [
+      "Miniature Wailing Lord",
+      "miniature wailing lord",
+      "mini wailing lord",
+      "wailing lord",
+      "waili"
+    ]
+  },
+  {
+    "key": "miniature-forest-griffon",
+    "name": "Miniature Forest Griffon",
+    "category": "miniature",
+    "aliases": [
+      "Miniature Forest Griffon",
+      "miniature forest griffon",
+      "mini forest griffon",
+      "forest griffon",
+      "forest griffin",
+      "forest griffen"
+    ]
+  },
+  {
+    "key": "inscription-sheltered-by-faith",
+    "name": "Sheltered by Faith",
+    "category": "inscription",
+    "aliases": [
+      "Sheltered by Faith",
+      "sheltered by faith"
+    ]
+  },
+  {
+    "key": "party-beacon",
+    "name": "Party Beacon",
+    "category": "festive",
+    "aliases": [
+      "Party Beacon",
+      "party beacon",
+      "beacon"
+    ]
+  },
+  {
+    "key": "rainbow-candy-cane",
+    "name": "Rainbow Candy Cane",
+    "category": "sweet",
+    "aliases": [
+      "Rainbow Candy Cane",
+      "rainbow candy cane",
+      "rainbow candy canes",
+      "rainbows"
+    ]
+  },
+  {
+    "key": "bowl-of-skalefin-soup",
+    "name": "Bowl of Skalefin Soup",
+    "category": "consumable",
+    "aliases": [
+      "Bowl of Skalefin Soup",
+      "bowl of skalefin soup",
+      "skalefin soup",
+      "soups",
+      "soup"
+    ]
+  },
+  {
+    "key": "inscription-measure-for-measure",
+    "name": "Measure for Measure",
+    "category": "inscription",
+    "aliases": [
+      "Measure for Measure",
+      "measure for measure",
+      "m4m"
+    ]
+  },
+  {
+    "key": "crested-machete",
+    "name": "Crested Machete",
+    "category": "weapon",
+    "aliases": [
+      "Crested Machete",
+      "crested machete",
+      "crested machette",
+      "crestedmachete",
+      "crestedmachette"
+    ]
+  },
+  {
+    "key": "tall-shield",
+    "name": "Tall Shield",
+    "category": "shield",
+    "aliases": [
+      "Tall Shield",
+      "tall shield",
+      "tall"
     ]
   }
 ]
