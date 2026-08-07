@@ -8,10 +8,11 @@ use LittyWatch\Core\Response;
 use LittyWatch\Core\View;
 use LittyWatch\Services\ItemImageService;
 use LittyWatch\Repositories\MarketRepository;
+use LittyWatch\Repositories\DatasetRepository;
 
 final class AdminController
 {
-    public function __construct(private readonly View $view, private readonly ItemImageService $images, private readonly MarketRepository $market) {}
+    public function __construct(private readonly View $view, private readonly ItemImageService $images, private readonly MarketRepository $market, private readonly DatasetRepository $dataset) {}
 
     public function index(Request $request): Response
     {
@@ -21,6 +22,21 @@ final class AdminController
             'dataQuality' => $this->market->dataQualityOverview(),
         ]));
     }
+    public function dataset(Request $request): Response
+    {
+        return Response::html($this->view->render('admin/dataset', [
+            'title'=>'Kamadan Dataset · LittyWatch',
+            'summary'=>$this->dataset->summary(),
+            'patterns'=>$this->dataset->patterns(),
+            'reviewReasons'=>$this->dataset->reviewReasons(),
+        ]));
+    }
+    public function datasetExport(Request $request): Response
+    {
+        $lines=[]; foreach($this->dataset->exportRows() as $row)$lines[]=json_encode($row,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+        return new Response(implode("\n",$lines)."\n",200,['Content-Type'=>'application/x-ndjson; charset=utf-8','Content-Disposition'=>'attachment; filename=littywatch-training-dataset.ndjson']);
+    }
+
     public function dataQuality(Request $request): Response
     {
         $category=trim($request->string('category','all'));

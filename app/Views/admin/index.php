@@ -3,6 +3,7 @@
 <div class="admin-grid">
   <section class="surface"><div class="section-heading"><div><span class="kicker">DATA</span><h2>Collectors & verwerking</h2></div></div><div class="tool-list">
     <a href="/admin/collect"><strong>Kamadan nu ophalen</strong><span>Haal de nieuwste handelsberichten op.</span></a>
+    <a href="/admin/dataset"><strong>Kamadan Dataset</strong><span>Bekijk dekking, volume, patronen en exporteer trainingsdata.</span></a>
     <a href="/admin/reparse"><strong>Marktindex volledig herbouwen</strong><span>Parse alle bronberichten opnieuw en bouw de canonieke Items-data uit structured offers.</span></a>
     <a href="/admin/market-maintenance"><strong>Market maintenance</strong><span>Werk lifecycle en actieve advertenties bij.</span></a>
     <a href="/admin/knowledge-seed"><strong>Knowledge Base seeden</strong><span>Installeer items, aliassen en profielen opnieuw.</span></a>

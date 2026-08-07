@@ -85,6 +85,8 @@ SQL);
     ensureColumn('messages','parser_status','TEXT');
     ensureColumn('messages','parser_summary','TEXT');
     ensureColumn('messages','parser_offer_count','INTEGER');
+    ensureColumn('messages','raw_payload','TEXT');
+    ensureColumn('messages','collector_version','TEXT');
     ensureColumn('structured_offers','exchange_item','TEXT');
     ensureColumn('structured_offers','exchange_item_key','TEXT');
     ensureColumn('structured_offers','exchange_give_quantity','REAL');
