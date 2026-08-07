@@ -31,6 +31,10 @@ final class ItemMatcher
                             $offset = $pos + 1;
                             continue;
                         }
+                        if (!$this->isContextuallyValid($text, $item, $variant)) {
+                            $offset = $pos + max(1, mb_strlen($aliasLower));
+                            continue;
+                        }
                         $matches[] = [
                             'item' => $item['name'],
                             'key' => $item['key'],
@@ -55,6 +59,26 @@ final class ItemMatcher
             $occupiedUntil = $match['start'] + $match['length'];
         }
         return $accepted;
+    }
+
+    /** Phase 2H: prevent short/community aliases from hijacking unrelated weapon/mod text. */
+    private function isContextuallyValid(string $text, array $item, string $alias): bool
+    {
+        $name = mb_strtolower((string)($item['name'] ?? ''));
+        $a = mb_strtolower(trim($alias));
+        $t = mb_strtolower($text);
+
+        if ($name === 'voltaic spear' && $a === 'volta') {
+            $conflictingWeapon = preg_match('/\b(?:shield|staff|wand|focus|bow|sword|axe|hammer|scythe|daggers?|cane)\b/iu', $t);
+            $spearContext = preg_match('/\b(?:spear|voltaic\s+spear)\b/iu', $t);
+            if ($conflictingWeapon && !$spearContext) return false;
+        }
+
+        // One/two-character aliases are too weak for catalog identity. They may
+        // exist in imported knowledge, but should not create price observations.
+        if (mb_strlen($a) <= 2) return false;
+
+        return true;
     }
 
     private function hasBoundaries(string $text, int $start, int $length): bool

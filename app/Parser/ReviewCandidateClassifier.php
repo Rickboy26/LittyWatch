@@ -33,7 +33,7 @@ final class ReviewCandidateClassifier
         if (preg_match('/^weapons?\s*&\s*shields?$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'generic_weapon_category'];
         }
-        if (preg_match('/^(?:weapons?|shields?|mods?|skins?|greens?|tomes?)$/iu', $c)) {
+        if (preg_match('/^(?:weapons?|shields?|mods?|skins?|greens?|tomes?|tonics?|bowstrings?|inscriptions?|upgrades?)$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'generic_category'];
         }
         if (preg_match('/\bhero\s+armor\s+upgrades?\b|\bmods?\s*\/\s*inscribable\b/iu', $c)) {
@@ -45,6 +45,13 @@ final class ReviewCandidateClassifier
         }
         if (preg_match('/^\d{1,2}%\s+mods?$/iu', $c) || preg_match('/^bowstrings?$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'upgrade_family'];
+        }
+        if (preg_match('/^(?:strength\s+of\s+the\s+warrior|soul\s+reaping\s*\+?\s*5(?:\s+sta(?:ff)?)?)$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'upgrade_or_stat_search'];
+        }
+        if (preg_match('/^(?:\d+(?:[.,]\d+)?\s*[ekag]\s*)?(?:\(\s*\d+\s+times?\s*\)|\d+\s+times?)$/iu', $c)
+            || preg_match('/^(?:each|ea)\s+(?:fro|from)?$/iu', $c)) {
+            return ['kind'=>'noise','reason'=>'price_context_fragment'];
         }
         if (preg_match('/^(?:tormented|zodiac|celestial)\s+weapons?$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'weapon_family_search'];

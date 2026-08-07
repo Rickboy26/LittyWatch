@@ -72,6 +72,14 @@ final class SemanticNormalizer
         $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
         $text = preg_replace('/\bPrimeval Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
 
+        // Phase 2H: residual GW1 market shorthand that is safe to canonicalize.
+        $text = preg_replace('/\bbirds?[ -]?eye\b/iu', 'Birdseye', $text) ?? $text;
+        $text = preg_replace('/\bechovald(?=\s+(?:q|r|req|tac|tactics|str|strength|\d))/iu', 'Echovald Shield', $text) ?? $text;
+        $text = preg_replace('/\bhog(?:\'s)?\s+glut\b/iu', "Hog's Gluttony", $text) ?? $text;
+        $text = preg_replace('/\bmap\s+(?:piece\s+)?sets?\b/iu', 'Map Set', $text) ?? $text;
+        $text = preg_replace('/\bfull\s+map\s+set\b/iu', 'Map Set', $text) ?? $text;
+        $text = preg_replace('/\bdiessa\s+sets?\b/iu', 'Diessa Set', $text) ?? $text;
+
         // Phase 2G: recurring market shorthand / typo normalization.
         $text = preg_replace('/\bstrenght\s*&\s*honor\b/iu', 'Strength and Honor', $text) ?? $text;
         $text = preg_replace('/\bstrenght\s+and\s+honor\b/iu', 'Strength and Honor', $text) ?? $text;
@@ -132,7 +140,6 @@ final class SemanticNormalizer
             '/\bghastly\b(?!\s+summoning\s+stone)/iu'=>'Ghastly Summoning Stone',
             '/\bwar\s+suppl(?:y|ies)\b/iu'=>'War Supplies',
             '/\brin\s+relics?\s+set\b/iu'=>'Rin Relic set',
-            '/\bvolta\b/iu'=>'Voltaic Spear',
             '/\bg\s*priest\b/iu'=>'Miniature Ghostly Priest',
         ];
         foreach ($rules as $pattern=>$replacement) $text = preg_replace($pattern,$replacement,$text) ?? $text;

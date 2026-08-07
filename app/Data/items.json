@@ -221,7 +221,9 @@
       "stalker's ration",
       "stalker's rations",
       "stalkers ration",
-      "stalkers rations"
+      "stalkers rations",
+      "stalkers",
+      "stalker rations"
     ]
   },
   {
@@ -253,7 +255,10 @@
       "seal of the dragon empire",
       "guard seal",
       "guard seals",
-      "guards-seals"
+      "guards-seals",
+      "seals",
+      "dragon seals",
+      "empire seals"
     ]
   },
   {
@@ -808,7 +813,10 @@
     "category": "weapon",
     "aliases": [
       "birdseye",
-      "bird's eye"
+      "bird's eye",
+      "birds eye",
+      "birds-eye",
+      "bird eye"
     ]
   },
   {
@@ -899,7 +907,10 @@
     "aliases": [
       "magmas shield",
       "magma shield",
-      "magma's shield"
+      "magma's shield",
+      "magmas",
+      "magma arm",
+      "magmas arm"
     ]
   },
   {
@@ -1708,6 +1719,60 @@
       "Tall Shield",
       "tall shield",
       "tall"
+    ]
+  },
+  {
+    "key": "echovald-shield",
+    "name": "Echovald Shield",
+    "category": "weapon",
+    "aliases": [
+      "echovald shield",
+      "echovald",
+      "echovalds"
+    ]
+  },
+  {
+    "key": "cane",
+    "name": "Cane",
+    "category": "weapon",
+    "aliases": [
+      "cane",
+      "canes"
+    ]
+  },
+  {
+    "key": "hogs-gluttony",
+    "name": "Hog's Gluttony",
+    "category": "weapon",
+    "aliases": [
+      "hog's gluttony",
+      "hogs gluttony",
+      "hog's glut",
+      "hogs glut",
+      "hog glut"
+    ]
+  },
+  {
+    "key": "map-set",
+    "name": "Map Set",
+    "category": "set",
+    "aliases": [
+      "map set",
+      "map sets",
+      "map piece set",
+      "map pieces set",
+      "full map set",
+      "treasure map set"
+    ]
+  },
+  {
+    "key": "diessa-set",
+    "name": "Diessa Set",
+    "category": "set",
+    "aliases": [
+      "diessa set",
+      "diessa sets",
+      "full diessa set"
     ]
   }
 ]
