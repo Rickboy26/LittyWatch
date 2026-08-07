@@ -261,7 +261,7 @@ $profiles = $sources['profiles'] ?? [];
         const headerRow = Array.from(table.querySelectorAll('tr')).find(tr => tr.querySelector('th'));
         if (headerRow) {
           const headers = Array.from(headerRow.querySelectorAll('th,td')).map(cell => cleanListName(cell.textContent));
-          const explicitNameColumn = headers.findIndex(header => /^name$/iu.test(header));
+          const explicitNameColumn = headers.findIndex(header => /^(?:name|item|item name|consumable|sweet|alcohol)$/iu.test(header));
           if (explicitNameColumn >= 0) nameColumn = explicitNameColumn;
         }
 
@@ -306,6 +306,18 @@ $profiles = $sources['profiles'] ?? [];
   async function fetchProfile(config) {
     const type = config.source_type || 'category';
     if (type === 'list-page') return fetchListPage(config);
+    if (type === 'list-pages') {
+      const pages = config.pages || [];
+      let total = 0;
+      for (let i = 0; i < pages.length; i++) {
+        const pageConfig = {...config, ...pages[i], source_type:'list-page'};
+        total += await fetchListPage(pageConfig);
+        show(config.key, `${i+1}/${pages.length} lijstpagina’s verwerkt · ${total} items`, ((i+1)/pages.length)*100, total);
+      }
+      if (!pages.length) throw new Error(`${config.label} heeft geen Wiki-lijstpagina’s ingesteld.`);
+      show(config.key, `${total} items uit ${pages.length} lijstpagina’s opgehaald.`, 100, total);
+      return total;
+    }
     if (type === 'categories') {
       const categories = config.categories || [];
       let total = 0;

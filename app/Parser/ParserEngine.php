@@ -22,6 +22,7 @@ final class ParserEngine
     private GrammarSegmenter $grammarSegmenter;
     private MarketMetadataExtractor $metadataExtractor;
     private GenericItemRecognizer $genericRecognizer;
+    private ContextualSegmentExpander $contextualSegmentExpander;
     private ?CategoryExpander $categoryExpander = null;
     private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
     private ?AttributeMatcher $attributeMatcher = null;
@@ -51,6 +52,7 @@ final class ParserEngine
         $this->grammarSegmenter = new GrammarSegmenter();
         $this->metadataExtractor = new MarketMetadataExtractor();
         $this->genericRecognizer = new GenericItemRecognizer();
+        $this->contextualSegmentExpander = new ContextualSegmentExpander($this->itemMatcher);
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
@@ -69,8 +71,12 @@ final class ParserEngine
         foreach ($this->splitter->split($normalized) as $block) {
             if ($this->classifier->classify($block['text'])['kind'] !== 'market') continue;
 
-            $segments = $this->grammarSegmenter->split($block['text']);
-            if ($segments === []) $segments = $this->segmenter->split($block['text']);
+            // Normalize the complete block first. Some market shorthand (for example
+            // birthday ranges) expands into multiple logical offers before segmentation.
+            $blockText = $this->semantic->normalize($block['text']);
+            $segments = $this->grammarSegmenter->split($blockText);
+            if ($segments === []) $segments = $this->segmenter->split($blockText);
+            $segments = $this->contextualSegmentExpander->expand($segments);
 
             foreach ($segments as $segment) {
                 if ($this->classifier->classify($segment)['kind'] !== 'market') continue;

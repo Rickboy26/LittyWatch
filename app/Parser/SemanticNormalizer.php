@@ -25,6 +25,17 @@ final class SemanticNormalizer
         $text = preg_replace('/\breq(?:uirement)?\s*([0-9]{1,2})\b/iu', 'q$1', $text) ?? $text;
         $text = preg_replace('/\binsc(?:r(?:ibable|iptable)?)?\b/iu', 'inscribable', $text) ?? $text;
 
+        // Birthday items are commonly advertised as ranges/shorthand in Kamadan.
+        $birthdayRange = implode(' | ', [
+            'Xunlai Birthday Present 1st Year', 'Xunlai Birthday Present 2nd Year',
+            'Xunlai Birthday Present 3rd Year', 'Xunlai Birthday Present 4th Year',
+            'Xunlai Birthday Present 5th Year', 'Xunlai Birthday Present 6th Year',
+            'Xunlai Birthday Present 7th Year',
+        ]);
+        $text = preg_replace('/\b(?:bday|birthday)\s+presents?\s*1\s*(?:-|to|through)\s*7\b/iu', $birthdayRange, $text) ?? $text;
+        $text = preg_replace('/\b(?:xunlai\s+)?birthday\s+present\s+vouchers?\b/iu', 'Xunlai Birthday Voucher', $text) ?? $text;
+        $text = preg_replace('/\bbday\s+present\s+vouchers?\b/iu', 'Xunlai Birthday Voucher', $text) ?? $text;
+
         // Collapse alias + canonical name combinations to one catalog item.
         $text = preg_replace('/\bvolta\s*\(\s*voltaic\s+spear\s*\)/iu', 'Voltaic Spear', $text) ?? $text;
         $text = preg_replace('/\bg\s*priest\s*\(\s*miniature\s+ghostly\s+priest\s*\)/iu', 'Miniature Ghostly Priest', $text) ?? $text;

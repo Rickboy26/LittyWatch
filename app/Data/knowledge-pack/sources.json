@@ -1,5 +1,5 @@
 {
-  "version": "1.2",
+  "version": "1.3",
   "wiki_api": "https://wiki.guildwars.com/api.php",
   "profiles": [
     {
@@ -44,10 +44,44 @@
     },
     {
       "key": "consumables",
-      "label": "Consumables",
-      "category": "Category:Consumables",
+      "label": "Consumables / sweets / alcohol",
+      "source_type": "list-pages",
       "kind": "consumable",
-      "source_type": "category"
+      "pages": [
+        {
+          "page": "List of consumables",
+          "extractor": "table-first-cell",
+          "exclude_regex": "^(?:Name|Item|Effect|Description|Points?|Duration|Acquisition|Notes?)$"
+        },
+        {
+          "page": "Sweet",
+          "extractor": "table-first-cell",
+          "exclude_regex": "^(?:Name|Item|Effect|Description|Points?|Duration|Acquisition|Notes?)$"
+        },
+        {
+          "page": "Alcohol",
+          "extractor": "table-first-cell",
+          "exclude_regex": "^(?:Name|Item|Effect|Description|Points?|Duration|Acquisition|Notes?)$"
+        }
+      ]
+    },
+    {
+      "key": "birthday-items",
+      "label": "Birthday presents & voucher",
+      "source_type": "list-page",
+      "page": "Birthday Present",
+      "kind": "consumable",
+      "extractor": "configured-names",
+      "names": [
+        "Xunlai Birthday Present 1st Year",
+        "Xunlai Birthday Present 2nd Year",
+        "Xunlai Birthday Present 3rd Year",
+        "Xunlai Birthday Present 4th Year",
+        "Xunlai Birthday Present 5th Year",
+        "Xunlai Birthday Present 6th Year",
+        "Xunlai Birthday Present 7th Year",
+        "Xunlai Birthday Voucher"
+      ]
     },
     {
       "key": "tomes",

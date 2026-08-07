@@ -1007,5 +1007,116 @@
     "aliases": [
       "ebon scythe snathe"
     ]
+  },
+  {
+    "key": "xunlai-birthday-present-1st-year",
+    "name": "Xunlai Birthday Present 1st Year",
+    "category": "consumable",
+    "aliases": [
+      "xunlai birthday present 1st year",
+      "bday present 1",
+      "bday present 1st",
+      "birthday present 1",
+      "birthday present 1st",
+      "1st year present",
+      "year 1 present"
+    ]
+  },
+  {
+    "key": "xunlai-birthday-present-2nd-year",
+    "name": "Xunlai Birthday Present 2nd Year",
+    "category": "consumable",
+    "aliases": [
+      "xunlai birthday present 2nd year",
+      "bday present 2",
+      "bday present 2nd",
+      "birthday present 2",
+      "birthday present 2nd",
+      "2nd year present",
+      "year 2 present"
+    ]
+  },
+  {
+    "key": "xunlai-birthday-present-3rd-year",
+    "name": "Xunlai Birthday Present 3rd Year",
+    "category": "consumable",
+    "aliases": [
+      "xunlai birthday present 3rd year",
+      "bday present 3",
+      "bday present 3rd",
+      "birthday present 3",
+      "birthday present 3rd",
+      "3rd year present",
+      "year 3 present"
+    ]
+  },
+  {
+    "key": "xunlai-birthday-present-4th-year",
+    "name": "Xunlai Birthday Present 4th Year",
+    "category": "consumable",
+    "aliases": [
+      "xunlai birthday present 4th year",
+      "bday present 4",
+      "bday present 4th",
+      "birthday present 4",
+      "birthday present 4th",
+      "4th year present",
+      "year 4 present"
+    ]
+  },
+  {
+    "key": "xunlai-birthday-present-5th-year",
+    "name": "Xunlai Birthday Present 5th Year",
+    "category": "consumable",
+    "aliases": [
+      "xunlai birthday present 5th year",
+      "bday present 5",
+      "bday present 5th",
+      "birthday present 5",
+      "birthday present 5th",
+      "5th year present",
+      "year 5 present"
+    ]
+  },
+  {
+    "key": "xunlai-birthday-present-6th-year",
+    "name": "Xunlai Birthday Present 6th Year",
+    "category": "consumable",
+    "aliases": [
+      "xunlai birthday present 6th year",
+      "bday present 6",
+      "bday present 6th",
+      "birthday present 6",
+      "birthday present 6th",
+      "6th year present",
+      "year 6 present"
+    ]
+  },
+  {
+    "key": "xunlai-birthday-present-7th-year",
+    "name": "Xunlai Birthday Present 7th Year",
+    "category": "consumable",
+    "aliases": [
+      "xunlai birthday present 7th year",
+      "bday present 7",
+      "bday present 7th",
+      "birthday present 7",
+      "birthday present 7th",
+      "7th year present",
+      "year 7 present"
+    ]
+  },
+  {
+    "key": "xunlai-birthday-voucher",
+    "name": "Xunlai Birthday Voucher",
+    "category": "consumable",
+    "aliases": [
+      "xunlai birthday voucher",
+      "birthday voucher",
+      "birthday present voucher",
+      "birthday present vouchers",
+      "bday voucher",
+      "bday vouchers"
+    ]
   }
 ]
