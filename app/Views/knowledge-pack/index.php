@@ -108,9 +108,27 @@ $profiles = $sources['profiles'] ?? [];
     bar.style.width = Math.max(0,Math.min(100,percent)) + '%';
   };
 
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  async function wikiFetch(url, label, attempts = 3) {
+    let lastError;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const response = await fetch(url, {headers:{'Accept':'application/json'}, cache:'no-store'});
+        if (!response.ok) throw new Error(`${label} HTTP ${response.status}`);
+        return await response.json();
+      } catch (error) {
+        lastError = error;
+        if (attempt < attempts) await sleep(700 * attempt);
+      }
+    }
+    throw new Error(`${label}: ${lastError?.message || 'Failed to fetch'} (na ${attempts} pogingen)`);
+  }
+
   async function fetchCategory(profile, category, kind) {
     let cmcontinue = '';
     let pages = 0;
+    let categoryMembers = 0;
     show(profile, `Categorie ${category} wordt gelezen…`, 5, 0);
 
     do {
@@ -124,16 +142,19 @@ $profiles = $sources['profiles'] ?? [];
       categoryUrl.searchParams.set('origin','*');
       if (cmcontinue) categoryUrl.searchParams.set('cmcontinue',cmcontinue);
 
-      const categoryResponse = await fetch(categoryUrl);
-      if (!categoryResponse.ok) throw new Error(`Wiki categorie HTTP ${categoryResponse.status}`);
-      const categoryData = await categoryResponse.json();
+      const categoryData = await wikiFetch(categoryUrl, `Wiki categorie ${category}`);
       const members = categoryData?.query?.categorymembers ?? [];
       const titles = members.map(member => member.title).filter(Boolean);
+      categoryMembers += titles.length;
 
-      if (titles.length) {
+      // Do not put up to 100 page titles into one huge GET URL. Large categories
+      // such as Miniatures can otherwise hit URL/proxy/CORS limits.
+      const DETAIL_BATCH_SIZE = 20;
+      for (let start = 0; start < titles.length; start += DETAIL_BATCH_SIZE) {
+        const titleBatch = titles.slice(start, start + DETAIL_BATCH_SIZE);
         const detailUrl = new URL(api);
         detailUrl.searchParams.set('action','query');
-        detailUrl.searchParams.set('titles',titles.join('|'));
+        detailUrl.searchParams.set('titles',titleBatch.join('|'));
         detailUrl.searchParams.set('prop','extracts|info|categories|redirects');
         detailUrl.searchParams.set('exintro','1');
         detailUrl.searchParams.set('explaintext','1');
@@ -144,9 +165,7 @@ $profiles = $sources['profiles'] ?? [];
         detailUrl.searchParams.set('format','json');
         detailUrl.searchParams.set('origin','*');
 
-        const detailResponse = await fetch(detailUrl);
-        if (!detailResponse.ok) throw new Error(`Wiki detail HTTP ${detailResponse.status}`);
-        const detailData = await detailResponse.json();
+        const detailData = await wikiFetch(detailUrl, `Wiki details ${category}`);
         const batch = Object.values(detailData?.query?.pages ?? {});
 
         const body = new URLSearchParams({
@@ -162,15 +181,24 @@ $profiles = $sources['profiles'] ?? [];
           },
           body
         });
-        const saveData = await saveResponse.json();
+        const raw = await saveResponse.text();
+        let saveData;
+        try { saveData = JSON.parse(raw); }
+        catch (_) { throw new Error(raw.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim() || 'Staging opslaan gaf geen geldige JSON.'); }
         if (!saveResponse.ok || !saveData.ok) throw new Error(saveData.error || 'Staging opslaan mislukt.');
         pages += batch.length;
+        show(profile, `${pages} pagina’s opgeslagen…`, 55, pages);
+        await sleep(120);
       }
 
       cmcontinue = categoryData?.continue?.cmcontinue ?? '';
-      show(profile, `${pages} pagina’s opgeslagen…`, cmcontinue ? 55 : 100, pages);
-      await new Promise(resolve => setTimeout(resolve, 250));
+      show(profile, `${pages} pagina’s opgeslagen…`, cmcontinue ? 70 : 100, pages);
+      await sleep(250);
     } while (cmcontinue);
+
+    if (categoryMembers === 0) {
+      throw new Error(`${category} leverde 0 pagina’s op. Controleer of deze categorie op Guild Wars Wiki bestaat; dit is waarschijnlijk een onjuiste broncategorie.`);
+    }
 
     show(profile, `${pages} pagina’s uit ${category} opgehaald.`, 100, pages);
     return pages;
