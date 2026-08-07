@@ -72,6 +72,13 @@ final class SemanticNormalizer
         $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
         $text = preg_replace('/\bPrimeval Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
 
+        // Phase 2I: high-confidence residual catalog spellings from the live review queue.
+        $text = preg_replace('/\bgolden\s+zaishen\s+coins?\b/iu', 'Gold Zaishen Coin', $text) ?? $text;
+        $text = preg_replace('/\bflames?\s+of\s+balthazar\b/iu', 'Flames of Balthazar', $text) ?? $text;
+        $text = preg_replace('/\bsup(?:erior)?\s+rune\s+(?:of\s+)?vigor\b/iu', 'Superior Rune of Vigor', $text) ?? $text;
+        $text = preg_replace('/\bstygian\s+gems?\b/iu', 'Stygian Gem', $text) ?? $text;
+        $text = preg_replace('/\bstack\s+of\s+iron\b/iu', 'Iron Ingot stack', $text) ?? $text;
+
         // Phase 2H: residual GW1 market shorthand that is safe to canonicalize.
         $text = preg_replace('/\bbirds?[ -]?eye\b/iu', 'Birdseye', $text) ?? $text;
         $text = preg_replace('/\bechovald(?=\s+(?:q|r|req|tac|tactics|str|strength|\d))/iu', 'Echovald Shield', $text) ?? $text;

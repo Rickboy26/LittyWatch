@@ -42,7 +42,7 @@ final class ItemMatcher
                             'start' => $pos,
                             'length' => mb_strlen($aliasLower),
                             'alias' => $variant,
-                            'score' => min(0.99, 0.72 + min(0.24, mb_strlen($aliasLower) / 50)),
+                            'score' => $this->aliasScore($item, $variant),
                         ];
                         $offset = $pos + max(1, mb_strlen($aliasLower));
                     }
@@ -61,6 +61,17 @@ final class ItemMatcher
         return $accepted;
     }
 
+    private function aliasScore(array $item, string $alias): float
+    {
+        $a = mb_strtolower(trim($alias));
+        $name = mb_strtolower((string)($item['name'] ?? ''));
+        if (($name === 'bone dragon staff' && $a === 'bds')
+            || ($name === 'gift of the traveler' && in_array($a, ['gott','gotts','nick gift','nick gifts'], true))) {
+            return 0.88;
+        }
+        return min(0.99, 0.72 + min(0.24, mb_strlen($a) / 50));
+    }
+
     /** Phase 2H: prevent short/community aliases from hijacking unrelated weapon/mod text. */
     private function isContextuallyValid(string $text, array $item, string $alias): bool
     {
@@ -73,6 +84,13 @@ final class ItemMatcher
             $spearContext = preg_match('/\b(?:spear|voltaic\s+spear)\b/iu', $t);
             if ($conflictingWeapon && !$spearContext) return false;
         }
+
+        // Phase 2I: context-sensitive community shorthand.
+        if ($name === 'blessing of war' && $a === 'bow') return false;
+        if ($name === 'armbrace of truth' && in_array($a, ['arms','ambr','ambraces'], true)) {
+            if (preg_match('/\b(?:tonic|mod|mods|bow|axe|staff|wand|spear|grip|haft|wrapping|head)\b/iu', $t)) return false;
+        }
+        if ($name === 'mystical summoning stone (gaki)' && $a === 'gaki' && preg_match('/\bpolymock\b/iu', $t)) return false;
 
         // One/two-character aliases are too weak for catalog identity. They may
         // exist in imported knowledge, but should not create price observations.

@@ -36,6 +36,15 @@ final class ReviewCandidateClassifier
         if (preg_match('/^(?:weapons?|shields?|mods?|skins?|greens?|tomes?|tonics?|bowstrings?|inscriptions?|upgrades?)$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'generic_category'];
         }
+        // Phase 2I: upgrade components are not the underlying weapon.
+        if (preg_match('/\b(?:staff\s+(?:head|wrapp?ing)|wand\s+wrapp?ing|(?:bow|axe|hammer|spear|scythe)\s+(?:grip|haft|string)|sword\s+pommel)\b/iu', $c)
+            || preg_match('/\b(?:insightful|hale|zealous|vampiric|sundering|crippling|barbed|icy|fiery|cruel)\b.*\b(?:head|grip|haft|string|wrapp?ing|pommel)\b/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'weapon_upgrade_component'];
+        }
+        if (preg_match('/^(?:all\s+)?(?:celestial\s+)?minis?(?:atures?)?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'miniature_category'];
+        }
+
         if (preg_match('/\bhero\s+armor\s+upgrades?\b|\bmods?\s*\/\s*inscribable\b/iu', $c)) {
             return ['kind'=>'generic','reason'=>'generic_upgrade_category'];
         }
