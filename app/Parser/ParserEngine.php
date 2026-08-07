@@ -334,6 +334,24 @@ final class ParserEngine
         $category = (string)($item['category'] ?? '');
         $ecto = $price->ectoValue;
 
+        // Phase 3G: some stackable market commodities are conventionally
+        // quoted as a full 250-item stack even when traders omit `stk`/`stack`.
+        // This is catalog metadata, not a blanket consumable rule: Consets,
+        // Essences and other per-item consumables therefore keep their semantics.
+        if (($item['market_price_basis'] ?? '') === 'stack') {
+            $stackSize = (float)($item['market_stack_size'] ?? 250);
+            if ($stackSize <= 0) $stackSize = 250.0;
+            return new ParsedPrice(
+                $price->amount,
+                $price->currency,
+                $ecto,
+                'stack_inferred',
+                $stackSize,
+                $ecto !== null ? $ecto / $stackSize : null,
+                $price->raw,
+            );
+        }
+
         if ($key === 'armbrace-of-truth') {
             // Armbraces are normally quoted in ecto per armbrace. Bare armbrace
             // currency prices ("17a") or extreme bare ecto totals ("250e") are

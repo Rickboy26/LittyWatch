@@ -44,6 +44,8 @@ final class ItemMatcher
                             'item' => $item['name'],
                             'key' => $item['key'],
                             'category' => $item['category'] ?? 'unknown',
+                            'market_price_basis' => $item['market_price_basis'] ?? '',
+                            'market_stack_size' => $item['market_stack_size'] ?? null,
                             'start' => $pos,
                             'length' => mb_strlen($aliasLower),
                             'alias' => $variant,

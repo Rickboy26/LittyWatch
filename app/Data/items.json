@@ -1206,7 +1206,9 @@
     "aliases": [
       "candy corn",
       "corn"
-    ]
+    ],
+    "market_price_basis": "stack",
+    "market_stack_size": 250
   },
   {
     "key": "drake-kabob",

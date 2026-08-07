@@ -80,6 +80,10 @@ final class Catalog
                 'name'=>$name,
                 'category'=>(string)($item['category'] ?? ($indexed[$key]['category'] ?? 'unknown')),
                 'aliases'=>$aliases,
+                // Phase 3G: parser-owned market semantics may be declared in the
+                // catalog. Preserve them across knowledge-pack/database merges.
+                'market_price_basis'=>(string)($item['market_price_basis'] ?? ($indexed[$key]['market_price_basis'] ?? '')),
+                'market_stack_size'=>(int)($item['market_stack_size'] ?? ($indexed[$key]['market_stack_size'] ?? 0)),
             ];
         }
         return array_values($indexed);
