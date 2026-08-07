@@ -267,20 +267,29 @@ final class MarketQualityService
                     $basis=strtolower(trim((string)($item['market_quote_basis']??'')));
                     $category=strtolower(trim((string)($item['category']??'')));
                     $size=(float)($item['market_quote_size']??$item['market_stack_size']??0);
+                    $catalogKey=$this->canonicalCatalogKey((string)$item['key']);
+                    if ($catalogKey==='') continue;
                     if ($basis==='stack') {
                         if ($size<=1) $size=250.0;
-                        $map[(string)$item['key']]=['basis'=>'stack','size'=>$size];
+                        $map[$catalogKey]=['basis'=>'stack','size'=>$size];
                     } elseif ($basis==='each') {
-                        $map[(string)$item['key']]=['basis'=>'each','size'=>1.0];
+                        $map[$catalogKey]=['basis'=>'each','size'=>1.0];
                     } elseif (!in_array($category,['currency','material','consumable'],true)) {
                         // Same conservative default as ParserEngine: concrete
                         // non-commodity catalog items are quoted per item.
-                        $map[(string)$item['key']]=['basis'=>'each','size'=>1.0];
+                        $map[$catalogKey]=['basis'=>'each','size'=>1.0];
                     }
                 }
             }
         }
-        return $map[$itemKey]??null;
+        return $map[$this->canonicalCatalogKey($itemKey)]??null;
+    }
+
+    private function canonicalCatalogKey(string $value): string
+    {
+        // StructuredOfferWriter uses underscore keys while the static catalog
+        // historically uses hyphens. Compare both through one representation.
+        return trim((string)preg_replace('/[^a-z0-9]+/', '_', mb_strtolower($value)), '_');
     }
 
     /** @param array<string,mixed> $row */
