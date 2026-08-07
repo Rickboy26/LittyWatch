@@ -251,14 +251,30 @@ $profiles = $sources['profiles'] ?? [];
 
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const seen = new Set();
-      for (const table of doc.querySelectorAll('table.wikitable')) {
+      const tables = Array.from(doc.querySelectorAll('table'));
+
+      for (const table of tables) {
+        // MediaWiki does not guarantee the `wikitable` class in action=parse output.
+        // Determine the item-name column from the table header instead of assuming
+        // that the first td is always the name (Inscription tables start with Icon).
+        let nameColumn = 0;
+        const headerRow = Array.from(table.querySelectorAll('tr')).find(tr => tr.querySelector('th'));
+        if (headerRow) {
+          const headers = Array.from(headerRow.querySelectorAll('th,td')).map(cell => cleanListName(cell.textContent));
+          const explicitNameColumn = headers.findIndex(header => /^name$/iu.test(header));
+          if (explicitNameColumn >= 0) nameColumn = explicitNameColumn;
+        }
+
         for (const tr of table.querySelectorAll('tr')) {
-          const cell = tr.querySelector('td');
-          if (!cell) continue;
-          let name = cleanListName(cell.textContent);
+          const cells = Array.from(tr.querySelectorAll(':scope > td'));
+          if (!cells.length || nameColumn >= cells.length) continue;
+
+          let name = cleanListName(cells[nameColumn].textContent);
           if (!name || name.length > 100) continue;
+          if (/^(?:name|icon|description|enhancement|condition\s*\/?\s*cost)$/iu.test(name)) continue;
           if (config.exclude_regex && regexMatches(name, config.exclude_regex)) continue;
           if (config.include_regex && !regexMatches(name, config.include_regex)) continue;
+
           const key = name.toLocaleLowerCase();
           if (seen.has(key)) continue;
           seen.add(key);
