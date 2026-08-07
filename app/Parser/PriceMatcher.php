@@ -7,6 +7,14 @@ final class PriceMatcher
 {
     public function parse(string $segment): ParsedPrice
     {
+        // Phase 3L.2: explicit price ranges are observations, not exact unit prices.
+        // Keep the upper amount visible, but deliberately withhold unit_ecto so a
+        // range such as "225-675e" cannot pollute medians as a single 675e quote.
+        if (preg_match('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
+            $amount = $this->number($m[2]);
+            return $this->make($amount, $this->currency((string)$m[3]), 'range', null, $m[0]);
+        }
+
         // Ratio shorthand: 5:1e means five units for one ecto total.
         if (preg_match('/(?<!\d)(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $quantity = $this->number($m[1]);
@@ -84,7 +92,7 @@ final class PriceMatcher
             } elseif (preg_match('/^\s*(?:ea|each)\s*\/\s*(?:st|stk|stack)\b/i', $tail)) {
                 // Kamadan "9a ea/stack" means 9a for each stack, not 9a for each item.
                 $basis = 'stack'; $quantity = 250.0; $priority = 8;
-            } elseif (preg_match('/^\s*\/\s*(?:ea|each|e)\b/i', $tail) || preg_match('/^\s*(?:ea|each)\b/i', $tail)) {
+            } elseif (preg_match('/^\s*(?:[\/\.\-]\s*)?(?:ea|each)\b/i', $tail) || preg_match('/^\s*\/\s*e\b/i', $tail)) {
                 $basis = 'each'; $quantity = $this->detectInventoryQuantity($segment); $priority = 6;
             } elseif (preg_match('/^\s*(?:\/\s*)?x\s*(\d+)\b/i', $tail, $qm)) {
                 // Kamadan convention: "27e x6" = six units at 27e each.

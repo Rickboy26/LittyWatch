@@ -34,7 +34,7 @@ final class MarketQualityService
             $filter = ' AND so.item_key IN ('.implode(',', $marks).')';
         }
 
-        $sql = "SELECT so.id,so.trade_type,so.item_key,so.price_amount,so.price_currency,so.unit_price_ecto,so.price_basis,so.quality_status,so.lifecycle_status,so.price_quality_reason,m.player
+        $sql = "SELECT so.id,so.trade_type,so.item_key,so.price_amount,so.price_currency,so.price_ecto,so.unit_price_ecto,so.quantity,so.price_basis,so.quality_status,so.lifecycle_status,so.price_quality_reason,m.player
                 FROM structured_offers so
                 JOIN messages m ON m.id=so.message_id
                 WHERE so.quality_status='accepted'
@@ -49,7 +49,8 @@ final class MarketQualityService
              SET price_quality_status=:status,
                  price_quality_reason=:reason,
                  price_outlier_score=:score,
-                 price_baseline_ecto=:baseline
+                 price_baseline_ecto=:baseline,
+                 unit_price_ecto=COALESCE(:unit_price,unit_price_ecto)
              WHERE id=:id"
         );
 
@@ -57,9 +58,20 @@ final class MarketQualityService
         $candidates = [];
 
         foreach ($rows as $row) {
+            $recoveredUnit = $this->recoverCanonicalUnit($row);
+            if (($row['unit_price_ecto'] === null || (float)$row['unit_price_ecto'] <= 0) && $recoveredUnit !== null) {
+                $row['unit_price_ecto'] = $recoveredUnit;
+            }
             [$status, $reason] = $this->semanticStatus($row);
             $id = (int)$row['id'];
-            $update->execute([':status'=>$status,':reason'=>$reason,':score'=>null,':baseline'=>null,':id'=>$id]);
+            $update->execute([
+                ':status'=>$status,
+                ':reason'=>$reason,
+                ':score'=>null,
+                ':baseline'=>null,
+                ':unit_price'=>$recoveredUnit,
+                ':id'=>$id
+            ]);
             $counts[$status]++;
             if ($status === 'trusted' && in_array((string)$row['trade_type'], ['buy','sell'], true)) {
                 $candidates[(string)$row['item_key']][] = $row;
@@ -103,6 +115,7 @@ final class MarketQualityService
                     ':reason'=>$reason,
                     ':score'=>round($score, 3),
                     ':baseline'=>$median,
+                    ':unit_price'=>null,
                     ':id'=>(int)$row['id'],
                 ]);
                 $counts['trusted']--;
@@ -131,7 +144,7 @@ final class MarketQualityService
         if ($amount === null && ($unit === null || $unit <= 0)) return ['unpriced', 'geen_geldprijs'];
         if ($unit === null || $unit <= 0) return ['uncertain', 'geldprijs_gevonden_maar_geen_betrouwbare_unitprijs'];
         if (!in_array($currency, ['a','e','k'], true)) return ['uncertain', 'onbekende_prijseenheid'];
-        if (in_array($basis, ['bundle','currency_exchange','unknown','currency_conversion','unqualified','uncertain'], true)) {
+        if (in_array($basis, ['bundle','currency_exchange','unknown','currency_conversion','unqualified','uncertain','range'], true)) {
             return ['uncertain', 'onzekere_prijsbasis: '.($basis !== '' ? $basis : 'unknown')];
         }
 
@@ -144,6 +157,37 @@ final class MarketQualityService
         }
 
         return ['trusted', 'semantiek_ok'];
+    }
+
+    /** @param array<string,mixed> $row */
+    private function recoverCanonicalUnit(array $row): ?float
+    {
+        $basis=strtolower(trim((string)($row['price_basis']??'')));
+        if (!in_array($basis,['each','each_inferred','stack','stack_inferred','stack_total','total','ratio','exchange','set'],true)) {
+            return null;
+        }
+
+        $ecto=isset($row['price_ecto']) && $row['price_ecto']!==null ? (float)$row['price_ecto'] : null;
+        if ($ecto===null || $ecto<=0) {
+            $amount=isset($row['price_amount']) && $row['price_amount']!==null ? (float)$row['price_amount'] : null;
+            $currency=strtolower(trim((string)($row['price_currency']??'')));
+            if ($amount===null || $amount<=0) return null;
+            $ecto=match($currency){
+                'a'=>$amount*27.0,
+                'e'=>$amount,
+                'k'=>$amount/15.0,
+                default=>null,
+            };
+        }
+        if ($ecto===null || $ecto<=0) return null;
+
+        if (in_array($basis,['each','each_inferred'],true)) return $ecto;
+        $quantity=isset($row['quantity']) && $row['quantity']!==null ? (float)$row['quantity'] : null;
+        if ($quantity===null || $quantity<=0) {
+            if (in_array($basis,['stack','stack_inferred'],true)) $quantity=250.0;
+            else return null;
+        }
+        return $ecto/$quantity;
     }
 
     /** @param list<float> $values */

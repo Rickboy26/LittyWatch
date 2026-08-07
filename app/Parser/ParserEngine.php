@@ -206,6 +206,24 @@ final class ParserEngine
                     $this->modifierMatcher->match($segment),
                     $this->metadataExtractor->extract($segment)
                 );
+                // Phase 3L.2: a fallback item with exactly one local money token
+                // is still a concrete single-item quote. This covers learned /
+                // newly seen items not yet present in items.json (e.g. Emerald
+                // Blade = 15a) without trusting multi-price fragments.
+                if ($price->basis === 'unqualified' && $price->ectoValue !== null) {
+                    $moneyCount = preg_match_all('/(?<![a-z0-9])\d+(?:[.,]\d+)?\s*(?:a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)(?=\b|\/|$)/iu', $segment);
+                    if ($moneyCount === 1 && !preg_match('/\b(?:package|bundle|together)\b/iu', $segment)) {
+                        $price = new ParsedPrice(
+                            $price->amount,
+                            $price->currency,
+                            $price->ectoValue,
+                            'each_inferred',
+                            1.0,
+                            $price->ectoValue,
+                            $price->raw,
+                        );
+                    }
+                }
                 [$confidence, $status, $reason] = $this->confidenceScorer->score(null, $metadata, $price, $segment);
                 return [new ParsedOffer(
                     $tradeType,
@@ -247,6 +265,7 @@ final class ParserEngine
         // handled above; ordinary shared-price lists stay review-safe.
         $moneyTokenCount = preg_match_all('/(?<![a-z0-9])\d+(?:[.,]\d+)?\s*(?:a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)(?=\b|\/|$)/iu', $segment);
         $slashSharedList = $moneyTokenCount === 1
+            && !preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*\/\s*(?:ea|each|e|st|stk|stack)\b/iu', $segment)
             && preg_match('/[A-Za-z][^|;,]{0,40}\s\/\s[A-Za-z][^|;,]{0,40}(?:\s\/\s[A-Za-z][^|;,]{0,40})?/u', $segment);
         $compactCommodityList = $moneyTokenCount === 1
             && preg_match('/\b(?:warsupps?|war\s*supplies|eggs?|honeycombs?)\b/iu', $segment)

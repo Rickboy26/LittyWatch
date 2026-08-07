@@ -233,7 +233,7 @@ final class MarketRepository
         // exclusions, defend against stale pre-3D Armbrace rows that may still
         // contain divided bundle totals or leaked a/k prices. For Armbrace of
         // Truth the stored raw amount must itself be the ecto unit quote.
-        $base = "$alias.unit_price_ecto IS NOT NULL AND $alias.unit_price_ecto > 0 AND COALESCE($alias.price_currency,'') IN ('a','e','k') AND COALESCE($alias.price_basis,'') NOT IN ('bundle','currency_exchange','unknown') AND COALESCE($alias.price_basis,'') NOT IN ('currency_conversion','unqualified','uncertain') AND COALESCE($alias.price_quality_status,'trusted')='trusted'";
+        $base = "$alias.unit_price_ecto IS NOT NULL AND $alias.unit_price_ecto > 0 AND COALESCE($alias.price_currency,'') IN ('a','e','k') AND COALESCE($alias.price_basis,'') NOT IN ('bundle','currency_exchange','unknown') AND COALESCE($alias.price_basis,'') NOT IN ('currency_conversion','unqualified','uncertain','range') AND COALESCE($alias.price_quality_status,'trusted')='trusted'";
         $armbrace = "(COALESCE($alias.item_key,'') <> 'armbrace-of-truth' OR (COALESCE($alias.price_currency,'')='e' AND $alias.price_amount IS NOT NULL AND $alias.price_amount > 0 AND $alias.price_amount <= 100 AND ABS($alias.unit_price_ecto-$alias.price_amount) < 0.001))";
         return "$base AND $armbrace";
     }
@@ -256,7 +256,7 @@ final class MarketRepository
         $unit = isset($row['unit_price_ecto']) ? (float)$row['unit_price_ecto'] : 0.0;
         $currency = strtolower((string)($row['price_currency'] ?? ''));
         $basis = strtolower((string)($row['price_basis'] ?? ''));
-        if ($unit <= 0 || !in_array($currency, ['a','e','k'], true) || in_array($basis, ['bundle','currency_exchange','unknown','currency_conversion','unqualified','uncertain'], true) || (string)($row['price_quality_status'] ?? 'trusted') !== 'trusted') return false;
+        if ($unit <= 0 || !in_array($currency, ['a','e','k'], true) || in_array($basis, ['bundle','currency_exchange','unknown','currency_conversion','unqualified','uncertain','range'], true) || (string)($row['price_quality_status'] ?? 'trusted') !== 'trusted') return false;
         if ((string)($row['item_key'] ?? '') !== 'armbrace-of-truth') return true;
         $amount = isset($row['price_amount']) ? (float)$row['price_amount'] : 0.0;
         return $currency === 'e' && $amount > 0 && $amount <= 100 && abs($unit - $amount) < 0.001;
