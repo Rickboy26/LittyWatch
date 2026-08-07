@@ -67,7 +67,7 @@ $processed = 0;
 $lastId = 0;
 $batchSize = 250;
 
-fwrite(STDOUT, "LittyWatch Phase 3L.12 volledige reparse gestart ({$total} berichten).\n");
+fwrite(STDOUT, "LittyWatch Phase 3L.13 volledige reparse gestart ({$total} berichten).\n");
 
 while (true) {
     $stmt = $pdo->prepare('SELECT id, message FROM messages WHERE id > :last_id ORDER BY id LIMIT :limit');

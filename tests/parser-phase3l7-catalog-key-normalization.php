@@ -47,7 +47,8 @@ $case('gold_zaishen_coin','gold coin 5e (x40)',5,'e',5,5,'each_inferred');
 // Deliberately ambiguous cases remain uncertain.
 $case('red_rock_candy','Red Rock Candy Candy 225-675e',675,'e',675,null,null);
 $case('cupcake','Cupcakes / Eggs / Honeycombs 8e',8,'e',8,null,null);
-$case('gift_of_the_traveler','GOTT STACK -27A/ 2-53A',53,'a',1431,null,null);
+// Phase 3L.13 promotes this formerly ambiguous pattern via validated bulk-pair semantics.
+$case('gift_of_the_traveler','GOTT STACK -27A/ 2-53A',53,'a',1431,729/250,'stack');
 $case('soup','Soup 50e',50,'e',50,null,null);
 $case('compass','Compasses 20e',20,'e',20,null,null);
 

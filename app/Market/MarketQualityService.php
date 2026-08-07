@@ -248,6 +248,22 @@ final class MarketQualityService
             return ['unit'=>$ecto/$catalog['size'],'basis'=>'stack_inferred'];
         }
 
+        // Phase 3L.13: explicit bulk pair such as
+        // "GOTT STACK -27A/ 2-53A" means 1 stack for 27a or 2 stacks for 53a.
+        // Use the single-stack quote as the canonical market observation and
+        // keep the multi-stack amount only as an alternative deal.
+        if ($segment!=='' && preg_match('/\b(?:stack|stacks)\b[^\r\n]{0,40}?[-:]?\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\s*\/\s*(\d+)\s*[-=:]\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)/i',$segment,$m)) {
+            $first=$this->moneyToEcto((float)str_replace(',','.',$m[1]),strtolower($m[2]));
+            $count=(int)$m[3];
+            $bulk=$this->moneyToEcto((float)str_replace(',','.',$m[4]),strtolower($m[5]));
+            if ($first!==null && $first>0 && $count>1 && $bulk!==null && $bulk>0) {
+                // Accept only sensible bulk discounts/same-price alternatives.
+                $perStackBulk=$bulk/$count;
+                $ratio=$perStackBulk/$first;
+                if ($ratio>=0.5 && $ratio<=1.1) return ['unit'=>$first/250.0,'basis'=>'stack'];
+            }
+        }
+
         // Phase 3L.10: live Kamadan conventions that cannot be represented by
         // one static catalog basis. Consets use bare ecto as per-set, while a
         // bare armbrace quote is the price of a full 250 conset stack.
