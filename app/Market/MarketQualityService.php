@@ -50,7 +50,7 @@ final class MarketQualityService
                  price_quality_reason=:reason,
                  price_outlier_score=:score,
                  price_baseline_ecto=:baseline,
-                 unit_price_ecto=COALESCE(:unit_price,unit_price_ecto),
+                 unit_price_ecto=CASE WHEN :clear_unit=1 THEN NULL ELSE COALESCE(:unit_price,unit_price_ecto) END,
                  price_basis=COALESCE(:price_basis,price_basis)
              WHERE id=:id"
         );
@@ -59,10 +59,17 @@ final class MarketQualityService
         $candidates = [];
 
         foreach ($rows as $row) {
-            $recovery = $this->recoverCanonicalPrice($row);
+            $invalidateStaleUnit = $this->shouldInvalidateStaleCanonicalPrice($row);
+            $recovery = $invalidateStaleUnit ? null : $this->recoverCanonicalPrice($row);
             $recoveredUnit = $recovery['unit'] ?? null;
-            $recoveredBasis = $recovery['basis'] ?? null;
-            if ($recoveredUnit !== null) {
+            $recoveredBasis = $invalidateStaleUnit ? 'uncertain' : ($recovery['basis'] ?? null);
+            if ($invalidateStaleUnit) {
+                // Phase 3L.11: an explicit ambiguity decision must also remove a
+                // stale unit price left by an earlier parser/reparse. Keeping it
+                // through COALESCE would let the same bad price become an outlier.
+                $row['unit_price_ecto'] = null;
+                $row['price_basis'] = 'uncertain';
+            } elseif ($recoveredUnit !== null) {
                 // A recovery is intentionally limited to intrinsically explicit
                 // offer-level syntax. Promote both fields together; otherwise a
                 // recovered unit price would still be rejected solely because
@@ -79,6 +86,7 @@ final class MarketQualityService
                 ':baseline'=>null,
                 ':unit_price'=>$recoveredUnit,
                 ':price_basis'=>$recoveredBasis,
+                ':clear_unit'=>$invalidateStaleUnit ? 1 : 0,
                 ':id'=>$id
             ]);
             $counts[$status]++;
@@ -407,6 +415,27 @@ final class MarketQualityService
             'k'=>$amount/15.0,
             default=>null,
         };
+    }
+
+    /** @param array<string,mixed> $row */
+    private function shouldInvalidateStaleCanonicalPrice(array $row): bool
+    {
+        if ((string)($row['price_quality_reason'] ?? '') === 'handmatig_goedgekeurd') return false;
+        $key=$this->canonicalCatalogKey((string)($row['item_key']??''));
+        if (!$this->isMixedBasisMarket($key)) return false;
+        $segment=trim((string)($row['raw_segment']??''));
+        if ($segment==='') return false;
+
+        preg_match_all('/(?<![a-z0-9.])\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment,$money);
+        if (count($money[0]??[])!==1) return false;
+
+        // Explicit basis signals are safe and are handled by recoveryCanonicalPrice.
+        if (preg_match('/\b(?:stack|stacks)\b/i',$segment)) return false;
+        if (preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*(?:(?:[\/.\-]\s*)?(?:ea|each)\b|(?:\/|\-|\bper\s+)(?:st|stk|stack)\b|\bper\s+(?:unit|piece)\b)/i',$segment)) return false;
+        if (preg_match('/(?<![a-z0-9.])\d+(?:[.,]\d+)?\s*(?::|=|\/)\s*\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment)) return false;
+
+        // A trailing slash, tilde or a plain bare quote still has no basis.
+        return true;
     }
 
     private function isMixedBasisMarket(string $canonicalKey): bool
