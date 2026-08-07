@@ -37,15 +37,28 @@ final class MaintenanceController
         $writer = new StructuredOfferWriter($this->pdo, parserV2(), new VariantNormalizer(), null);
         // Repair historic millisecond timestamps that were previously
         // interpreted as seconds and therefore produced years such as 58567.
-        $timestampRows = $this->pdo->query("SELECT id, posted_at FROM messages")->fetchAll();
+        $timestampRows = $this->pdo->query("SELECT id, posted_at, collected_at FROM messages")->fetchAll();
         $timestampRepair = $this->pdo->prepare("UPDATE messages SET posted_at=? WHERE id=?");
         $timestampsRepaired = 0;
         foreach ($timestampRows as $timestampRow) {
             $postedAt = (string)$timestampRow['posted_at'];
+            $replacement = null;
             if (preg_match('/^([0-9]{12,})$/', $postedAt, $match)) {
                 $unix = (float)$match[1];
                 while ($unix > 20000000000) $unix /= 1000;
-                $timestampRepair->execute([date(DATE_ATOM, (int)$unix), (int)$timestampRow['id']]);
+                if ($unix > 946684800 && $unix < 4102444800) $replacement = date(DATE_ATOM, (int)$unix);
+            } elseif (preg_match('/^(\d{4,})-/', $postedAt, $match)) {
+                $year = (int)$match[1];
+                if ($year < 2000 || $year > ((int)date('Y') + 2)) {
+                    $fallback = (string)($timestampRow['collected_at'] ?? '');
+                    $fallbackTs = strtotime($fallback);
+                    $replacement = ($fallbackTs !== false && $fallbackTs > 946684800 && $fallbackTs < 4102444800)
+                        ? date(DATE_ATOM, $fallbackTs)
+                        : date(DATE_ATOM);
+                }
+            }
+            if ($replacement !== null && $replacement !== $postedAt) {
+                $timestampRepair->execute([$replacement, (int)$timestampRow['id']]);
                 $timestampsRepaired += $timestampRepair->rowCount();
             }
         }

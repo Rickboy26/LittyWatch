@@ -16,6 +16,13 @@ final class ConfidenceScorer
             return [$price->amount !== null ? 0.35 : 0.20, 'review', 'no_catalog_item'];
         }
 
+        // Phase 2K: an explicit requirement makes a generic weapon-family
+        // request a well-defined market variant (e.g. Q8 Bow / Q5 Focus).
+        if (($item['category'] ?? '') === 'generic-weapon-family'
+            && (isset($modifiers['requirement']) || preg_match('/\b(?:q|r|req)\s*\d{1,2}\b/iu', $segment))) {
+            return [0.86, 'accepted', 'catalog_match'];
+        }
+
         $score = (float) $item['score'];
         if ($price->amount !== null) $score += 0.08;
         if ($modifiers !== []) $score += 0.04;

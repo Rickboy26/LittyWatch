@@ -1895,5 +1895,68 @@
       "gaki polymock piece",
       "gaki piece"
     ]
+  },
+  {
+    "key": "strongroots-shelter",
+    "name": "Strongroot's Shelter",
+    "category": "shield",
+    "aliases": [
+      "Strongroot's Shelter",
+      "Strongroots Shelter",
+      "Strongroot Shelter"
+    ]
+  },
+  {
+    "key": "essence-of-celerity",
+    "name": "Essence of Celerity",
+    "category": "consumable",
+    "aliases": [
+      "Essence of Celerity",
+      "BU",
+      "BUs"
+    ]
+  },
+  {
+    "key": "four-leaf-clover",
+    "name": "Four-Leaf Clover",
+    "category": "consumable",
+    "aliases": [
+      "Four-Leaf Clover",
+      "Four Leaf Clover",
+      "Clover",
+      "Clovers"
+    ]
+  },
+  {
+    "key": "miniature-celestial-horse",
+    "name": "Miniature Celestial Horse",
+    "category": "miniature",
+    "aliases": [
+      "Miniature Celestial Horse",
+      "Mini Celestial Horse",
+      "Celestial Horse",
+      "Cele Horse"
+    ]
+  },
+  {
+    "key": "everlasting-avatar-of-balthazar-tonic",
+    "name": "Everlasting Avatar of Balthazar Tonic",
+    "category": "tonic",
+    "aliases": [
+      "Everlasting Avatar of Balthazar Tonic",
+      "EL Avatar of Balthazar",
+      "Everlasting Avatar of Balthazar"
+    ]
+  },
+  {
+    "key": "ancient-armor-remnant",
+    "name": "Ancient Armor Remnant",
+    "category": "hero-armor",
+    "aliases": [
+      "Ancient Armor Remnant",
+      "Ancient Armor Remnants",
+      "Ancient Remnant",
+      "Ancient Remnants"
+    ]
   }
 ]

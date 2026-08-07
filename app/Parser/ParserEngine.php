@@ -141,9 +141,12 @@ final class ParserEngine
         }
 
         $items = $this->itemMatcher->matchAll($segment);
-        if ($this->categoryExpander !== null) {
+        if ($this->categoryExpander !== null && $items === []) {
+            // Phase 2K: group/category knowledge is fallback knowledge only.
+            // A concrete catalog match (e.g. Raging Menzies in "FoW Green")
+            // must never be replaced by a broad "green/unique item" expansion.
             $expanded = $this->categoryExpander->expand($segment);
-            if (count($expanded) > count($items)) $items = $expanded;
+            if ($expanded !== []) $items = $expanded;
         }
         if ($items === []) {
             $generic = $this->genericRecognizer->recognize($segment);

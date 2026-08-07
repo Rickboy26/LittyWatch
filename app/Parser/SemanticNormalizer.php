@@ -72,6 +72,19 @@ final class SemanticNormalizer
         $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
         $text = preg_replace('/\bPrimeval Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
 
+        // Phase 2K: final residual shorthand and malformed-list cleanup.
+        $text = preg_replace('/\baptitude\s+no\s+attitude\b/iu', 'Aptitude not Attitude', $text) ?? $text;
+        $text = preg_replace('/\bBUs?\b/u', 'Essence of Celerity', $text) ?? $text;
+        $text = preg_replace('/\bEL\s+Avatar\s+of\s+Balthazar\b/iu', 'Everlasting Avatar of Balthazar Tonic', $text) ?? $text;
+        $text = preg_replace('/\bCele\s+Horse\b/iu', 'Miniature Celestial Horse', $text) ?? $text;
+        $text = preg_replace('/\bClovers?\b/iu', 'Four-Leaf Clover', $text) ?? $text;
+        $text = preg_replace('/\bDeldrimor\s+Ancient\s+Sunspear\b/iu', 'Deldrimor Armor Remnant | Ancient Armor Remnant | Stolen Sunspear Armor', $text) ?? $text;
+        $text = preg_replace('/\bEstorage\b/iu', 'Energy Storage', $text) ?? $text;
+        $text = preg_replace('/\bFoc\b/iu', 'Focus', $text) ?? $text;
+        // Commas after a priced OS weapon start the next offer; keep the preceding
+        // 15_en / 15_stanc modifier attached to its own weapon instead of the next skin.
+        $text = preg_replace('/(\d+(?:[.,]\d+)?\s*(?:e|a|k|g))\s*,\s*(?=OS\b)/iu', '$1 | ', $text) ?? $text;
+
         // Phase 2I: high-confidence residual catalog spellings from the live review queue.
         $text = preg_replace('/\bgolden\s+zaishen\s+coins?\b/iu', 'Gold Zaishen Coin', $text) ?? $text;
         $text = preg_replace('/\bflames?\s+of\s+balthazar\b/iu', 'Flames of Balthazar', $text) ?? $text;

@@ -36,6 +36,28 @@ final class ReviewCandidateClassifier
         if (preg_match('/^(?:weapons?|shields?|mods?|skins?|greens?|tomes?|tonics?|bowstrings?|inscriptions?|upgrades?)$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'generic_category'];
         }
+        // Phase 2K: remaining fragments and upgrade-family advertisements.
+        if (preg_match('/^(?:\+?\d+%?\s*)?\(?\s*(?:ench|en|enchant|stance|stanc)(?:\s*\/\s*(?:ench|en|enchant|stance|stanc))*\s*\)?(?:\s*\/\s*15\^50)?(?:\s*\d+[ekag])?$/iu', $c)
+            || preg_match('/^15\s+(?:en|stanc(?:e)?)\s+\d+(?:[.,]\d+)?[ekag]$/iu', $c)
+            || preg_match('/^15%?\s*\((?:ench|enchant|stance|stanc)(?:\/(?:ench|enchant|stance|stanc))?$/iu', $c)) {
+            return ['kind'=>'noise','reason'=>'orphan_modifier_fragment'];
+        }
+        if (preg_match('/\bsweet\s+points?\b/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'title_points_category'];
+        }
+        // Use the original segment too: the cleaned item candidate may have already
+        // collapsed "staff heads" or "wand wrapping" to the base weapon token.
+        if (preg_match('/\b(?:staff\s+heads?|wand\s+wrapp?ings?|bowstrings?)\b/iu', $s)
+            || preg_match('/\b(?:bow|axe|spear|scythe|staff|wand)\s+mods?\b/iu', $s)
+            || preg_match('/\+\s*30\s*hp\s+for\s+(?:staff|axe|scythe|bow|spear|sword|wand)/iu', $s)
+            || preg_match('/\b(?:vampiric|zealous|mastery|cruel|shocking|def(?:ense)?|ench(?:ant)?)\s+(?:for\s+)?(?:bow|axe|spear|staff|wand|scythe)\b/iu', $s)
+            || preg_match('/\b(?:bow|spear)\s+(?:def|ench|cruel|shock|zealous|vamp|mastery)(?:[\/,. ]+(?:def|ench|cruel|shock|zealous|vamp|mastery))*\b/iu', $s)) {
+            return ['kind'=>'generic','reason'=>'weapon_upgrade_advertisement'];
+        }
+        if (preg_match('/^(?:icy|fiery|crippling|barbed|cruel)(?:[\s.,\/|]+(?:icy|fiery|crippling|barbed|cruel))*$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'upgrade_modifier_list'];
+        }
+
         // Phase 2J: residual market-family/stat fragments seen after 2I.
         if (preg_match('/^(?:normal\s+)?tomes?(?:\s+\d+(?:[.,]\d+)?[gek]\/?(?:ea)?)?(?:\s+no\s+\w+)?$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'tome_category'];
