@@ -34,7 +34,7 @@ final class MarketQualityService
             $filter = ' AND so.item_key IN ('.implode(',', $marks).')';
         }
 
-        $sql = "SELECT so.id,so.trade_type,so.item_key,so.price_amount,so.price_currency,so.price_ecto,so.unit_price_ecto,so.quantity,so.price_basis,so.quality_status,so.lifecycle_status,so.price_quality_reason,m.player
+        $sql = "SELECT so.id,so.trade_type,so.item_key,so.price_amount,so.price_currency,so.price_ecto,so.unit_price_ecto,so.quantity,so.price_basis,so.raw_segment,so.quality_status,so.lifecycle_status,so.price_quality_reason,m.player
                 FROM structured_offers so
                 JOIN messages m ON m.id=so.message_id
                 WHERE so.quality_status='accepted'
@@ -163,31 +163,63 @@ final class MarketQualityService
     private function recoverCanonicalUnit(array $row): ?float
     {
         $basis=strtolower(trim((string)($row['price_basis']??'')));
-        if (!in_array($basis,['each','each_inferred','stack','stack_inferred','stack_total','total','ratio','exchange','set'],true)) {
-            return null;
-        }
-
-        $ecto=isset($row['price_ecto']) && $row['price_ecto']!==null ? (float)$row['price_ecto'] : null;
-        if ($ecto===null || $ecto<=0) {
-            $amount=isset($row['price_amount']) && $row['price_amount']!==null ? (float)$row['price_amount'] : null;
-            $currency=strtolower(trim((string)($row['price_currency']??'')));
-            if ($amount===null || $amount<=0) return null;
-            $ecto=match($currency){
-                'a'=>$amount*27.0,
-                'e'=>$amount,
-                'k'=>$amount/15.0,
-                default=>null,
-            };
-        }
+        $ecto=$this->ectoValue($row);
         if ($ecto===null || $ecto<=0) return null;
 
+        // First trust parser-owned canonical bases.
         if (in_array($basis,['each','each_inferred'],true)) return $ecto;
-        $quantity=isset($row['quantity']) && $row['quantity']!==null ? (float)$row['quantity'] : null;
-        if ($quantity===null || $quantity<=0) {
-            if (in_array($basis,['stack','stack_inferred'],true)) $quantity=250.0;
-            else return null;
+        if (in_array($basis,['stack','stack_inferred','stack_total','total','ratio','exchange','set'],true)) {
+            $quantity=isset($row['quantity']) && $row['quantity']!==null ? (float)$row['quantity'] : null;
+            if (($quantity===null || $quantity<=0) && in_array($basis,['stack','stack_inferred'],true)) $quantity=250.0;
+            if ($quantity!==null && $quantity>0) return $ecto/$quantity;
         }
-        return $ecto/$quantity;
+
+        // Phase 3L.4 safety net: the full-message parser can conservatively
+        // downgrade a price because of neighbouring offers. The final offer
+        // slice is a stronger source for explicit unit syntax, so recover only
+        // syntax that is intrinsically unambiguous. Shared lists and ranges are
+        // intentionally not promoted here.
+        $segment=trim((string)($row['raw_segment']??''));
+        if ($segment==='') return null;
+
+        // N:price / N=price / N/price = total price for N items.
+        if (preg_match('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*(?::|=|\/)\s*\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment,$m)) {
+            $quantity=(float)str_replace(',','.',$m[1]);
+            return $quantity>0 ? $ecto/$quantity : null;
+        }
+
+        // Explicit stack quote: price/stk, price/stack, price per stack.
+        if (preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*(?:\/|\-|\bper\s+)(?:st|stk|stack)\b/i',$segment)) {
+            return $ecto/250.0;
+        }
+
+        // Explicit each quote: price/ea, price.each, price each, price per unit.
+        if (preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*(?:(?:[\/.\-]\s*)?(?:ea|each)\b|\bper\s+(?:unit|piece)\b)/i',$segment)) {
+            return $ecto;
+        }
+
+        // "27e x4" is four available at 27e each.
+        if (preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*x\s*\d+\b/i',$segment)) {
+            return $ecto;
+        }
+
+        return null;
+    }
+
+    /** @param array<string,mixed> $row */
+    private function ectoValue(array $row): ?float
+    {
+        $ecto=isset($row['price_ecto']) && $row['price_ecto']!==null ? (float)$row['price_ecto'] : null;
+        if ($ecto!==null && $ecto>0) return $ecto;
+        $amount=isset($row['price_amount']) && $row['price_amount']!==null ? (float)$row['price_amount'] : null;
+        $currency=strtolower(trim((string)($row['price_currency']??'')));
+        if ($amount===null || $amount<=0) return null;
+        return match($currency){
+            'a'=>$amount*27.0,
+            'e'=>$amount,
+            'k'=>$amount/15.0,
+            default=>null,
+        };
     }
 
     /** @param list<float> $values */
