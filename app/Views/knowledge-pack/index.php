@@ -221,7 +221,14 @@ $profiles = $sources['profiles'] ?? [];
     show('Publiceren', 'Staging wordt gevalideerd en omgezet naar lokale parserdata…', 35, 0);
     try {
       const response = await fetch('/knowledge-pack/compile', {method:'POST',headers:{'Accept':'application/json'}});
-      const data = await response.json();
+      const raw = await response.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (_) {
+        const cleaned = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        throw new Error(cleaned || `Server gaf geen geldige JSON terug (HTTP ${response.status}).`);
+      }
       if (!response.ok || !data.ok) throw new Error(data.error || 'Publiceren mislukt.');
       show('Knowledge Pack gepubliceerd', `${data.items} items en ${data.aliases} aliassen gebouwd.`, 100, data.items);
       setTimeout(() => location.reload(), 1200);

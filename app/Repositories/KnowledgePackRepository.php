@@ -141,12 +141,37 @@ final class KnowledgePackRepository
     /** @param mixed $value */
     private function writeJson(string $path, mixed $value): void
     {
+        $directory = dirname($path);
+        if (!is_dir($directory)) {
+            throw new RuntimeException('Knowledge-packmap bestaat niet: ' . $directory);
+        }
+        if (!is_writable($directory) && !is_file($path)) {
+            throw new RuntimeException(
+                'Knowledge-packmap is niet schrijfbaar voor PHP: ' . $directory .
+                '. Geef de webserver schrijfrechten op app/Data/knowledge-pack.'
+            );
+        }
+        if (is_file($path) && !is_writable($path)) {
+            throw new RuntimeException(
+                'Knowledge-packbestand is niet schrijfbaar voor PHP: ' . $path .
+                '. Geef de webserver schrijfrechten op app/Data/knowledge-pack.'
+            );
+        }
+
         $json = json_encode(
             $value,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
         );
-        if (file_put_contents($path, $json . PHP_EOL, LOCK_EX) === false) {
-            throw new RuntimeException('Kon knowledge-packbestand niet schrijven: ' . $path);
+
+        // Onderdruk PHP warnings in de HTTP-body. De API moet altijd geldige JSON
+        // teruggeven; bij een schrijffout gooien we hieronder een nette exception.
+        if (@file_put_contents($path, $json . PHP_EOL, LOCK_EX) === false) {
+            $lastError = error_get_last();
+            $detail = trim((string)($lastError['message'] ?? 'onbekende schrijffout'));
+            throw new RuntimeException(
+                'Kon knowledge-packbestand niet schrijven: ' . $path .
+                ($detail !== '' ? ' (' . $detail . ')' : '')
+            );
         }
     }
 }
