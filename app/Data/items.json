@@ -110,7 +110,9 @@
       "eternal shortbow",
       "eternal hornbow",
       "eternal recurve bow",
-      "eternal rec bow"
+      "eternal rec bow",
+      "Eternal Recurve",
+      "eternal recurve"
     ]
   },
   {
@@ -233,7 +235,9 @@
     "aliases": [
       "conset",
       "consets",
-      "cons"
+      "cons",
+      "con stack",
+      "con stacks"
     ]
   },
   {
@@ -307,7 +311,8 @@
       "gold zcoin",
       "gold coin",
       "gold zcoins",
-      "gzc"
+      "gzc",
+      "gold coins"
     ]
   },
   {
@@ -360,7 +365,11 @@
     "aliases": [
       "miniature undead prince rurik",
       "mini undead prince",
-      "undead prince"
+      "undead prince",
+      "undead rurik",
+      "zombie rurik",
+      "undead zombie rurik",
+      "undead (zombie) rurik"
     ]
   },
   {
@@ -1837,6 +1846,54 @@
       "Iron Ingot",
       "Iron Ingots",
       "stack of iron"
+    ]
+  },
+  {
+    "key": "raging-menzies",
+    "name": "Raging Menzies",
+    "category": "shield",
+    "aliases": [
+      "Raging Menzies",
+      "raging menzies"
+    ]
+  },
+  {
+    "key": "elegant-menzies",
+    "name": "Elegant Menzies",
+    "category": "shield",
+    "aliases": [
+      "Elegant Menzies",
+      "elegant menzies"
+    ]
+  },
+  {
+    "key": "spiders-gluttony",
+    "name": "Spider's Gluttony",
+    "category": "shield",
+    "aliases": [
+      "Spider's Gluttony",
+      "Spiders Gluttony",
+      "spider's gluttony",
+      "spiders gluttony"
+    ]
+  },
+  {
+    "key": "padraic",
+    "name": "Padraic",
+    "category": "weapon",
+    "aliases": [
+      "Padraic",
+      "padraic"
+    ]
+  },
+  {
+    "key": "gaki-polymock-piece",
+    "name": "Gaki Polymock Piece",
+    "category": "polymock",
+    "aliases": [
+      "Gaki Polymock Piece",
+      "gaki polymock piece",
+      "gaki piece"
     ]
   }
 ]

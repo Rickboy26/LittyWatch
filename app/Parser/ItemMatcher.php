@@ -66,7 +66,11 @@ final class ItemMatcher
         $a = mb_strtolower(trim($alias));
         $name = mb_strtolower((string)($item['name'] ?? ''));
         if (($name === 'bone dragon staff' && $a === 'bds')
-            || ($name === 'gift of the traveler' && in_array($a, ['gott','gotts','nick gift','nick gifts'], true))) {
+            || ($name === 'gift of the traveler' && in_array($a, ['gott','gotts','nick gift','nick gifts'], true))
+            || ($name === 'golden phoenix blade' && $a === 'gpb')
+            || ($name === 'kuuna' && $a === 'kuuna')
+            || ($name === 'ruby' && $a === 'ruby')
+            || ($name === 'sapphire' && $a === 'sapphire')) {
             return 0.88;
         }
         return min(0.99, 0.72 + min(0.24, mb_strlen($a) / 50));

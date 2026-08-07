@@ -36,6 +36,28 @@ final class ReviewCandidateClassifier
         if (preg_match('/^(?:weapons?|shields?|mods?|skins?|greens?|tomes?|tonics?|bowstrings?|inscriptions?|upgrades?)$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'generic_category'];
         }
+        // Phase 2J: residual market-family/stat fragments seen after 2I.
+        if (preg_match('/^(?:normal\s+)?tomes?(?:\s+\d+(?:[.,]\d+)?[gek]\/?(?:ea)?)?(?:\s+no\s+\w+)?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'tome_category'];
+        }
+        if (preg_match('/^(?:mods?\s+)?(?:[+\-]?\d+(?:%|\^\d+)?(?:\s*vs\s*\w+)?(?:\s*[,\/|]\s*)?)+$/iu', $c)
+            || (str_starts_with($c, 'mods ') && preg_match('/(?:\+\d|\d+%|vs\s+\w+)/iu', $c))) {
+            return ['kind'=>'generic','reason'=>'modifier_bundle'];
+        }
+        if (preg_match('/^(?:\+?5\s+)?strength\s+of\s+the\s+warrior$/iu', $c)
+            || preg_match('/^(?:mod\s+)?soul\s+reaping\s*\+?5\s+sta(?:ff)?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'upgrade_or_stat_search'];
+        }
+        if (preg_match('/^(?:vs\s+q\d+|q\d+\s+(?:tac|str|lead|mot|comm|resto|fc|es)(?:\s+.*)?|(?:tac|str|lead)\s*\([^)]*\)\s*\w*)$/iu', $c)) {
+            return ['kind'=>'noise','reason'=>'orphan_weapon_stats'];
+        }
+        if (preg_match('/^(?:elit|elite)\s+(?:w|mk|mo|r|n|me|e|a|rt|p|d)(?:\s*[,\/]\s*(?:w|mk|mo|r|n|me|e|a|rt|p|d))*(?:\s+ea.*)?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'elite_tome_shorthand_family'];
+        }
+        if (preg_match('/^(?:party|rocks?|red|blue|green)$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'market_category_or_variant'];
+        }
+
         // Phase 2I: upgrade components are not the underlying weapon.
         if (preg_match('/\b(?:staff\s+(?:head|wrapp?ing)|wand\s+wrapp?ing|(?:bow|axe|hammer|spear|scythe)\s+(?:grip|haft|string)|sword\s+pommel)\b/iu', $c)
             || preg_match('/\b(?:insightful|hale|zealous|vampiric|sundering|crippling|barbed|icy|fiery|cruel)\b.*\b(?:head|grip|haft|string|wrapp?ing|pommel)\b/iu', $c)) {
