@@ -72,6 +72,15 @@ final class SemanticNormalizer
         $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
         $text = preg_replace('/\bPrimeval Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
 
+        // Phase 2P: final live-queue cleanup. Expand the compact spear-mod
+        // advertisement into actual GW1 upgrade component names. This keeps the
+        // modifier words from being learned as standalone items.
+        $text = preg_replace('/\bspear\s+def\s*\/\s*ench\s*\/\s*cruel\s*\/\s*shock(?:ing)?\b/iu',
+            'Spear Grip of Defense | Spear Grip of Enchanting | Cruel Spearhead | Shocking Spearhead', $text) ?? $text;
+        // Exact observed typo: the only GW1 item named "Large Equipment ..." is
+        // Large Equipment Pack. Keep this intentionally narrow.
+        $text = preg_replace('/\blarge\s+equipment\s+staff\b/iu', 'Large Equipment Pack', $text) ?? $text;
+
         // Phase 2O: final low-confidence component/name normalization.
         $text = preg_replace('/["“”]?\bof\s+the\s+ritualist["“”]?\s+wand\s+wra(?:p(?:ping)?)?\b/iu', 'Wand Wrapping of the Ritualist', $text) ?? $text;
         $text = preg_replace('/\britualist\s+wand\s+wra(?:p(?:ping)?)?\b/iu', 'Wand Wrapping of the Ritualist', $text) ?? $text;

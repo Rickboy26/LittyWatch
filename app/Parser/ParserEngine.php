@@ -355,6 +355,15 @@ final class ParserEngine
     {
         return array_values(array_filter($offers, function (ParsedOffer $offer) use ($offers): bool {
             if ($offer->status !== 'review' || $offer->reason !== 'low_confidence') return true;
+
+            // Phase 2P: learned modifier words can exist as catalog rows from old
+            // review decisions. In an explicit weapon-mod advertisement they are
+            // context, not standalone market items.
+            $itemLower = mb_strtolower(trim($offer->item));
+            if (in_array($itemLower, ['cruel','shocking','shock','defense','enchanting'], true)
+                && preg_match('/\b(?:spear|bow|axe|sword|staff|scythe|hammer|daggers?)\b.*(?:[/,]|\bmods?\b)/iu', $offer->segment)) {
+                return false;
+            }
             if (!$this->taxonomy->isGenericName($offer->item)) return true;
 
             $generic = mb_strtolower(trim($offer->item));
@@ -373,7 +382,7 @@ final class ParserEngine
             // Bare family rows cut out of a comma-separated multi-family list with
             // no price are category prose, not a price observation.
             if ($offer->price->amount === null
-                && preg_match('/\b(?:sword|staff|staves|daggers?|axe|axes|bow|bows|spear|scythe|hammer|wand|focus|shield)s?\b[^|]*[,/]\s*(?:sword|staff|staves|daggers?|axe|axes|bow|bows|spear|scythe|hammer|wand|focus|shield)/iu', $segment)) {
+                && preg_match('~\b(?:sword|staff|staves|daggers?|axe|axes|bow|bows|spear|scythe|hammer|wand|focus|shield)s?\b[^|]*[,/]\s*(?:sword|staff|staves|daggers?|axe|axes|bow|bows|spear|scythe|hammer|wand|focus|shield)~iu', $segment)) {
                 return false;
             }
 

@@ -2097,5 +2097,37 @@
       "Ithas Bow",
       "Ithas bow"
     ]
+  },
+  {
+    "key": "cruel-spearhead",
+    "name": "Cruel Spearhead",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "Cruel Spearhead"
+    ]
+  },
+  {
+    "key": "shocking-spearhead",
+    "name": "Shocking Spearhead",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "Shocking Spearhead"
+    ]
+  },
+  {
+    "key": "spear-grip-of-defense",
+    "name": "Spear Grip of Defense",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "Spear Grip of Defense"
+    ]
+  },
+  {
+    "key": "spear-grip-of-enchanting",
+    "name": "Spear Grip of Enchanting",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "Spear Grip of Enchanting"
+    ]
   }
 ]

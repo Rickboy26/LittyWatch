@@ -95,6 +95,14 @@ final class ItemMatcher
         $a = mb_strtolower(trim($alias));
         $t = mb_strtolower($text);
 
+        // Phase 2P: Gift of the Traveler had a polluted learned alias (`got`) in
+        // staging, causing ordinary prose such as "show me what you got" to become
+        // a fake item. Only established market aliases are valid for this item.
+        if ($name === 'gift of the traveler') {
+            $allowed = ['gift of the traveler','gifts of the traveler','gott','gotts','nick gift','nick gifts','nickgift','nickgifts'];
+            if (!in_array($a, $allowed, true)) return false;
+        }
+
         if ($name === 'voltaic spear' && $a === 'volta') {
             $conflictingWeapon = preg_match('/\b(?:shield|staff|wand|focus|bow|sword|axe|hammer|scythe|daggers?|cane)\b/iu', $t);
             $spearContext = preg_match('/\b(?:spear|voltaic\s+spear)\b/iu', $t);
