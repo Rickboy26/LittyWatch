@@ -254,7 +254,10 @@
       "cons",
       "con stack",
       "con stacks"
-    ]
+    ],
+    "market_quote_basis": "each",
+    "market_quote_size": 1,
+    "market_display_basis": "each"
   },
   {
     "key": "tengu-support-flare",

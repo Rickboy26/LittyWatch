@@ -153,6 +153,11 @@ final class MarketQualityService
             return ['trusted', 'handmatig_goedgekeurd'];
         }
 
+        $segment = trim((string)($row['raw_segment'] ?? ''));
+        if ($segment !== '' && !$this->segmentHasMoney($segment) && ($amount !== null || ($unit !== null && $unit > 0))) {
+            return ['uncertain', 'geldprijs_niet_aanwezig_in_offer_segment'];
+        }
+
         if ($amount === null && ($unit === null || $unit <= 0)) return ['unpriced', 'geen_geldprijs'];
         if ($unit === null || $unit <= 0) return ['uncertain', 'geldprijs_gevonden_maar_geen_betrouwbare_unitprijs'];
         if (!in_array($currency, ['a','e','k'], true)) return ['uncertain', 'onbekende_prijseenheid'];
@@ -183,20 +188,41 @@ final class MarketQualityService
 
         $segment=trim((string)($row['raw_segment']??''));
 
-        // Phase 3L.8: explicit stack nouns describe the quoted lot even when
-        // traders append /ea or /each ("stacks 22e/ea" = 22e per stack).
-        // This must run before trusting a stale parser-owned `each` basis.
-        // A trailing availability marker such as x15 is inventory count, not
-        // the number of items inside the quoted stack.
-        if ($segment!=='' && preg_match('/\b(?:stack|stacks)\b/i',$segment)) {
-            if (preg_match_all('/(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\s*(?:\/\s*)?(?:ea|each)\b/i',$segment,$quotes,PREG_SET_ORDER)) {
-                // Prefer the first explicit per-lot quote. Bulk totals such as
-                // `10=250a` remain secondary alternatives and cannot replace it.
-                $q=$quotes[0];
-                $quoted=$this->moneyToEcto((float)str_replace(',','.',$q[1]),strtolower($q[2]));
-                if ($quoted!==null && $quoted>0) return ['unit'=>$quoted/250.0,'basis'=>'stack'];
+        // Phase 3L.9: explicit quote syntax owns its own money amount. Never
+        // reuse stale parser price_ecto when the segment contains alternatives.
+        // "stacks 22e/ea" is a special Kamadan shorthand: /ea means each stack.
+        if ($segment!=='' && preg_match('/\b(?:stack|stacks)\b[^\r\n,;|]{0,40}?(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\s*(?:\/\s*)?(?:ea|each)\b/i',$segment,$m)) {
+            $quoted=$this->moneyToEcto((float)str_replace(',','.',$m[1]),strtolower($m[2]));
+            if ($quoted!==null && $quoted>0) return ['unit'=>$quoted/250.0,'basis'=>'stack'];
+        }
+
+        // When multiple explicit alternatives exist, the first quote in text is
+        // the primary advertised price. Later values are bulk/alternative deals.
+        $explicit=[];
+        if ($segment!=='') {
+            if (preg_match_all('/(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\s*(?:\/\s*|\bper\s+)(?:st|stk|stack)\b/i',$segment,$mm,PREG_SET_ORDER|PREG_OFFSET_CAPTURE)) {
+                foreach($mm as $x) $explicit[]=['pos'=>$x[0][1],'amount'=>$x[1][0],'currency'=>$x[2][0],'basis'=>'stack'];
             }
-            // A single money quote next to explicit stack wording is per stack.
+            if (preg_match_all('/(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\s*(?:(?:[\/.\-]\s*)?(?:ea|each)\b|\bper\s+(?:unit|piece)\b)/i',$segment,$mm,PREG_SET_ORDER|PREG_OFFSET_CAPTURE)) {
+                foreach($mm as $x) $explicit[]=['pos'=>$x[0][1],'amount'=>$x[1][0],'currency'=>$x[2][0],'basis'=>'each'];
+            }
+        }
+        if ($explicit!==[]) {
+            usort($explicit,static fn(array $a,array $b):int=>$a['pos']<=>$b['pos']);
+            $x=$explicit[0];
+            $quoted=$this->moneyToEcto((float)str_replace(',','.',(string)$x['amount']),strtolower((string)$x['currency']));
+            if ($quoted!==null && $quoted>0) {
+                if ($x['basis']==='stack') return ['unit'=>$quoted/250.0,'basis'=>'stack'];
+                $itemKey=$this->canonicalCatalogKey((string)($row['item_key']??''));
+                $catalogExplicit=$this->catalogSemantics((string)($row['item_key']??''));
+                if ($catalogExplicit!==null && $catalogExplicit['basis']==='stack' && $catalogExplicit['size']>1 && !$this->isMixedBasisMarket($itemKey)) {
+                    return ['unit'=>$quoted/$catalogExplicit['size'],'basis'=>'stack_inferred'];
+                }
+                return ['unit'=>$quoted,'basis'=>'each'];
+            }
+        }
+
+        if ($segment!=='' && preg_match('/\b(?:stack|stacks)\b/i',$segment)) {
             preg_match_all('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i',$segment,$money,PREG_SET_ORDER);
             if (count($money)===1) {
                 $quoted=$this->moneyToEcto((float)str_replace(',','.',$money[0][1]),strtolower($money[0][2]));
@@ -258,6 +284,10 @@ final class MarketQualityService
         // per-item/per-stack knowledge. Ambiguous lists, ranges and multi-price
         // segments are deliberately excluded before catalog inference.
         if (!$this->isSafeBareCatalogQuote($segment)) return null;
+        $bareKey=$this->canonicalCatalogKey((string)($row['item_key']??''));
+        // These markets are commonly quoted both per item and per stack in live
+        // Kamadan data. A bare number is therefore not enough to infer basis.
+        if ($this->isMixedBasisMarket($bareKey)) return null;
         $semantics=$this->catalogSemantics((string)($row['item_key']??''));
         if ($semantics===null) return null;
         if ($semantics['basis']==='stack' && $semantics['size']>1) {
@@ -324,7 +354,7 @@ final class MarketQualityService
     {
         // StructuredOfferWriter uses underscore keys while the static catalog
         // historically uses hyphens. Compare both through one representation.
-        return trim((string)preg_replace('/[^a-z0-9]+/', '_', mb_strtolower($value)), '_');
+        return trim((string)preg_replace('/[^a-z0-9]+/', '_', strtolower($value)), '_');
     }
 
     /** @param array<string,mixed> $row */
@@ -360,6 +390,16 @@ final class MarketQualityService
             'k'=>$amount/15.0,
             default=>null,
         };
+    }
+
+    private function isMixedBasisMarket(string $canonicalKey): bool
+    {
+        return in_array($canonicalKey,['gift_of_the_traveler','tengu_support_flare'],true);
+    }
+
+    private function segmentHasMoney(string $segment): bool
+    {
+        return (bool)preg_match('/(?<![a-z0-9.])\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment);
     }
 
     /** @param list<float> $values */

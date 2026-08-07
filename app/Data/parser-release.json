@@ -1,6 +1,6 @@
 {
-  "release": "V5.2 Phase 3L.6",
-  "phase": "3L.6",
-  "description": "Catalog-aware bare price recovery for safe single-offer quotes",
-  "version": "V5.2 Phase 3L.6"
+  "release": "V5.2 Phase 3L.9",
+  "phase": "3L.9",
+  "description": "Explicit quote precedence, mixed-basis market safety and stale segment-price quarantine",
+  "version": "V5.2 Phase 3L.9"
 }
