@@ -10,6 +10,8 @@ use LittyWatch\Knowledge\Seeder;
 use LittyWatch\Market\OfferLifecycleService;
 use LittyWatch\Market\StructuredOfferWriter;
 use LittyWatch\Market\VariantNormalizer;
+use LittyWatch\Parser\Catalog;
+use LittyWatch\Parser\ParserEngine;
 use LittyWatch\V2\Alerts\LiveFeedService;
 use LittyWatch\V2\Assets\AssetCatalogService;
 use LittyWatch\V2\Intelligence\CurrencyFormatter;
@@ -34,7 +36,11 @@ final class MaintenanceController
     public function reparse(Request $request): Response
     {
         $lifecycle = new OfferLifecycleService($this->pdo);
-        $writer = new StructuredOfferWriter($this->pdo, parserV2(), new VariantNormalizer(), null);
+        // Phase 3A/3B: a full market rebuild must use the same freshly deployed
+        // parser/data files as Parser Review. Items now reads structured_offers.
+        clearstatcache(true);
+        $parser = new ParserEngine(new Catalog($this->root . '/app/Data', $this->pdo));
+        $writer = new StructuredOfferWriter($this->pdo, $parser, new VariantNormalizer(), null);
         // Repair historic millisecond timestamps that were previously
         // interpreted as seconds and therefore produced years such as 58567.
         $timestampRows = $this->pdo->query("SELECT id, posted_at, collected_at FROM messages")->fetchAll();
@@ -83,7 +89,9 @@ final class MaintenanceController
             'offers_created' => $legacyCreated,
             'structured_offers_created' => $structuredCreated,
             'lifecycle' => $lifecycle->rebuild(),
-            'parser_fix' => 'Stacknotatie en item-voor-item ruilingen worden correct verwerkt.',
+            'parser_fix' => 'Canonical Items-index herbouwd uit structured offers; alleen expliciete geldprijzen tellen mee in prijsstatistieken.',
+            'items_source' => 'structured_offers',
+            'parser_release' => 'V5.2 Phase 3A/3B',
             'timestamps_repaired' => $timestampsRepaired,
         ], '/items');
     }

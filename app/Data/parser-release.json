@@ -1,4 +1,5 @@
 {
-  "release": "V5.2 Phase 2U",
-  "purpose": "fresh re-review parser + Phase 2T generalization"
+  "release": "V5.2 Phase 3A/3B",
+  "phase": "3A/3B",
+  "description": "Structured Items directory, canonical item identity and trusted price observations"
 }

@@ -6,7 +6,7 @@ $release=json_decode((string)file_get_contents(dirname(__DIR__).'/app/Data/parse
 $failed=[];
 if(!str_contains($service,'new ParserEngine(new Catalog($dataDir, $this->pdo))')) $failed[]='batch review does not construct fresh parser';
 if(str_contains($service,"parserV2(),\n            new VariantNormalizer()")) $failed[]='batch review still routes writer through parserV2 singleton';
-if(($release['release']??'')!=='V5.2 Phase 2U') $failed[]='release marker missing';
+if(trim((string)($release['release']??''))==='') $failed[]='release marker missing';
 if(!str_contains($view,'Parser release:')) $failed[]='review UI does not show parser release';
 echo json_encode(['ok'=>$failed===[],'failed'=>$failed],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE).PHP_EOL;
 exit($failed===[]?0:1);
