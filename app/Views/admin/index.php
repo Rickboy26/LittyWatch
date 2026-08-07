@@ -18,7 +18,7 @@
 
 <?php $dq=$dataQuality['summary']??[]; ?>
 <section class="surface">
-  <div class="section-heading"><div><span class="kicker">DATA QUALITY</span><h2>Dataset gezondheid</h2><p>Actuele verdeling van parser- en prijsvertrouwen.</p></div></div>
+  <div class="section-heading"><div><span class="kicker">DATA QUALITY</span><h2>Dataset gezondheid</h2><p>Actuele verdeling van parser- en prijsvertrouwen.</p></div><div class="actions"><a class="btn secondary" href="/admin/data-quality">Open workbench</a></div></div>
   <div class="metric-grid">
     <article class="metric"><span>Aanbiedingen</span><strong><?= (int)($dq['offers']??0) ?></strong></article>
     <article class="metric"><span>Betrouwbare prijzen</span><strong><?= (int)($dq['trusted_prices']??0) ?></strong></article>
@@ -34,7 +34,7 @@
     <div class="section-heading"><div><span class="kicker">PROBLEEMGROEPEN</span><h2>Meest voorkomende kwaliteitsproblemen</h2></div></div>
     <?php if(empty($dataQuality['issues'])): ?><p class="muted">Geen kwaliteitsproblemen gevonden.</p><?php else: ?>
       <div class="tablewrap"><table><thead><tr><th>Probleem</th><th>Aantal</th></tr></thead><tbody>
-      <?php foreach($dataQuality['issues'] as $issue): ?><tr><td><?=h((string)$issue['reason'])?></td><td><strong><?=(int)$issue['total']?></strong></td></tr><?php endforeach; ?>
+      <?php foreach($dataQuality['issues'] as $issue): ?><tr><td><a class="itemlink" href="/admin/data-quality?category=<?=rawurlencode((string)$issue['issue_key'])?>"><?=h((string)$issue['label'])?></a></td><td><strong><?=(int)$issue['total']?></strong></td></tr><?php endforeach; ?>
       </tbody></table></div>
     <?php endif; ?>
   </section>
