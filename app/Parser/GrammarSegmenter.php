@@ -11,26 +11,18 @@ final class GrammarSegmenter
         $text = trim($text);
         if ($text === '') return [];
 
-        // Protect common stat syntax before treating ^ as a separator.
-        $text = preg_replace('/(\d)\s*\^\s*(\d)/u', '$1__CARET__$2', $text) ?? $text;
-
-        $parts = preg_split(
-            '/\s*(?:\|+|\/\/+|;|~+|\^(?!\d)|\s+-\s+)\s*/u',
-            $text
-        ) ?: [$text];
-
+        // First split hard separators while respecting quotes and parentheses.
+        $parts = $this->splitAware($text, false);
         $result = [];
         foreach ($parts as $part) {
-            $part = str_replace('__CARET__', '^', trim($part));
+            $part = trim($part);
             if ($part === '') continue;
 
-            // "A & B" is normally two items, but not WTT ratio text.
-            $ampersand = preg_split('/\s+&\s+/u', $part) ?: [$part];
-            foreach ($ampersand as $piece) {
+            // Ampersand separates offers only outside quoted names/parentheses.
+            foreach ($this->splitAware($part, true) as $piece) {
                 $piece = trim($piece);
                 if ($piece === '') continue;
 
-                // Explicit counts followed by a second counted item.
                 $counted = preg_split(
                     '/\s+(?=\d+\s+[A-Za-z][A-Za-z\'’ -]{2,}\b)/u',
                     $piece
@@ -42,7 +34,50 @@ final class GrammarSegmenter
                 }
             }
         }
-
         return array_values($result);
+    }
+
+    /** @return list<string> */
+    private function splitAware(string $text, bool $ampersandOnly): array
+    {
+        $out=[]; $buf=''; $quote=null; $depth=0; $len=strlen($text);
+        for($i=0;$i<$len;$i++) {
+            $ch=$text[$i];
+            if (($ch==='"' || $ch==="'") && ($i===0 || $text[$i-1] !== '\\')) {
+                $quote = $quote === null ? $ch : ($quote === $ch ? null : $quote);
+                $buf.=$ch; continue;
+            }
+            if ($quote===null) {
+                if ($ch==='(' || $ch==='[') $depth++;
+                elseif (($ch===')' || $ch===']') && $depth>0) $depth--;
+            }
+            if ($quote===null && $depth===0) {
+                if ($ampersandOnly) {
+                    if ($ch==='&' && ($i===0 || ctype_space($text[$i-1])) && ($i+1===$len || ctype_space($text[$i+1]))) {
+                        $left = mb_strtolower(trim($buf));
+                        $right = mb_strtolower(trim(substr($text, $i + 1)));
+                        // "weapons & shields" is one generic category phrase, not two offers.
+                        if (preg_match('/\bweapons?$/u', $left) && preg_match('/^shields?\b/u', $right)) {
+                            $buf.=$ch; continue;
+                        }
+                        if (trim($buf)!=='') $out[]=trim($buf); $buf=''; continue;
+                    }
+                } else {
+                    $two = $i+1<$len ? $ch.$text[$i+1] : '';
+                    if ($ch==='|' || $ch===';' || $ch==='~' || $ch==='^' || $two==='//') {
+                        if ($ch==='^' && $i>0 && $i+1<$len && ctype_digit($text[$i-1]) && ctype_digit($text[$i+1])) { $buf.=$ch; continue; }
+                        if (trim($buf)!=='') $out[]=trim($buf); $buf='';
+                        if ($two==='//') $i++;
+                        continue;
+                    }
+                    if ($ch==='-' && $i>0 && $i+1<$len && ctype_space($text[$i-1]) && ctype_space($text[$i+1])) {
+                        if (trim($buf)!=='') $out[]=trim($buf); $buf=''; continue;
+                    }
+                }
+            }
+            $buf.=$ch;
+        }
+        if (trim($buf)!=='') $out[]=trim($buf);
+        return $out ?: [$text];
     }
 }

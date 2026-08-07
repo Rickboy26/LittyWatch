@@ -26,6 +26,11 @@ final class SemanticNormalizer
         $text = preg_replace('/\breq(?:uirement)?\s*([0-9]{1,2})\b/iu', 'q$1', $text) ?? $text;
         $text = preg_replace('/\binsc(?:r(?:ibable|iptable)?)?\b/iu', 'inscribable', $text) ?? $text;
 
+        // Compact currency/item notation from Kamadan: ZKey1.3e -> ZKey 1.3e.
+        $text = preg_replace('/\b(zkey|szc)(?=\d)/iu', '$1 ', $text) ?? $text;
+        // Defensive cleanup for learned aliases that accidentally duplicated a family label.
+        $text = preg_replace('/\b(Deld(?:rimor|imore)?\s+Hero\s+armor)\s+Hero\s+armor\b/iu', '$1', $text) ?? $text;
+
         // Compact market notation frequently glues requirement + item together.
         $text = preg_replace('/\b([qr])\s*([0-9]{1,2})(?=[A-Za-z])/iu', '$1$2 ', $text) ?? $text;
 

@@ -9,6 +9,9 @@ final class Normalizer
     {
         $message = html_entity_decode($message, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $message = str_replace(["\r\n", "\r", "\t", '_'], [' ', ' ', ' ', ' '], $message);
+        // Normalize verbose trade intent before OfferSplitter looks for markers.
+        $message = preg_replace('/\bwant\s+to\s+buy\b/iu', 'WTB', $message) ?? $message;
+        $message = preg_replace('/\bwant\s+to\s+sell\b/iu', 'WTS', $message) ?? $message;
         $message = preg_replace('/\^{2,}/u', ' | ', $message) ?? $message;
         $message = preg_replace('/(?<=\D)\^(?=\D)/u', ' ', $message) ?? $message;
         // Normalize spaced requirement notation before segmentation: "q 9" -> "q9".

@@ -23,6 +23,7 @@ final class ParserEngine
     private MarketMetadataExtractor $metadataExtractor;
     private GenericItemRecognizer $genericRecognizer;
     private ContextualSegmentExpander $contextualSegmentExpander;
+    private ReviewCandidateClassifier $reviewCandidateClassifier;
     private ?CategoryExpander $categoryExpander = null;
     private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
     private ?AttributeMatcher $attributeMatcher = null;
@@ -53,6 +54,7 @@ final class ParserEngine
         $this->metadataExtractor = new MarketMetadataExtractor();
         $this->genericRecognizer = new GenericItemRecognizer();
         $this->contextualSegmentExpander = new ContextualSegmentExpander($this->itemMatcher);
+        $this->reviewCandidateClassifier = new ReviewCandidateClassifier();
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
@@ -109,6 +111,15 @@ final class ParserEngine
             }
         }
 
+        // Suppress category/service-level market text before catalog matching.
+        // Otherwise a generic phrase like "OS WEAPONS & SHIELDS" can partially
+        // match a catalog token such as "Shield" and create a false offer.
+        $segmentClass = $this->reviewCandidateClassifier->classify(
+            $this->tradeNotationCleaner->cleanItemCandidate($segment),
+            $segment
+        );
+        if (in_array($segmentClass['kind'], ['generic','service'], true)) return [];
+
         // Generic family searches such as "q5-7 flatbows" describe several
         // requirement variants. Expand the small range before normal matching.
         if (preg_match('/\b(?:q|r)\s*(\d{1,2})\s*-\s*(\d{1,2})\b/iu', $segment, $range)) {
@@ -137,6 +148,8 @@ final class ParserEngine
                 $price = $this->priceMatcher->parse($segment);
                 $fallback = $this->fallbackName($segment, $price);
                 if ($this->isNoiseCandidate($fallback, $segment)) return [];
+                $candidateClass = $this->reviewCandidateClassifier->classify($fallback, $segment);
+                if ($candidateClass['kind'] !== 'item') return [];
                 $metadata = array_merge(
                     $this->modifierMatcher->match($segment),
                     $this->metadataExtractor->extract($segment)
