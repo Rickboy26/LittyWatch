@@ -248,7 +248,10 @@ final class ParserEngine
             $slice = trim(mb_substr($segment, $start, $end - $start), " \t\n\r\0\x0B|,;");
             if ($slice === '') $slice = $segment;
             $price = $this->priceMatcher->parse($slice);
-            if ($price->amount === null && count($items) === 1) $price = $wholePrice;
+            if ($price->amount === null && count($items) === 1 && $this->wholePriceIsLocalToItem($wholePrice, $segment, $slice, $start)) {
+                $price = $wholePrice;
+            }
+            $price = $this->resolvePriceSemantics($price, $item, $slice);
             $setQuantity = $this->setResolver->resolve((string)$item['item'], $slice);
             if ($setQuantity !== null && $price->amount !== null) {
                 $price = new ParsedPrice($price->amount,$price->currency,$price->ectoValue,'set',$setQuantity,$price->ectoValue!==null?$price->ectoValue/$setQuantity:null,$price->raw);
@@ -300,6 +303,64 @@ final class ParserEngine
         return $offers;
     }
 
+
+    /**
+     * Phase 3D: a price found elsewhere in a larger segment must not leak into
+     * an item slice. The only safe fallback is a price immediately before the
+     * matched item, e.g. "30a BDS".
+     */
+    private function wholePriceIsLocalToItem(ParsedPrice $wholePrice, string $segment, string $slice, int $itemStart): bool
+    {
+        if ($wholePrice->amount === null || $wholePrice->raw === null) return false;
+        if (mb_stripos($slice, $wholePrice->raw) !== false) return true;
+        $pricePos = mb_stripos($segment, $wholePrice->raw);
+        if ($pricePos === false || $pricePos >= $itemStart) return false;
+        $between = mb_substr($segment, $pricePos + mb_strlen($wholePrice->raw), $itemStart - ($pricePos + mb_strlen($wholePrice->raw)));
+        return mb_strlen($between) <= 12 && (bool)preg_match('/^[\s:;,.\-|\/]*$/u', $between);
+    }
+
+    /**
+     * Phase 3D: turn syntactic prices into market-safe price observations.
+     * Bare weapon prices are naturally per-item. Currency commodities are more
+     * conservative: suspicious/unqualified armbrace prices are kept visible as
+     * raw prices but excluded from unit statistics.
+     */
+    private function resolvePriceSemantics(ParsedPrice $price, array $item, string $slice): ParsedPrice
+    {
+        if ($price->amount === null) return $price;
+        if ($price->basis !== 'unqualified') return $price;
+
+        $key = (string)($item['key'] ?? '');
+        $category = (string)($item['category'] ?? '');
+        $ecto = $price->ectoValue;
+
+        if ($key === 'armbrace-of-truth') {
+            // Armbraces are normally quoted in ecto per armbrace. Bare armbrace
+            // currency prices ("17a") or extreme bare ecto totals ("250e") are
+            // ambiguous and must not become a per-unit market datapoint.
+            $safeUnit = $price->currency === 'e' && $price->amount !== null && $price->amount > 0 && $price->amount <= 100;
+            return new ParsedPrice(
+                $price->amount,
+                $price->currency,
+                $ecto,
+                $safeUnit ? 'each_inferred' : 'uncertain',
+                $price->quantity,
+                $safeUnit ? $ecto : null,
+                $price->raw,
+            );
+        }
+
+        // Concrete non-commodity items are conventionally priced per item when
+        // a single bare money amount follows the item name (BDS 30a, VS 5a...).
+        if (!in_array($category, ['currency','material','consumable'], true)) {
+            return new ParsedPrice($price->amount,$price->currency,$ecto,'each_inferred',$price->quantity,$ecto,$price->raw);
+        }
+
+        // For other commodities, an explicit xN after the price is already
+        // classified as `each` by PriceMatcher. A naked amount remains visible
+        // but is not trusted for statistics unless context explicitly says each.
+        return new ParsedPrice($price->amount,$price->currency,$ecto,'uncertain',$price->quantity,null,$price->raw);
+    }
 
     /** @return list<ParsedOffer> */
     private function parseExchangeSegment(string $segment): array

@@ -193,8 +193,19 @@ final class MarketRepository
     /** @return array{buy:?array,sell:?array} */
     public function bestOffersForItem(string $name): array
     {
-        $buy=$this->activeOffersForItem($name,'buy',1);$sell=$this->activeOffersForItem($name,'sell',1);
-        return['buy'=>$buy[0]??null,'sell'=>$sell[0]??null];
+        $key=$this->itemKeyForName($name); if($key===null)return['buy'=>null,'sell'=>null];
+        $best=[];
+        foreach(['buy','sell'] as $type){
+            $order=$type==='buy'?'o.unit_price_ecto DESC':'o.unit_price_ecto ASC';
+            $statement=$this->pdo->prepare("SELECT o.*,".$this->variantExpr('o')." AS details,m.player,m.message,m.posted_at
+                FROM structured_offers o JOIN messages m ON m.id=o.message_id
+                WHERE lower(o.item)=lower(:item) AND o.trade_type=:type AND o.quality_status='accepted'
+                  AND COALESCE(o.lifecycle_status,'active')='active' AND ".$this->trustedPriceExpr('o')."
+                ORDER BY $order,datetime(m.posted_at) DESC,o.id DESC LIMIT 1");
+            $statement->execute([':item'=>$name,':type'=>$type]);
+            $row=$statement->fetch(); $best[$type]=$row?:null;
+        }
+        return $best;
     }
 
     public function canonicalItemName(string $name): ?string
@@ -217,7 +228,7 @@ final class MarketRepository
         // Phase 3B: only explicit money observations contribute to price stats.
         // Quantity-only, bundle and exchange observations stay visible as offers
         // but cannot distort the item averages/medians.
-        return "$alias.unit_price_ecto IS NOT NULL AND $alias.unit_price_ecto > 0 AND COALESCE($alias.price_currency,'') IN ('a','e','k') AND COALESCE($alias.price_basis,'') NOT IN ('bundle','currency_exchange','unknown')";
+        return "$alias.unit_price_ecto IS NOT NULL AND $alias.unit_price_ecto > 0 AND COALESCE($alias.price_currency,'') IN ('a','e','k') AND COALESCE($alias.price_basis,'') NOT IN ('bundle','currency_exchange','unknown') AND COALESCE($alias.price_basis,'') NOT IN ('currency_conversion','unqualified','uncertain')";
     }
 
     private function variantExpr(string $alias): string

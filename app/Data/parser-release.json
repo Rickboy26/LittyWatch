@@ -1,5 +1,5 @@
 {
-  "release": "V5.2 Phase 3A/3B",
-  "phase": "3A/3B",
-  "description": "Structured Items directory, canonical item identity and trusted price observations"
+  "release": "V5.2 Phase 3D",
+  "phase": "3D",
+  "description": "Segment-local price semantics, trusted unit pricing and Armbrace-native market display"
 }

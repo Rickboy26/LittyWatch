@@ -1,8 +1,9 @@
 <?php declare(strict_types=1);
 
-$price = static fn(mixed $value): string => lw_market_price($value);
+$itemNameForPrice = (string)($item['item'] ?? '');
+$price = static fn(mixed $value): string => lw_market_price_for_item($itemNameForPrice, $value);
 $time = static fn(mixed $value): string => lw_local_datetime($value);
-$rawPrice = static function(?array $offer) use ($price): string {
+$rawPrice = static function(?array $offer) use ($price, $itemNameForPrice): string {
     if ($offer === null) return 'Geen aanbod';
     if (($offer['price_basis'] ?? '') === 'barter' && !empty($offer['exchange_item'])) {
         $give = (float)($offer['exchange_give_quantity'] ?? 1);
@@ -13,6 +14,9 @@ $rawPrice = static function(?array $offer) use ($price): string {
     }
     if ($offer['price_amount'] !== null && ($offer['price_currency'] ?? '') === 'a') {
         $native = rtrim(rtrim(number_format((float)$offer['price_amount'],2,',','.'),'0'),',').'a';
+        if (mb_strtolower($itemNameForPrice) === 'armbrace of truth') {
+            return $offer['unit_price_ecto'] !== null ? lw_market_price_for_item($itemNameForPrice, $offer['unit_price_ecto'], false).' / stuk' : $native.' · onzekere unitprijs';
+        }
         return $offer['unit_price_ecto'] !== null ? $native.' (~'.lw_market_price($offer['unit_price_ecto'], false).') / stuk' : $native;
     }
     if ($offer['unit_price_ecto'] !== null) return $price($offer['unit_price_ecto']) . ' / stuk';
@@ -241,7 +245,8 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
   const width = 1100, height = 330, pad = {l:60,r:24,t:22,b:42};
   const ectoPerArmbrace = <?= json_encode(lw_ecto_per_armbrace()) ?>;
   const rawValues = points.map(p => Number(p.price)).filter(Number.isFinite);
-  const useArmbrace = rawValues.length > 0 && Math.max(...rawValues.map(Math.abs)) >= 500;
+  const forceEcto = <?= json_encode(mb_strtolower((string)$item['item']) === 'armbrace of truth') ?>;
+  const useArmbrace = !forceEcto && rawValues.length > 0 && Math.max(...rawValues.map(Math.abs)) >= 500;
   const values = rawValues.map(v => useArmbrace ? v / ectoPerArmbrace : v);
   const chartPoints = points.map(p => ({...p, displayPrice: useArmbrace ? Number(p.price)/ectoPerArmbrace : Number(p.price)}));
   const unit = useArmbrace ? 'a' : 'e';

@@ -165,6 +165,18 @@ function lw_market_price(mixed $ecto, bool $equivalent = true): string {
     return $num($e).'e'.($equivalent && $abs >= lw_ecto_per_armbrace()*5 ? ' (~'.$num($e/lw_ecto_per_armbrace()).'a)' : '');
 }
 
+/** Phase 3D: item-aware display. Armbrace of Truth is itself the exchange unit,
+ * so pricing it primarily in armbraces is circular; keep ecto primary. */
+function lw_market_price_for_item(string $item, mixed $ecto, bool $equivalent = true): string {
+    if (mb_strtolower(trim($item)) === 'armbrace of truth') {
+        if ($ecto === null || $ecto === '') return '—';
+        $e=(float)$ecto;
+        $num=static fn(float $v,int $d=2):string=>rtrim(rtrim(number_format($v,$d,',','.'),'0'),',');
+        return $num($e).'e';
+    }
+    return lw_market_price($ecto,$equivalent);
+}
+
 function itemCatalog(): array {
     static $catalog = null;
     if ($catalog !== null) return $catalog;
