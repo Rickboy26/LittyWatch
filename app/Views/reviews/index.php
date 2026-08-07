@@ -190,7 +190,7 @@ $tabs = [
         <div>
           <span class="kicker">ORIGINEEL BERICHT</span>
           <h2><?= h($selected['player']) ?></h2>
-          <small><?= h($selected['posted_at']) ?></small>
+          <small><?= h(lw_local_datetime($selected['posted_at'])) ?></small>
         </div>
         <span class="confidence-badge"><?= number_format((float)$selected['confidence'] * 100, 0) ?>%</span>
       </header>

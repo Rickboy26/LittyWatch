@@ -119,6 +119,52 @@ function norm(string $s): string {
 }
 function itemKey(string $s): string { return trim(preg_replace('/[^a-z0-9]+/',' ',mb_strtolower($s)) ?? ''); }
 
+/** Phase 3C: present all stored timestamps consistently in Europe/Amsterdam. */
+function lw_local_datetime(mixed $value, bool $relative = false): string {
+    $raw = trim((string)$value);
+    if ($raw === '') return '—';
+    try {
+        $dt = new DateTimeImmutable($raw);
+        $dt = $dt->setTimezone(new DateTimeZone('Europe/Amsterdam'));
+        if ($relative) {
+            $now = new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam'));
+            $seconds = $now->getTimestamp() - $dt->getTimestamp();
+            if ($seconds >= 0 && $seconds < 3600) return max(1, (int)floor($seconds / 60)).' min geleden';
+            if ($seconds >= 3600 && $seconds < 86400) return (int)floor($seconds / 3600).' uur geleden';
+        }
+        return $dt->format('d-m-Y H:i');
+    } catch (Throwable) {
+        return $raw;
+    }
+}
+
+function lw_ecto_per_armbrace(): float {
+    static $rate = null;
+    if ($rate !== null) return $rate;
+    $rate = 25.0;
+    $cfgPath = __DIR__.'/config/exchange-rates.php';
+    $cfg = is_file($cfgPath) ? require $cfgPath : [];
+    $r = $cfg['rates']['ecto_to_armbrace'] ?? null;
+    if (is_array($r)) {
+        $left=(float)($r['left_amount']??0); $right=(float)($r['right_amount']??0);
+        if ($left>0 && $right>0) $rate=$left/$right;
+    }
+    return $rate;
+}
+
+/** Phase 3C: GW1-native market display. Above 500e prefer armbraces. */
+function lw_market_price(mixed $ecto, bool $equivalent = true): string {
+    if ($ecto === null || $ecto === '') return '—';
+    $e = (float)$ecto;
+    $abs = abs($e);
+    $num = static fn(float $v, int $d=2): string => rtrim(rtrim(number_format($v,$d,',','.'),'0'),',');
+    if ($abs >= 500.0) {
+        $a = lw_ecto_per_armbrace() > 0 ? $e / lw_ecto_per_armbrace() : 0.0;
+        return $num($a).'a'.($equivalent ? ' (~'.$num($e).'e)' : '');
+    }
+    return $num($e).'e'.($equivalent && $abs >= lw_ecto_per_armbrace()*5 ? ' (~'.$num($e/lw_ecto_per_armbrace()).'a)' : '');
+}
+
 function itemCatalog(): array {
     static $catalog = null;
     if ($catalog !== null) return $catalog;

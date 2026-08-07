@@ -126,6 +126,39 @@ final class ParserEngine
         // Ritualist are discarded merely because "wand wrapping" is also a
         // generic component phrase.
         $preItems = $this->itemMatcher->matchAll($segment);
+
+        // Phase 3C: compact same-q attribute lists represent multiple
+        // market variants, e.g. "BDS q11 dom/air/FC/ES/comm".
+        if ($preItems !== [] && !preg_match('/\bno\b/iu', $segment)) {
+            if (preg_match('/\bq\s*(\d{1,2})\s+([A-Za-z]+(?:\s+[A-Za-z]+)?(?:\/[A-Za-z]+(?:\s+[A-Za-z]+)?)+)/u', $segment, $lm)) {
+                $map = [
+                    'dom'=>'Domination Magic','domination'=>'Domination Magic','air'=>'Air Magic',
+                    'fc'=>'Fast Casting','es'=>'Energy Storage','comm'=>'Communing','com'=>'Communing',
+                    'heal'=>'Healing Prayers','water'=>'Water Magic','insp'=>'Inspiration Magic','inspiration'=>'Inspiration Magic',
+                    'earth'=>'Earth Magic','chann'=>'Channeling Magic','chan'=>'Channeling Magic','channeling'=>'Channeling Magic',
+                    'divine'=>'Divine Favor','df'=>'Divine Favor','fire'=>'Fire Magic','death'=>'Death Magic',
+                    'illu'=>'Illusion Magic','illusion'=>'Illusion Magic','resto'=>'Restoration Magic','restoration'=>'Restoration Magic',
+                    'blood'=>'Blood Magic','sr'=>'Soul Reaping','smite'=>'Smiting Prayers','smiting'=>'Smiting Prayers','curses'=>'Curses','curs'=>'Curses',
+                ];
+                $attrs=[];
+                foreach (array_values(array_filter(array_map('trim', preg_split('/\s*\/\s*/u', $lm[2]) ?: []))) as $token) {
+                    $k=mb_strtolower($token); if(isset($map[$k])) $attrs[$map[$k]]=true;
+                }
+                if (count($attrs) >= 2) {
+                    $baseItem = null;
+                    foreach ($preItems as $pi) {
+                        if ($this->taxonomy->isConcreteMatch($pi)) { $baseItem = (string)$pi['item']; break; }
+                    }
+                    $baseItem ??= (string)$preItems[0]['item'];
+                    $expanded = [];
+                    foreach (array_keys($attrs) as $attributeName) {
+                        $expanded = array_merge($expanded, $this->parseSegment($tradeType, $baseItem.' q'.$lm[1].' '.$attributeName));
+                    }
+                    if ($expanded !== []) return $expanded;
+                }
+            }
+        }
+
         $hasConcretePreMatch = false;
         foreach ($preItems as $preItem) {
             if ($this->taxonomy->isConcreteMatch($preItem)) { $hasConcretePreMatch = true; break; }
@@ -240,6 +273,9 @@ final class ParserEngine
                 ) {
                     $modifiers['requirement'] = 'any';
                 }
+            }
+            if (isset($modifiers['attribute']) && $this->attributeIsNegated($segment, (string)$modifiers['attribute'])) {
+                unset($modifiers['attribute'], $modifiers['attribute_key']);
             }
             [$confidence, $status, $reason] = $this->confidenceScorer->score($item, $modifiers, $price, $slice);
             $profileData = $this->profileResolver?->resolve($item['key'], $item['category'] ?? 'unknown', $modifiers) ?? [
@@ -678,4 +714,30 @@ final class ParserEngine
     {
         return trim(preg_replace('/[^a-z0-9]+/', ' ', mb_strtolower($value)) ?? '');
     }
+
+    private function attributeIsNegated(string $text, string $attribute): bool
+    {
+        if (!preg_match_all('/\bno\b([^|,;)]*)/iu', $text, $matches)) return false;
+        $aliases = [mb_strtolower($attribute)];
+        $aliases = array_merge($aliases, match (mb_strtolower($attribute)) {
+            'channeling magic' => ['chann','chan','channeling'],
+            'curses' => ['curs','curse','curses'],
+            'smiting prayers' => ['smite','smiting'],
+            'domination magic' => ['dom','domination'],
+            'fast casting' => ['fc','fast casting'],
+            'energy storage' => ['es','energy storage'],
+            'soul reaping' => ['sr','soul reaping'],
+            'restoration magic' => ['resto','restoration'],
+            'illusion magic' => ['illu','illus','illusion'],
+            default => [],
+        });
+        foreach ($matches[1] as $negative) {
+            $normalized = ' '.mb_strtolower((string)$negative).' ';
+            foreach ($aliases as $alias) {
+                if (preg_match('/(?:^|[^a-z])'.preg_quote($alias,'/').'(?:$|[^a-z])/iu', $normalized)) return true;
+            }
+        }
+        return false;
+    }
+
 }

@@ -11,7 +11,11 @@ final class AttributeMatcher
 
     public function match(string $text): ?array
     {
-        $normalized = ' ' . KnowledgeBase::normalize($text) . ' ';
+        // Phase 3C: attributes mentioned inside an explicit exclusion such as
+        // \"q9 any(no chann/curses)\" are not the item's attribute. Strip the
+        // negative clause before matching so variant statistics are not inverted.
+        $positiveText = preg_replace('/\bno\b[^|,;)]*/iu', ' ', $text) ?? $text;
+        $normalized = ' ' . KnowledgeBase::normalize($positiveText) . ' ';
         $best = null;
         $bestLength = 0;
         foreach ($this->kb->attributes() as $attribute) {

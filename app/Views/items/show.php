@@ -1,8 +1,7 @@
 <?php declare(strict_types=1);
 
-$price = static function(mixed $value): string {
-    return $value !== null ? number_format((float)$value, 2, ',', '.') . 'e' : '—';
-};
+$price = static fn(mixed $value): string => lw_market_price($value);
+$time = static fn(mixed $value): string => lw_local_datetime($value);
 $rawPrice = static function(?array $offer) use ($price): string {
     if ($offer === null) return 'Geen aanbod';
     if (($offer['price_basis'] ?? '') === 'barter' && !empty($offer['exchange_item'])) {
@@ -11,6 +10,10 @@ $rawPrice = static function(?array $offer) use ($price): string {
         return rtrim(rtrim(number_format($give, 2, '.', ''), '0'), '.') . ' ↔ '
             . rtrim(rtrim(number_format($receive, 2, '.', ''), '0'), '.') . ' '
             . (string)$offer['exchange_item'];
+    }
+    if ($offer['price_amount'] !== null && ($offer['price_currency'] ?? '') === 'a') {
+        $native = rtrim(rtrim(number_format((float)$offer['price_amount'],2,',','.'),'0'),',').'a';
+        return $offer['unit_price_ecto'] !== null ? $native.' (~'.lw_market_price($offer['unit_price_ecto'], false).') / stuk' : $native;
     }
     if ($offer['unit_price_ecto'] !== null) return $price($offer['unit_price_ecto']) . ' / stuk';
     if ($offer['price_amount'] !== null) return (string)$offer['price_amount'] . (string)$offer['price_currency'];
@@ -28,7 +31,7 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
       <div class="item-meta">
         <span><?= (int)$item['offers'] ?> aanbiedingen</span>
         <span><?= (int)$analytics['unique_traders'] ?> unieke traders</span>
-        <span>Laatst gezien: <?= h($item['latest_posted_at'] ?: 'onbekend') ?></span>
+        <span>Laatst gezien: <?= h($time($item['latest_posted_at'] ?: null)) ?></span>
       </div>
     </div>
   </div>
@@ -94,7 +97,7 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
     <div>
       <span class="kicker">PRIJSHISTORIE</span>
       <h2>Marktverloop</h2>
-      <p class="muted">Chronologisch prijsverloop per stuk in ecto.</p>
+      <p class="muted">Chronologisch prijsverloop per stuk. Bij hoge bedragen schakelt de grafiek automatisch naar armbraces.</p>
     </div>
     <form class="filters" method="get" action="/item">
       <input type="hidden" name="name" value="<?= h($item['item']) ?>">
@@ -132,7 +135,7 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
       <div class="offer-list">
         <?php foreach ($buyOffers as $offer): ?>
           <article class="compact-offer">
-            <div><strong><?= h($offer['player']) ?></strong><small><?= h($offer['posted_at']) ?></small></div>
+            <div><strong><?= h($offer['player']) ?></strong><small><?= h($time($offer['posted_at'])) ?></small></div>
             <div class="compact-price"><?= $rawPrice($offer) ?></div>
             <code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code>
           </article>
@@ -152,7 +155,7 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
       <div class="offer-list">
         <?php foreach ($sellOffers as $offer): ?>
           <article class="compact-offer">
-            <div><strong><?= h($offer['player']) ?></strong><small><?= h($offer['posted_at']) ?></small></div>
+            <div><strong><?= h($offer['player']) ?></strong><small><?= h($time($offer['posted_at'])) ?></small></div>
             <div class="compact-price"><?= $rawPrice($offer) ?></div>
             <code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code>
           </article>
@@ -200,7 +203,7 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
   <div class="offer-list">
     <?php foreach ($tradeOffers as $offer): ?>
       <article class="compact-offer trade-offer">
-        <div><strong><?= h($offer['player']) ?></strong><small><?= h($offer['posted_at']) ?></small></div>
+        <div><strong><?= h($offer['player']) ?></strong><small><?= h($time($offer['posted_at'])) ?></small></div>
         <div class="compact-price"><?= h($rawPrice($offer)) ?></div>
         <code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code>
       </article>
@@ -219,7 +222,7 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
         <td><span class="badge <?= h($offer['trade_type']) ?>"><?= strtoupper(h($offer['trade_type'])) ?></span></td>
         <td><?= h($offer['details'] ?: 'Standaard') ?><div class="muted"><?= (int)round((float)$offer['confidence']*100) ?>% · <?= h($offer['quality_status']) ?></div></td>
         <td><?php if(($offer['price_basis']??'')==='barter'): ?><?=h($rawPrice($offer))?><?php else: ?><?= $offer['price_amount']!==null ? h($offer['price_amount']).h($offer['price_currency']) : '—' ?><?php if($offer['unit_price_ecto']!==null): ?><div class="muted"><?= $price($offer['unit_price_ecto']) ?>/stuk</div><?php endif; ?><?php endif; ?></td>
-        <td><?= h($offer['player']) ?><div class="muted"><?= h($offer['posted_at']) ?></div></td>
+        <td><?= h($offer['player']) ?><div class="muted"><?= h($time($offer['posted_at'])) ?></div></td>
         <td><code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code></td>
       </tr>
     <?php endforeach; ?>
@@ -236,7 +239,12 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
     return;
   }
   const width = 1100, height = 330, pad = {l:60,r:24,t:22,b:42};
-  const values = points.map(p => Number(p.price)).filter(Number.isFinite);
+  const ectoPerArmbrace = <?= json_encode(lw_ecto_per_armbrace()) ?>;
+  const rawValues = points.map(p => Number(p.price)).filter(Number.isFinite);
+  const useArmbrace = rawValues.length > 0 && Math.max(...rawValues.map(Math.abs)) >= 500;
+  const values = rawValues.map(v => useArmbrace ? v / ectoPerArmbrace : v);
+  const chartPoints = points.map(p => ({...p, displayPrice: useArmbrace ? Number(p.price)/ectoPerArmbrace : Number(p.price)}));
+  const unit = useArmbrace ? 'a' : 'e';
   let min = Math.min(...values), max = Math.max(...values);
   if (min === max) { min *= .9; max *= 1.1; if (min === max) { min=0; max=1; } }
   const range = max-min;
@@ -247,13 +255,13 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
   let svg = `<svg viewBox="0 0 ${width} ${height}" role="img">`;
   for(let i=0;i<=4;i++){
     const value=min+(max-min)*(4-i)/4, yy=pad.t+i*(height-pad.t-pad.b)/4;
-    svg += `<line x1="${pad.l}" y1="${yy}" x2="${width-pad.r}" y2="${yy}" class="gridline"/><text x="${pad.l-10}" y="${yy+4}" text-anchor="end" class="axislabel">${value.toFixed(1)}e</text>`;
+    svg += `<line x1="${pad.l}" y1="${yy}" x2="${width-pad.r}" y2="${yy}" class="gridline"/><text x="${pad.l-10}" y="${yy+4}" text-anchor="end" class="axislabel">${value.toFixed(1)}${unit}</text>`;
   }
   const groups={buy:[],sell:[]};
-  points.forEach((p,i)=>{ if(groups[p.type]) groups[p.type].push([x(i),y(Number(p.price)),p]); });
+  chartPoints.forEach((p,i)=>{ if(groups[p.type]) groups[p.type].push([x(i),y(Number(p.displayPrice)),p]); });
   for(const type of ['buy','sell']){
     if(groups[type].length>1) svg += `<polyline points="${groups[type].map(v=>v[0]+','+v[1]).join(' ')}" class="chartline ${type}-line"/>`;
-    for(const [cx,cy,p] of groups[type]) svg += `<circle cx="${cx}" cy="${cy}" r="5" class="chartpoint ${type}-point"><title>${esc(type.toUpperCase())}: ${Number(p.price).toFixed(2)}e · ${esc(p.player)}</title></circle>`;
+    for(const [cx,cy,p] of groups[type]) svg += `<circle cx="${cx}" cy="${cy}" r="5" class="chartpoint ${type}-point"><title>${esc(type.toUpperCase())}: ${Number(p.displayPrice).toFixed(2)}${unit} · ${esc(p.player)}</title></circle>`;
   }
   svg += `<text x="${pad.l}" y="${height-12}" class="axislabel">ouder</text><text x="${width-pad.r}" y="${height-12}" text-anchor="end" class="axislabel">nieuwer</text></svg>`;
   target.innerHTML=svg;
