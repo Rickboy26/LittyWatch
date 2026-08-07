@@ -129,10 +129,17 @@ final class ItemMatcher
         // 'cons' is generic consumables prose in barter lines such as Tengu Guard Cons
         // or Cons GoM for EoC/AoS and must not become Conset.
         if ($name === 'conset' && $a === 'cons') {
-            // Phase 2Q: bare `Cons` is ambiguous consumables shorthand. Treat it
-            // as Conset only in the established stack-sale form; barter fragments
-            // such as Tengu Guard Cons 3:1 must not become Conset.
-            if (!preg_match('/\bcons\b[^|]{0,24}(?:\/\s*stack|per\s+stack|\bstk\b)/iu', $t)) return false;
+            // Phase 3L.14: live market rows also use bare "Cons 10a" for Consets.
+            // Accept only when Cons owns a real money quote or explicit stack basis.
+            // Tengu/Guard barter fragments such as "Tengu Guard Cons 1:1" remain blocked.
+            $hasConsetPrice = preg_match('/\bcons\b[^|,;]{0,24}(?:\d+(?:[.,]\d+)?\s*(?:a|e|k)\b|\/\s*stack|per\s+stack|\bstk\b)/iu', $t);
+            $barterContext = preg_match('/\b(?:tengu|guard|guards)\b[^|,;]{0,30}\bcons\b|\bcons\b[^|,;]{0,30}\b(?:tengu|guard|guards)\b/iu', $t);
+            if (!$hasConsetPrice || $barterContext) return false;
+        }
+        if ($name === 'voltaic spear' && $a === 'vs') {
+            // VS is established GW1 shorthand, but only strong enough in the
+            // characteristic requirement + price form (e.g. "Q10 VS 10a").
+            if (!preg_match('/\bq\d+\s+vs\b[^|,;]{0,20}\d+(?:[.,]\d+)?\s*(?:a|e|k)\b/iu', $t)) return false;
         }
         // 'guard' is far too broad by itself. Preserve the full Imperial Guard names,
         // but never resolve a bare Guard token from Tengu Guard / Guard Cons text.
@@ -140,7 +147,7 @@ final class ItemMatcher
 
         // One/two-character aliases are too weak for catalog identity. They may
         // exist in imported knowledge, but should not create price observations.
-        if (mb_strlen($a) <= 2) return false;
+        if (mb_strlen($a) <= 2 && !($name === 'voltaic spear' && $a === 'vs')) return false;
 
         return true;
     }

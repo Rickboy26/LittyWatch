@@ -141,7 +141,8 @@
     "aliases": [
       "voltaic spear",
       "voltaicspear",
-      "volta"
+      "volta",
+      "vs"
     ]
   },
   {
@@ -445,7 +446,8 @@
     "category": "tome",
     "aliases": [
       "elite tome",
-      "elite tomes"
+      "elite tomes",
+      "elite toms"
     ]
   },
   {
@@ -690,7 +692,9 @@
     "aliases": [
       "necromancer tome",
       "necromancer tomes",
-      "necro tome"
+      "necro tome",
+      "nec tomes",
+      "nec times"
     ]
   },
   {
@@ -1359,7 +1363,9 @@
     "category": "hero-armor",
     "aliases": [
       "cloth of brotherhood",
-      "cloth hero armor"
+      "cloth hero armor",
+      "cloth of the brotherhood",
+      "cloths of the brotherhood"
     ]
   },
   {
@@ -1848,7 +1854,9 @@
     "category": "consumable",
     "aliases": [
       "Flames of Balthazar",
-      "Flame of Balthazar"
+      "Flame of Balthazar",
+      "balthazar flames",
+      "balth flames"
     ]
   },
   {
@@ -2328,7 +2336,35 @@
     "category": "present",
     "aliases": [
       "Strategist's Zaishen Strongbox",
-      "Strategist Zaishen Strongbox"
+      "Strategist Zaishen Strongbox",
+      "stack strategist box",
+      "strategist box"
+    ]
+  },
+  {
+    "key": "vial-of-absinthe",
+    "name": "Vial of Absinthe",
+    "category": "consumable",
+    "aliases": [
+      "vial of absinthe",
+      "vials of absinthe",
+      "vial absinthe",
+      "vials absinthe",
+      "absinthe"
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
+  },
+  {
+    "key": "jade-wind-orb",
+    "name": "Jade Wind Orb",
+    "category": "material",
+    "aliases": [
+      "jade wind orb",
+      "jade wind orbs",
+      "jade orb",
+      "jade orbs"
     ]
   }
 ]
