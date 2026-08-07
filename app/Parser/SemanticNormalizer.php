@@ -72,6 +72,13 @@ final class SemanticNormalizer
         $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
         $text = preg_replace('/\bPrimeval Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
 
+        // Phase 2O: final low-confidence component/name normalization.
+        $text = preg_replace('/["“”]?\bof\s+the\s+ritualist["“”]?\s+wand\s+wra(?:p(?:ping)?)?\b/iu', 'Wand Wrapping of the Ritualist', $text) ?? $text;
+        $text = preg_replace('/\britualist\s+wand\s+wra(?:p(?:ping)?)?\b/iu', 'Wand Wrapping of the Ritualist', $text) ?? $text;
+        $text = preg_replace('/\baptitude\s+focus\s+core\b/iu', 'Focus Core of Aptitude', $text) ?? $text;
+        $text = preg_replace('/\bswift\s+for\s+focus\b/iu', 'Focus Core of Swiftness', $text) ?? $text;
+        $text = preg_replace('/\beternal\s+flat\s+bow\b/iu', 'Eternal Bow', $text) ?? $text;
+
         // Phase 2M: concrete consumable/trophy shorthand from the residual queue.
         $text = preg_replace('/\bturtle\s+stones?\b/iu', 'Jadeite Summoning Stone', $text) ?? $text;
         $text = preg_replace('/\bgolden\s+eggs?\b/iu', 'Golden Egg', $text) ?? $text;

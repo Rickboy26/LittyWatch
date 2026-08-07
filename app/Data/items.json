@@ -112,7 +112,8 @@
       "eternal recurve bow",
       "eternal rec bow",
       "Eternal Recurve",
-      "eternal recurve"
+      "eternal recurve",
+      "eternal flat bow"
     ]
   },
   {
@@ -2036,6 +2037,65 @@
       "Dhuum's Soul Reaper",
       "Dhuums Soul Reaper",
       "DSR"
+    ]
+  },
+  {
+    "key": "hale-and-hearty",
+    "name": "Hale and Hearty",
+    "category": "inscription",
+    "aliases": [
+      "Hale and Hearty",
+      "\"Hale and Hearty\"",
+      "hale hearty"
+    ]
+  },
+  {
+    "key": "focus-core-of-swiftness",
+    "name": "Focus Core of Swiftness",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "Focus Core of Swiftness",
+      "core of swiftness",
+      "swift for focus",
+      "swift focus"
+    ]
+  },
+  {
+    "key": "wand-wrapping-of-the-ritualist",
+    "name": "Wand Wrapping of the Ritualist",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "Wand Wrapping of the Ritualist",
+      "of the Ritualist wand wrapping",
+      "ritualist wand wrapping",
+      "ritualist wand wrap"
+    ]
+  },
+  {
+    "key": "urkal-s-kamas",
+    "name": "Urkal's Kamas",
+    "category": "weapon",
+    "aliases": [
+      "Urkal's Kamas",
+      "Urkals Kamas"
+    ]
+  },
+  {
+    "key": "hajok-s-prism",
+    "name": "Hajok's Prism",
+    "category": "focus",
+    "aliases": [
+      "Hajok's Prism",
+      "Hajoks Prism"
+    ]
+  },
+  {
+    "key": "ithas-bow",
+    "name": "Ithas Bow",
+    "category": "weapon",
+    "aliases": [
+      "Ithas Bow",
+      "Ithas bow"
     ]
   }
 ]

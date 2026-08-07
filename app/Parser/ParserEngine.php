@@ -102,6 +102,7 @@ final class ParserEngine
             }
         }
 
+        $results = $this->promoteExplicitGenericRequirements($results);
         return $this->deduplicate($this->suppressLowConfidenceGenericShadows($results));
     }
 
@@ -118,14 +119,20 @@ final class ParserEngine
             }
         }
 
-        // Suppress category/service-level market text before catalog matching.
-        // Otherwise a generic phrase like "OS WEAPONS & SHIELDS" can partially
-        // match a catalog token such as "Shield" and create a false offer.
+        // Phase 2O: let an exact concrete catalog/component match win before the
+        // category guard. Otherwise valid upgrades such as Wand Wrapping of the
+        // Ritualist are discarded merely because "wand wrapping" is also a
+        // generic component phrase.
+        $preItems = $this->itemMatcher->matchAll($segment);
+        $hasConcretePreMatch = false;
+        foreach ($preItems as $preItem) {
+            if ($this->taxonomy->isConcreteMatch($preItem)) { $hasConcretePreMatch = true; break; }
+        }
         $segmentClass = $this->reviewCandidateClassifier->classify(
             $this->tradeNotationCleaner->cleanItemCandidate($segment),
             $segment
         );
-        if (in_array($segmentClass['kind'], ['generic','service'], true)) return [];
+        if (!$hasConcretePreMatch && in_array($segmentClass['kind'], ['generic','service'], true)) return [];
 
         // Generic family searches such as "q5-7 flatbows" describe several
         // requirement variants. Expand the small range before normal matching.
@@ -142,7 +149,7 @@ final class ParserEngine
             }
         }
 
-        $items = $this->itemMatcher->matchAll($segment);
+        $items = $preItems;
         if ($this->categoryExpander !== null && $items === []) {
             // Phase 2K: group/category knowledge is fallback knowledge only.
             // A concrete catalog match (e.g. Raging Menzies in "FoW Green")
@@ -319,6 +326,21 @@ final class ParserEngine
         return $offers;
     }
 
+    /** @param list<ParsedOffer> $offers @return list<ParsedOffer> */
+    private function promoteExplicitGenericRequirements(array $offers): array
+    {
+        return array_map(function (ParsedOffer $offer): ParsedOffer {
+            if ($offer->status !== 'review' || $offer->reason !== 'low_confidence') return $offer;
+            if (!$this->taxonomy->isGenericName($offer->item)) return $offer;
+            if (!preg_match('/\b(?:q|r|req)\s*\d{1,2}\b/iu', $offer->segment) && !isset($offer->modifiers['requirement'])) return $offer;
+            return new ParsedOffer(
+                $offer->tradeType, $offer->item, $offer->itemKey, $offer->modifiers, $offer->price,
+                max(0.86, $offer->confidence), 'accepted', 'catalog_match', $offer->segment,
+                $offer->tokens, $offer->profile, $offer->relevantProperties, $offer->marketKey, $offer->exchange
+            );
+        }, $offers);
+    }
+
     /**
      * Phase 2N: a low-confidence generic family produced by learned knowledge is
      * never better than the dedicated generic recognizer and frequently shadows a
@@ -344,7 +366,14 @@ final class ParserEngine
             if (in_array($generic, ['miniature','unique item'], true)) return false;
 
             // Upgrade/component requests must not become the base weapon family.
-            if (preg_match('/\b(?:wrap|wrapping|head|haft|grip|string|bowstring|pommel|core|mod|mods|vamp|zealous|swift|hale|patron|insightful|sundering|furious)\b/iu', $segment)) {
+            if (preg_match('/\b(?:wra(?:p(?:ping)?)?|head|haft|grip|string|bowstring|pommel|core|mod|mods|vamp|zealous|swift|hale|patron|insightful|sundering|furious)\b/iu', $segment)) {
+                return false;
+            }
+
+            // Bare family rows cut out of a comma-separated multi-family list with
+            // no price are category prose, not a price observation.
+            if ($offer->price->amount === null
+                && preg_match('/\b(?:sword|staff|staves|daggers?|axe|axes|bow|bows|spear|scythe|hammer|wand|focus|shield)s?\b[^|]*[,/]\s*(?:sword|staff|staves|daggers?|axe|axes|bow|bows|spear|scythe|hammer|wand|focus|shield)/iu', $segment)) {
                 return false;
             }
 
