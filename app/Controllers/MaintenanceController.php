@@ -35,6 +35,13 @@ final class MaintenanceController
 
     public function reparse(Request $request): Response
     {
+        // Phase 3F: a full historical reparse can legitimately exceed the
+        // default 30-second PHP web-request limit. This is an explicit admin
+        // maintenance action, so allow it to finish when the SAPI permits it.
+        @set_time_limit(0);
+        @ini_set('max_execution_time', '0');
+        @ignore_user_abort(true);
+
         $lifecycle = new OfferLifecycleService($this->pdo);
         // Phase 3A/3B: a full market rebuild must use the same freshly deployed
         // parser/data files as Parser Review. Items now reads structured_offers.
