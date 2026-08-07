@@ -291,16 +291,27 @@ final class MarketRepository
             FROM structured_offers so";
         $summary = $this->pdo->query($summarySql)->fetch() ?: [];
 
-        $issuesSql = "SELECT reason,COUNT(*) AS total FROM (
+        $issuesSql = "SELECT issue_key,label,COUNT(*) AS total FROM (
             SELECT CASE
-                WHEN so.quality_status='review' THEN 'Parser review: ' || COALESCE(NULLIF(so.quality_reason,''),'onbekende reden')
-                WHEN COALESCE(so.price_quality_status,'trusted')='outlier' THEN 'Markt-outlier: ' || COALESCE(NULLIF(so.price_quality_reason,''),'extreme prijs')
-                WHEN COALESCE(so.price_quality_status,'trusted')='uncertain' THEN 'Onzekere prijs: ' || COALESCE(NULLIF(so.price_quality_reason,''),'unitprijs onzeker')
+                WHEN so.quality_status='review' AND COALESCE(so.quality_reason,'')='no_catalog_item' THEN 'no_catalog_item'
+                WHEN so.quality_status='review' AND COALESCE(so.quality_reason,'')='low_confidence' THEN 'low_confidence'
+                WHEN so.quality_status='review' THEN 'parser_review'
+                WHEN COALESCE(so.price_quality_status,'trusted')='outlier' THEN 'outlier'
+                WHEN COALESCE(so.price_quality_status,'trusted')='uncertain' THEN 'uncertain'
+                WHEN so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active' AND so.unit_price_ecto IS NULL THEN 'unpriced'
+                ELSE NULL
+            END AS issue_key,
+            CASE
+                WHEN so.quality_status='review' AND COALESCE(so.quality_reason,'')='no_catalog_item' THEN 'Parser review: geen catalogusitem'
+                WHEN so.quality_status='review' AND COALESCE(so.quality_reason,'')='low_confidence' THEN 'Parser review: lage confidence'
+                WHEN so.quality_status='review' THEN 'Parser review: overige'
+                WHEN COALESCE(so.price_quality_status,'trusted')='outlier' THEN 'Markt-outliers'
+                WHEN COALESCE(so.price_quality_status,'trusted')='uncertain' THEN 'Onzekere prijs / unitprijs'
                 WHEN so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active' AND so.unit_price_ecto IS NULL THEN 'Geen bruikbare geldprijs'
                 ELSE NULL
-            END AS reason
+            END AS label
             FROM structured_offers so
-        ) q WHERE reason IS NOT NULL GROUP BY reason ORDER BY total DESC,reason ASC LIMIT ".max(1,min(50,$issueLimit));
+        ) q WHERE issue_key IS NOT NULL GROUP BY issue_key,label ORDER BY total DESC,label ASC LIMIT ".max(1,min(50,$issueLimit));
         $issues = $this->pdo->query($issuesSql)->fetchAll();
 
         $marketSql = "SELECT MIN(so.item) AS item,lower(so.item) AS item_group,
@@ -332,6 +343,53 @@ final class MarketRepository
             'issues' => $issues,
             'weak_markets' => array_slice($markets,0,max(1,min(50,$marketLimit))),
         ];
+    }
+
+
+    /** @return list<array<string,mixed>> */
+    public function dataQualityCases(string $category, string $query = '', string $type = '', int $limit = 200): array
+    {
+        $allowed=['unpriced','uncertain','outlier','no_catalog_item','low_confidence','parser_review','all'];
+        if(!in_array($category,$allowed,true))$category='all';
+
+        $where=[];
+        $params=[];
+        if($category==='unpriced'){
+            $where[]="so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active' AND so.unit_price_ecto IS NULL";
+        }elseif($category==='uncertain'){
+            $where[]="so.quality_status='accepted' AND COALESCE(so.price_quality_status,'trusted')='uncertain'";
+        }elseif($category==='outlier'){
+            $where[]="so.quality_status='accepted' AND COALESCE(so.price_quality_status,'trusted')='outlier'";
+        }elseif($category==='no_catalog_item'){
+            $where[]="so.quality_status='review' AND COALESCE(so.quality_reason,'')='no_catalog_item'";
+        }elseif($category==='low_confidence'){
+            $where[]="so.quality_status='review' AND COALESCE(so.quality_reason,'')='low_confidence'";
+        }elseif($category==='parser_review'){
+            $where[]="so.quality_status='review'";
+        }else{
+            $where[]="(so.quality_status='review' OR COALESCE(so.price_quality_status,'trusted') IN ('uncertain','outlier') OR (so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active' AND so.unit_price_ecto IS NULL))";
+        }
+
+        if(in_array($type,['buy','sell','trade'],true)){
+            $where[]='so.trade_type=:type';
+            $params[':type']=$type;
+        }
+        if($query!==''){
+            $where[]='(so.item LIKE :q OR so.raw_segment LIKE :q OR m.player LIKE :q OR m.message LIKE :q OR COALESCE(so.quality_reason,\'\') LIKE :q OR COALESCE(so.price_quality_reason,\'\') LIKE :q)';
+            $params[':q']='%'.$query.'%';
+        }
+
+        $sql="SELECT so.id,so.message_id,so.trade_type,so.item,so.item_key,so.raw_segment,so.confidence,
+                     so.quality_status,so.quality_reason,so.price_amount,so.price_currency,so.unit_price_ecto,
+                     so.price_basis,so.price_quality_status,so.price_quality_reason,so.price_outlier_score,
+                     so.price_baseline_ecto,so.lifecycle_status,m.player,m.message,m.posted_at
+              FROM structured_offers so JOIN messages m ON m.id=so.message_id
+              WHERE ".implode(' AND ',$where)."
+              ORDER BY datetime(m.posted_at) DESC,so.id DESC
+              LIMIT ".max(1,min(500,$limit));
+        $statement=$this->pdo->prepare($sql);
+        $statement->execute($params);
+        return $statement->fetchAll();
     }
 
     /** @return array{score:int,label:string,coverage:int,traders:int,flagged:int,unpriced:int,offers:int,trusted:int} */
