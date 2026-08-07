@@ -50,7 +50,8 @@ final class MarketQualityService
                  price_quality_reason=:reason,
                  price_outlier_score=:score,
                  price_baseline_ecto=:baseline,
-                 unit_price_ecto=COALESCE(:unit_price,unit_price_ecto)
+                 unit_price_ecto=COALESCE(:unit_price,unit_price_ecto),
+                 price_basis=COALESCE(:price_basis,price_basis)
              WHERE id=:id"
         );
 
@@ -58,9 +59,16 @@ final class MarketQualityService
         $candidates = [];
 
         foreach ($rows as $row) {
-            $recoveredUnit = $this->recoverCanonicalUnit($row);
-            if (($row['unit_price_ecto'] === null || (float)$row['unit_price_ecto'] <= 0) && $recoveredUnit !== null) {
+            $recovery = $this->recoverCanonicalPrice($row);
+            $recoveredUnit = $recovery['unit'] ?? null;
+            $recoveredBasis = $recovery['basis'] ?? null;
+            if ($recoveredUnit !== null) {
+                // A recovery is intentionally limited to intrinsically explicit
+                // offer-level syntax. Promote both fields together; otherwise a
+                // recovered unit price would still be rejected solely because
+                // the stale parser basis says "uncertain".
                 $row['unit_price_ecto'] = $recoveredUnit;
+                if ($recoveredBasis !== null) $row['price_basis'] = $recoveredBasis;
             }
             [$status, $reason] = $this->semanticStatus($row);
             $id = (int)$row['id'];
@@ -70,6 +78,7 @@ final class MarketQualityService
                 ':score'=>null,
                 ':baseline'=>null,
                 ':unit_price'=>$recoveredUnit,
+                ':price_basis'=>$recoveredBasis,
                 ':id'=>$id
             ]);
             $counts[$status]++;
@@ -116,6 +125,7 @@ final class MarketQualityService
                     ':score'=>round($score, 3),
                     ':baseline'=>$median,
                     ':unit_price'=>null,
+                    ':price_basis'=>null,
                     ':id'=>(int)$row['id'],
                 ]);
                 $counts['trusted']--;
@@ -159,51 +169,63 @@ final class MarketQualityService
         return ['trusted', 'semantiek_ok'];
     }
 
-    /** @param array<string,mixed> $row */
-    private function recoverCanonicalUnit(array $row): ?float
+    /**
+     * @param array<string,mixed> $row
+     * @return array{unit:float,basis:string}|null
+     */
+    private function recoverCanonicalPrice(array $row): ?array
     {
         $basis=strtolower(trim((string)($row['price_basis']??'')));
         $ecto=$this->ectoValue($row);
         if ($ecto===null || $ecto<=0) return null;
 
         // First trust parser-owned canonical bases.
-        if (in_array($basis,['each','each_inferred'],true)) return $ecto;
+        if (in_array($basis,['each','each_inferred'],true)) {
+            return ['unit'=>$ecto,'basis'=>$basis];
+        }
         if (in_array($basis,['stack','stack_inferred','stack_total','total','ratio','exchange','set'],true)) {
             $quantity=isset($row['quantity']) && $row['quantity']!==null ? (float)$row['quantity'] : null;
             if (($quantity===null || $quantity<=0) && in_array($basis,['stack','stack_inferred'],true)) $quantity=250.0;
-            if ($quantity!==null && $quantity>0) return $ecto/$quantity;
+            if ($quantity!==null && $quantity>0) return ['unit'=>$ecto/$quantity,'basis'=>$basis];
         }
 
-        // Phase 3L.4 safety net: the full-message parser can conservatively
-        // downgrade a price because of neighbouring offers. The final offer
-        // slice is a stronger source for explicit unit syntax, so recover only
-        // syntax that is intrinsically unambiguous. Shared lists and ranges are
-        // intentionally not promoted here.
+        // Phase 3L.5 safety net: recover only explicit syntax from the final
+        // offer slice. The returned basis is part of the recovery contract, so
+        // Market Quality cannot reject a safe recovered unit merely because an
+        // earlier full-message parse left price_basis='uncertain'.
         $segment=trim((string)($row['raw_segment']??''));
         if ($segment==='') return null;
 
         // N:price / N=price / N/price = total price for N items.
         if (preg_match('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*(?::|=|\/)\s*\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment,$m)) {
             $quantity=(float)str_replace(',','.',$m[1]);
-            return $quantity>0 ? $ecto/$quantity : null;
+            return $quantity>0 ? ['unit'=>$ecto/$quantity,'basis'=>'ratio'] : null;
         }
 
         // Explicit stack quote: price/stk, price/stack, price per stack.
         if (preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*(?:\/|\-|\bper\s+)(?:st|stk|stack)\b/i',$segment)) {
-            return $ecto/250.0;
+            return ['unit'=>$ecto/250.0,'basis'=>'stack'];
         }
 
         // Explicit each quote: price/ea, price.each, price each, price per unit.
         if (preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*(?:(?:[\/.\-]\s*)?(?:ea|each)\b|\bper\s+(?:unit|piece)\b)/i',$segment)) {
-            return $ecto;
+            return ['unit'=>$ecto,'basis'=>'each'];
         }
 
         // "27e x4" is four available at 27e each.
         if (preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*x\s*\d+\b/i',$segment)) {
-            return $ecto;
+            return ['unit'=>$ecto,'basis'=>'each'];
         }
 
         return null;
+    }
+
+    /** @param array<string,mixed> $row */
+    private function recoverCanonicalUnit(array $row): ?float
+    {
+        // Kept as a tiny compatibility wrapper for existing regression probes.
+        $recovery=$this->recoverCanonicalPrice($row);
+        return $recovery['unit'] ?? null;
     }
 
     /** @param array<string,mixed> $row */

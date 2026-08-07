@@ -1,6 +1,6 @@
 {
-  "release": "V5.2 Phase 3I",
-  "phase": "3L.3",
-  "description": "Residual uncertain-price cleanup and historical reparse alignment",
-  "version": "V5.2 Phase 3L.4"
+  "release": "V5.2 Phase 3L.5",
+  "phase": "3L.5",
+  "description": "Safe offer-level price recovery now promotes canonical price basis before market-quality classification",
+  "version": "V5.2 Phase 3L.5"
 }
