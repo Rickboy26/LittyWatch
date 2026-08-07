@@ -194,6 +194,7 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
     <div class="callout"><strong>Vraagzijde</strong><p><?= (int)$item['buy_count'] ?> koopadvertenties · <?= (int)($item['buy_usable_count'] ?? 0) ?> bruikbare prijzen · <?= (int)($item['buy_uncertain_count'] ?? 0) ?> onzeker.</p></div>
     <div class="callout"><strong>Aanbodzijde</strong><p><?= (int)$item['sell_count'] ?> verkoopadvertenties · <?= (int)($item['sell_usable_count'] ?? 0) ?> bruikbare prijzen · <?= (int)($item['sell_uncertain_count'] ?? 0) ?> onzeker.</p></div>
     <div class="callout"><strong>Controle</strong><p><?= (int)$item['review_count'] ?> aanbiedingen vragen prijscontrole.</p></div>
+    <div class="callout"><strong>Market confidence</strong><p><b><?= (int)($marketTrust['score'] ?? 0) ?>/100 · <?= h($marketTrust['label'] ?? '—') ?></b><br><?= (int)($marketTrust['coverage'] ?? 0) ?>% prijsdekking · <?= (int)($marketTrust['traders'] ?? 0) ?> onafhankelijke traders · <?= (int)($marketTrust['flagged'] ?? 0) ?> flags.</p></div>
   </section>
 </div>
 

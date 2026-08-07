@@ -63,6 +63,7 @@ final class ItemController
             'selectedVariant' => $variant,
             'analytics' => $this->market->itemAnalytics($name, $scope, $variant),
             'itemKnowledge' => $this->itemKnowledge->find($name),
+            'marketTrust' => $this->market->marketTrustForItem($name),
         ]));
     }
 }

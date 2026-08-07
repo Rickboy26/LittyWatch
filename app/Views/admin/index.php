@@ -14,6 +14,44 @@
     <a href="/knowledge"><strong>Knowledge Base</strong><span>Bekijk itemprofielen en attributes.</span></a>
   </div></section>
 </div>
+
+
+<?php $dq=$dataQuality['summary']??[]; ?>
+<section class="surface">
+  <div class="section-heading"><div><span class="kicker">DATA QUALITY</span><h2>Dataset gezondheid</h2><p>Actuele verdeling van parser- en prijsvertrouwen.</p></div></div>
+  <div class="metric-grid">
+    <article class="metric"><span>Aanbiedingen</span><strong><?= (int)($dq['offers']??0) ?></strong></article>
+    <article class="metric"><span>Betrouwbare prijzen</span><strong><?= (int)($dq['trusted_prices']??0) ?></strong></article>
+    <article class="metric"><span>Zonder geldprijs</span><strong><?= (int)($dq['unpriced']??0) ?></strong></article>
+    <article class="metric"><span>Parser review</span><strong><?= (int)($dq['parser_review']??0) ?></strong></article>
+    <article class="metric"><span>Onzekere prijzen</span><strong><?= (int)($dq['uncertain_prices']??0) ?></strong></article>
+    <article class="metric"><span>Outliers</span><strong><?= (int)($dq['outlier_prices']??0) ?></strong></article>
+  </div>
+</section>
+
+<div class="twocol">
+  <section class="surface">
+    <div class="section-heading"><div><span class="kicker">PROBLEEMGROEPEN</span><h2>Meest voorkomende kwaliteitsproblemen</h2></div></div>
+    <?php if(empty($dataQuality['issues'])): ?><p class="muted">Geen kwaliteitsproblemen gevonden.</p><?php else: ?>
+      <div class="tablewrap"><table><thead><tr><th>Probleem</th><th>Aantal</th></tr></thead><tbody>
+      <?php foreach($dataQuality['issues'] as $issue): ?><tr><td><?=h((string)$issue['reason'])?></td><td><strong><?=(int)$issue['total']?></strong></td></tr><?php endforeach; ?>
+      </tbody></table></div>
+    <?php endif; ?>
+  </section>
+  <section class="surface">
+    <div class="section-heading"><div><span class="kicker">MARKET TRUST</span><h2>Zwakste actieve markten</h2><p>Score combineert prijsdekking, onafhankelijke traders, samplegrootte en flags.</p></div></div>
+    <?php if(empty($dataQuality['weak_markets'])): ?><p class="muted">Nog onvoldoende marktdata.</p><?php else: ?>
+      <div class="tablewrap"><table><thead><tr><th>Item</th><th>Score</th><th>Coverage</th><th>Traders</th></tr></thead><tbody>
+      <?php foreach(array_slice($dataQuality['weak_markets'],0,12) as $m): $t=$m['trust']; ?><tr>
+        <td><a class="itemlink" href="/item?name=<?=rawurlencode((string)$m['item'])?>"><?=h((string)$m['item'])?></a></td>
+        <td><strong><?=(int)$t['score']?>/100</strong><div class="muted"><?=h($t['label'])?></div></td>
+        <td><?=(int)$t['coverage']?>%</td><td><?=(int)$t['traders']?></td>
+      </tr><?php endforeach; ?>
+      </tbody></table></div>
+    <?php endif; ?>
+  </section>
+</div>
+
 <section class="surface"><div class="section-heading"><div><span class="kicker">ITEMAFBEELDINGEN</span><h2>Guild Wars Wiki-cache</h2><p>Afbeeldingen worden bij het eerste gebruik automatisch lokaal gecachet.</p></div></div><div class="image-catalog">
 <?php foreach($imageItems as $item=>$wiki): ?><article><img src="/item-image.php?item=<?=rawurlencode($item)?>&size=64" alt=""><div><strong><?=h($item)?></strong><small><?=h($wiki)?></small></div></article><?php endforeach; ?>
 </div></section>

@@ -113,7 +113,7 @@ $container->singleton(ParserBatchReviewService::class, fn(Container $c) => new P
             $c->get(View::class)
         ));
         $container->singleton(StructuredMarketController::class, fn(Container $c) => new StructuredMarketController($c->get(StructuredMarketRepository::class), $c->get(View::class), $c->get(CurrencyDisplayService::class)));
-        $container->singleton(AdminController::class, fn(Container $c) => new AdminController($c->get(View::class), $c->get(ItemImageService::class)));
+        $container->singleton(AdminController::class, fn(Container $c) => new AdminController($c->get(View::class), $c->get(ItemImageService::class), $c->get(MarketRepository::class)));
         $container->singleton(WatchlistController::class, fn(Container $c) => new WatchlistController($c->get(WatchlistService::class), $c->get(View::class)));
         $container->singleton(AlertController::class, fn(Container $c) => new AlertController($c->get(AlertService::class), $c->get(WatchlistRepository::class), $c->get(CurrencyDisplayService::class), $c->get(View::class)));
         $container->singleton(MaintenanceController::class, fn(Container $c) => new MaintenanceController($c->get('pdo'), $c->get(View::class), $this->root));

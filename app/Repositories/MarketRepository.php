@@ -277,4 +277,98 @@ final class MarketRepository
     {
         return['scope'=>$scope,'variant'=>$variant,'points'=>[],'buy_count'=>0,'sell_count'=>0,'unique_traders'=>0,'buy_median'=>null,'sell_median'=>null,'spread'=>null,'buy_min'=>null,'buy_max'=>null,'sell_min'=>null,'sell_max'=>null];
     }
+    /** @return array<string,mixed> */
+    public function dataQualityOverview(int $issueLimit = 12, int $marketLimit = 20): array
+    {
+        $summarySql = "SELECT
+            COUNT(*) AS offers,
+            SUM(CASE WHEN so.quality_status='accepted' THEN 1 ELSE 0 END) AS accepted,
+            SUM(CASE WHEN so.quality_status='review' THEN 1 ELSE 0 END) AS parser_review,
+            SUM(CASE WHEN so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active' AND ".$this->trustedPriceExpr('so')." THEN 1 ELSE 0 END) AS trusted_prices,
+            SUM(CASE WHEN so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active' AND COALESCE(so.price_quality_status,'trusted')='uncertain' THEN 1 ELSE 0 END) AS uncertain_prices,
+            SUM(CASE WHEN so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active' AND COALESCE(so.price_quality_status,'trusted')='outlier' THEN 1 ELSE 0 END) AS outlier_prices,
+            SUM(CASE WHEN so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active' AND so.unit_price_ecto IS NULL THEN 1 ELSE 0 END) AS unpriced
+            FROM structured_offers so";
+        $summary = $this->pdo->query($summarySql)->fetch() ?: [];
+
+        $issuesSql = "SELECT reason,COUNT(*) AS total FROM (
+            SELECT CASE
+                WHEN so.quality_status='review' THEN 'Parser review: ' || COALESCE(NULLIF(so.quality_reason,''),'onbekende reden')
+                WHEN COALESCE(so.price_quality_status,'trusted')='outlier' THEN 'Markt-outlier: ' || COALESCE(NULLIF(so.price_quality_reason,''),'extreme prijs')
+                WHEN COALESCE(so.price_quality_status,'trusted')='uncertain' THEN 'Onzekere prijs: ' || COALESCE(NULLIF(so.price_quality_reason,''),'unitprijs onzeker')
+                WHEN so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active' AND so.unit_price_ecto IS NULL THEN 'Geen bruikbare geldprijs'
+                ELSE NULL
+            END AS reason
+            FROM structured_offers so
+        ) q WHERE reason IS NOT NULL GROUP BY reason ORDER BY total DESC,reason ASC LIMIT ".max(1,min(50,$issueLimit));
+        $issues = $this->pdo->query($issuesSql)->fetchAll();
+
+        $marketSql = "SELECT MIN(so.item) AS item,lower(so.item) AS item_group,
+            COUNT(*) AS offers,
+            COUNT(DISTINCT lower(m.player)) AS traders,
+            SUM(CASE WHEN ".$this->trustedPriceExpr('so')." THEN 1 ELSE 0 END) AS trusted,
+            SUM(CASE WHEN COALESCE(so.price_quality_status,'trusted') IN ('uncertain','outlier') THEN 1 ELSE 0 END) AS flagged,
+            SUM(CASE WHEN so.unit_price_ecto IS NULL THEN 1 ELSE 0 END) AS unpriced
+            FROM structured_offers so
+            JOIN messages m ON m.id=so.message_id
+            WHERE so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active'
+              AND so.item<>'' AND so.item NOT LIKE 'Bundle:%'
+            GROUP BY lower(so.item)
+            HAVING COUNT(*) >= 2
+            ORDER BY offers DESC
+            LIMIT 250";
+        $markets = [];
+        foreach ($this->pdo->query($marketSql)->fetchAll() as $row) {
+            $row['trust'] = $this->calculateMarketTrust($row);
+            $markets[] = $row;
+        }
+        usort($markets, static function(array $a,array $b): int {
+            $scoreCmp = ($a['trust']['score'] ?? 0) <=> ($b['trust']['score'] ?? 0);
+            return $scoreCmp !== 0 ? $scoreCmp : ((int)$b['offers'] <=> (int)$a['offers']);
+        });
+
+        return [
+            'summary' => array_map(static fn($v) => is_numeric($v) ? (int)$v : $v, $summary),
+            'issues' => $issues,
+            'weak_markets' => array_slice($markets,0,max(1,min(50,$marketLimit))),
+        ];
+    }
+
+    /** @return array{score:int,label:string,coverage:int,traders:int,flagged:int,unpriced:int,offers:int,trusted:int} */
+    public function marketTrustForItem(string $name): array
+    {
+        $statement=$this->pdo->prepare("SELECT COUNT(*) AS offers,COUNT(DISTINCT lower(m.player)) AS traders,
+            SUM(CASE WHEN ".$this->trustedPriceExpr('so')." THEN 1 ELSE 0 END) AS trusted,
+            SUM(CASE WHEN COALESCE(so.price_quality_status,'trusted') IN ('uncertain','outlier') THEN 1 ELSE 0 END) AS flagged,
+            SUM(CASE WHEN so.unit_price_ecto IS NULL THEN 1 ELSE 0 END) AS unpriced
+            FROM structured_offers so JOIN messages m ON m.id=so.message_id
+            WHERE lower(so.item)=lower(:item) AND so.quality_status='accepted' AND COALESCE(so.lifecycle_status,'active')='active'");
+        $statement->execute([':item'=>$name]);
+        return $this->calculateMarketTrust($statement->fetch() ?: []);
+    }
+
+    /** @param array<string,mixed> $row
+     *  @return array{score:int,label:string,coverage:int,traders:int,flagged:int,unpriced:int,offers:int,trusted:int}
+     */
+    private function calculateMarketTrust(array $row): array
+    {
+        $offers=max(0,(int)($row['offers']??0));
+        $trusted=max(0,(int)($row['trusted']??0));
+        $traders=max(0,(int)($row['traders']??0));
+        $flagged=max(0,(int)($row['flagged']??0));
+        $unpriced=max(0,(int)($row['unpriced']??0));
+
+        $coverage=$offers>0?(int)round(min(1,$trusted/$offers)*100):0;
+        // Trust combines usable-price coverage, independent-trader diversity and sample depth.
+        // Flagged prices are explicitly penalised. Missing prices lower coverage but are not treated as parser failures.
+        $coveragePoints=45*($coverage/100);
+        $traderPoints=25*min(1,$traders/8);
+        $samplePoints=15*min(1,$trusted/12);
+        $flagPenalty=$offers>0?25*min(1,$flagged/max(1,$offers)):0;
+        $score=(int)round(max(0,min(100,$coveragePoints+$traderPoints+$samplePoints+15-$flagPenalty)));
+        $label=$score>=85?'Zeer sterk':($score>=70?'Sterk':($score>=50?'Redelijk':($score>=30?'Zwak':'Zeer zwak')));
+
+        return compact('score','label','coverage','traders','flagged','unpriced','offers','trusted');
+    }
+
 }
