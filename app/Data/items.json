@@ -2366,5 +2366,33 @@
       "jade orb",
       "jade orbs"
     ]
+  },
+  {
+    "key": "delicious-cake",
+    "name": "Delicious Cake",
+    "category": "sweet",
+    "aliases": [
+      "delicious cake",
+      "delicous cake",
+      "delicious cakes",
+      "delicous cakes"
+    ],
+    "market_quote_basis": "each",
+    "market_quote_size": 1,
+    "market_display_basis": "each"
+  },
+  {
+    "key": "bone",
+    "name": "Bone",
+    "category": "material",
+    "aliases": [
+      "bone",
+      "bones",
+      "stack of bones",
+      "stacks of bones"
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   }
 ]

@@ -459,14 +459,10 @@ final class MarketQualityService
             return true;
         }
 
-        // Bare plural commodity/lot offers do not establish a unit basis.
-        // "consets 13e" and "lockpicks 100k" are intentionally uncertain;
-        // singular forms and explicit ea/stack/ratio notation remain eligible.
-        if (in_array($key,['conset','lockpick'],true)
-            && $this->isBarePluralAmbiguousQuote($key,$ownClause)) {
-            return true;
-        }
-
+        // Phase 3L.15: Conset and Lockpick now have catalog/live-market owned
+        // semantics. Bare plural wording is no longer enough to invalidate them:
+        // Conset armbrace quotes are stacks, ecto quotes are per set; Lockpick is
+        // a stack-quoted commodity. Explicit syntax above still wins.
         return false;
     }
 

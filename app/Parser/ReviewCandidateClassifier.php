@@ -33,6 +33,27 @@ final class ReviewCandidateClassifier
         if (preg_match('/^(?:dervish|necro|necromancer|mesmer|ritualist|monk|warrior|ranger|elementalist|assassin|paragon)(?:\s*,\s*(?:dervish|necro|necromancer|mesmer|ritualist|monk|warrior|ranger|elementalist|assassin|paragon))*$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'profession_list_context'];
         }
+        // Phase 3L.15: slash-separated profession lists and broad market/search
+        // fragments are category/service context, never missing catalog items.
+        if (preg_match('/^(?:ranger|rang|monk|mo|para(?:gon)?|sin|assassin|mes(?:mer)?|necro|necromancer|rit(?:ualist)?|war(?:rior)?|ele(?:mentalist)?|derv(?:ish)?)(?:\s*\/\s*(?:ranger|rang|monk|mo|para(?:gon)?|sin|assassin|mes(?:mer)?|necro|necromancer|rit(?:ualist)?|war(?:rior)?|ele(?:mentalist)?|derv(?:ish)?))+$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'profession_list_context'];
+        }
+        if (preg_match('/^all\s+profess(?:ions?)?$/iu', $c)
+            || preg_match('/^all\s+q\d+\+?\s*inscribable$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'broad_market_category'];
+        }
+        if (preg_match('/^\d+\s+hours?\)?$/iu', $c)) {
+            return ['kind'=>'noise','reason'=>'service_duration_fragment'];
+        }
+        if (preg_match('/^(?:running|run)\s+from\b/iu', $c)
+            || preg_match('/\b(?:factions?|campaign)\s+finish\s+in\b/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'service_advertisement'];
+        }
+        if (preg_match('/^scrolls?(?:\s+\d+(?:[.,]\d+)?[aek]\s+or)?$/iu', $c)
+            || preg_match('/^scrolls?\b.*\b(?:or|=)\b.*\d+(?:[.,]\d+)?[aek]\b/iu', $s)) {
+            return ['kind'=>'generic','reason'=>'scroll_category_price'];
+        }
+
         // Phase 2T: count + profession fragments from bulk rune/tome requests.
         // Without the underlying noun they are context, never a new inventory item.
         if (preg_match('/^(?:\d+\s+)?(?:ritualist|warrior|ranger|monk|necromancer|mesmer|elementalist|assassin|paragon|dervish)(?:\s+and)?$/iu', $c)) {

@@ -12,8 +12,6 @@ $yes=[
  ['gift_of_the_traveler','gott 2e, materials 2k s'],
  ['gift_of_the_traveler','gott 2e/'],
  ['tengu_support_flare','Tengu Support Flare 2e~'],
- ['conset','consets 13e'],
- ['lockpick','lockpicks 100k'],
 ];
 foreach($yes as [$key,$seg]){
  $row=['item_key'=>$key,'raw_segment'=>$seg,'price_quality_reason'=>''];
@@ -28,6 +26,8 @@ $no=[
  ['conset','Cons 9A/stack x14'],
  ['lockpick','lockpicks 21e ea'],
  ['lockpick','lockpick 100k'],
+ ['conset','consets 13e'], // Phase 3L.15: live currency semantics resolve this.
+ ['lockpick','lockpicks 100k'], // Phase 3L.15: catalog stack semantics resolve this.
 ];
 foreach($no as [$key,$seg]){
  $row=['item_key'=>$key,'raw_segment'=>$seg,'price_quality_reason'=>''];

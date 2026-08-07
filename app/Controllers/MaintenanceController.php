@@ -101,9 +101,9 @@ final class MaintenanceController
             'structured_offers_created' => $structuredCreated,
             'lifecycle' => $lifecycleResult,
             'market_quality' => $marketQualityResult,
-            'parser_fix' => 'Phase 3L.14 offer-level unit recovery + market quality actief.',
+            'parser_fix' => 'Phase 3L.15 offer-level unit recovery + market quality actief.',
             'items_source' => 'structured_offers',
-            'parser_release' => 'V5.2 Phase 3L.14',
+            'parser_release' => 'V5.2 Phase 3L.15',
             'timestamps_repaired' => $timestampsRepaired,
         ], '/items');
     }
