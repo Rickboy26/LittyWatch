@@ -50,6 +50,13 @@ final class TradeNotationCleaner
         $value = preg_replace('/\s*\b250\s*x\b\s*$/iu', '', $value) ?? $value;
         $value = preg_replace('/\s*\(\s*250\s*\)\s*$/u', '', $value) ?? $value;
 
+        // Phase 2T: fresh-chat quantity/basis leftovers. The price matcher can
+        // consume "1e" while leaving "-ea" behind, and stack counts commonly trail
+        // material names ("Feathers x25 stacks"). Neither belongs to item identity.
+        $value = preg_replace('/\s*[-\/]\s*(?:ea|each|u|unit)\b\s*$/iu', '', $value) ?? $value;
+        $value = preg_replace('/\s+\bx\s*\d+\s+stacks?\b\s*$/iu', '', $value) ?? $value;
+        $value = preg_replace('/\s+\b\d+\s+stacks?\b\s*$/iu', '', $value) ?? $value;
+
         // A bare suffix is also common: "Rez stk" / "Rez stack".
         $value = preg_replace('/\s+\b(?:st|stk|stack)\b\s*$/iu', '', $value) ?? $value;
 

@@ -5,6 +5,13 @@ $total = (int)($qualityStats['total'] ?? 0);
 $pct = static fn(mixed $value): string => $total > 0
     ? number_format(((int)$value / $total) * 100, 1, ',', '.') . '%'
     : '0%';
+$releaseFile = dirname(__DIR__, 2) . '/Data/parser-release.json';
+$parserRelease = '';
+if (is_file($releaseFile)) {
+    $releaseData = json_decode((string)file_get_contents($releaseFile), true);
+    $parserRelease = trim((string)($releaseData['release'] ?? ''));
+}
+
 $tabs = [
     'queue' => 'Review Queue',
     'aliases' => 'Aliases',
@@ -19,6 +26,7 @@ $tabs = [
     <span class="kicker">PARSER LEARNING</span>
     <h1>Parser Review</h1>
     <p>Werk twijfelgevallen snel af en bouw een lokale Guild Wars-kennisbank op.</p>
+    <?php if ($parserRelease !== ''): ?><p class="muted">Parser release: <?= h($parserRelease) ?></p><?php endif; ?>
   </div>
   <div class="actions">
     <button class="btn" type="button" data-rereview-start>Herbeoordeel openstaande berichten</button>
@@ -531,12 +539,13 @@ $tabs = [
         ? result.failure_samples.filter(Boolean)
         : [];
 
+      const release = result.parser_release ? ` [${result.parser_release}]` : '';
       if (samples.length) {
-        status.textContent = 'Batch verwerkt met fouten: ' + samples.join(' | ');
+        status.textContent = 'Batch verwerkt met fouten' + release + ': ' + samples.join(' | ');
       } else {
         status.textContent = result.done
-          ? 'Herbeoordeling voltooid. De Review Queue wordt vernieuwd.'
-          : `${result.remaining} berichten wachten nog. Volgende batch wordt verwerkt…`;
+          ? 'Herbeoordeling voltooid' + release + '. De Review Queue wordt vernieuwd.'
+          : `${result.remaining} berichten wachten nog. Volgende batch wordt verwerkt…${release}`;
       }
     }
 

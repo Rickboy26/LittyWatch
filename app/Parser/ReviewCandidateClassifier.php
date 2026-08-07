@@ -33,6 +33,20 @@ final class ReviewCandidateClassifier
         if (preg_match('/^(?:dervish|necro|necromancer|mesmer|ritualist|monk|warrior|ranger|elementalist|assassin|paragon)(?:\s*,\s*(?:dervish|necro|necromancer|mesmer|ritualist|monk|warrior|ranger|elementalist|assassin|paragon))*$/iu', $c)) {
             return ['kind'=>'generic','reason'=>'profession_list_context'];
         }
+        // Phase 2T: count + profession fragments from bulk rune/tome requests.
+        // Without the underlying noun they are context, never a new inventory item.
+        if (preg_match('/^(?:\d+\s+)?(?:ritualist|warrior|ranger|monk|necromancer|mesmer|elementalist|assassin|paragon|dervish)(?:\s+and)?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'profession_count_context'];
+        }
+        if (preg_match('/^(?:q\d+\s*)?(?:insc(?:r(?:ibable|iptable)?)?\s*)?weaps?\s*,?\s*mods?(?::?\s*gwmarket)?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'generic_weapons_mods_listing'];
+        }
+        if (preg_match('/^alcohol\s+stacks?(?:\s*\(\s*no\s+kegs?\s*\))?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'alcohol_stack_category'];
+        }
+        if (preg_match('/^gold\s+(?:noid|no\s*id|unids?)(?:\s*\/\s*u)?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'unidentified_gold_category'];
+        }
         if (preg_match('/^(?:\d+\s+)?stacks?\)?$/iu', $c)
             || preg_match('/^stacks?\s*=.*(?:trade|pm)?$/iu', $c)
             || preg_match('/^(?:or\s+)?\d+(?:[.,]\d+)?\s*(?:a|e|k|g)$/iu', $c)

@@ -2166,5 +2166,97 @@
       "Spear of the Hierophant",
       "spear of the hierophant"
     ]
+  },
+  {
+    "key": "celestial-compass",
+    "name": "Celestial Compass",
+    "category": "focus",
+    "aliases": [
+      "Celestial Compass",
+      "celestial compass",
+      "CC"
+    ]
+  },
+  {
+    "key": "hourglass-staff",
+    "name": "Hourglass Staff",
+    "category": "staff",
+    "aliases": [
+      "Hourglass Staff",
+      "hourglass staff",
+      "Hourglass"
+    ]
+  },
+  {
+    "key": "quicksilver",
+    "name": "Quicksilver",
+    "category": "wand",
+    "aliases": [
+      "Quicksilver",
+      "quicksilver"
+    ]
+  },
+  {
+    "key": "peacocks-wrath",
+    "name": "Peacock's Wrath",
+    "category": "wand",
+    "aliases": [
+      "Peacock's Wrath",
+      "Peacocks Wrath",
+      "peacocks wrath"
+    ]
+  },
+  {
+    "key": "elonian-leather-square",
+    "name": "Elonian Leather Square",
+    "category": "material",
+    "aliases": [
+      "Elonian Leather Square",
+      "Elonian Leather Squares",
+      "elonian leather square",
+      "elonian leather squares"
+    ]
+  },
+  {
+    "key": "feather",
+    "name": "Feather",
+    "category": "material",
+    "aliases": [
+      "Feather",
+      "Feathers",
+      "feather",
+      "feathers"
+    ]
+  },
+  {
+    "key": "mysterious-summoning-stone",
+    "name": "Mysterious Summoning Stone",
+    "category": "consumable",
+    "aliases": [
+      "Mysterious Summoning Stone",
+      "Mysterious Summoning Stones",
+      "Mysterious Summonig Stone",
+      "Mysterious Summonig Stones"
+    ]
+  },
+  {
+    "key": "star-of-transference",
+    "name": "Star of Transference",
+    "category": "consumable",
+    "aliases": [
+      "Star of Transference",
+      "Stars of Transference",
+      "Star of Transf",
+      "Stars of Transf"
+    ]
+  },
+  {
+    "key": "strategists-zaishen-strongbox",
+    "name": "Strategist's Zaishen Strongbox",
+    "category": "present",
+    "aliases": [
+      "Strategist's Zaishen Strongbox",
+      "Strategist Zaishen Strongbox"
+    ]
   }
 ]

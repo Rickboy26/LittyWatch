@@ -161,6 +161,21 @@ final class SemanticNormalizer
         $text = preg_replace('/\bblessings\s+of\s+war\b/iu', 'Blessing of War', $text) ?? $text;
         $text = preg_replace('/\b(?:hero(?:s|\'s)?\s+strong\s*box|hero\s+boxes?)\b/iu', "Hero's Strongbox", $text) ?? $text;
 
+        // Phase 2T: fresh Kamadan generalization. Normalize newly observed
+        // 20th-anniversary skins, materials, strongbox shorthand and common typos
+        // before grammar segmentation creates fallback item names.
+        $text = preg_replace('/\bCC(?=\s+(?:Q|R)\s*\d{1,2}\b)/iu', 'Celestial Compass', $text) ?? $text;
+        $text = preg_replace('/\bHourglass(?=\s+(?:Q|R)\s*\d{1,2}\b)/iu', 'Hourglass Staff', $text) ?? $text;
+        $text = preg_replace('/\bPeacocks\s+Wrath\b/iu', "Peacock's Wrath", $text) ?? $text;
+        $text = preg_replace('/\bMysterious\s+Summonig\s+Stones?\b/iu', 'Mysterious Summoning Stone', $text) ?? $text;
+        $text = preg_replace('/\bStars?\s+of\s+Transf(?:erence)?\b/iu', 'Star of Transference', $text) ?? $text;
+        $text = preg_replace('/\b\d+\s*Elonian\s+Leather\s+Squares?\b/iu', 'Elonian Leather Square', $text) ?? $text;
+        $text = preg_replace('/\bghostly\s+priest\b/iu', 'Miniature Ghostly Priest', $text) ?? $text;
+        // In Kamadan these bare labels with armbrace prices refer to the PvP boxes,
+        // not the title/NPC concepts. Keep the rewrite price-contextual and narrow.
+        $text = preg_replace('/\bSTRATEGIST\b(?=\s+\d+(?:[.,]\d+)?\s*A\b)/u', "Strategist's Zaishen Strongbox", $text) ?? $text;
+        $text = preg_replace('/\bHERO\b(?=\s+\d+(?:[.,]\d+)?\s*A\b)/u', "Hero's Strongbox", $text) ?? $text;
+
         // Birthday items are commonly advertised as ranges/shorthand in Kamadan.
         $birthdayRange = implode(' | ', [
             'Xunlai Birthday Present 1st Year', 'Xunlai Birthday Present 2nd Year',

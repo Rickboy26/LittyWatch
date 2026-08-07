@@ -6,8 +6,10 @@ namespace LittyWatch\Services;
 use LittyWatch\Market\OfferLifecycleService;
 use LittyWatch\Market\StructuredOfferWriter;
 use LittyWatch\Market\VariantNormalizer;
+use LittyWatch\Parser\Catalog;
 use LittyWatch\Parser\DynamicKnowledge;
 use LittyWatch\Parser\MessageClassifier;
+use LittyWatch\Parser\ParserEngine;
 use LittyWatch\Repositories\ParserKnowledgeRepository;
 use LittyWatch\Repositories\ParserReviewRepository;
 use PDO;
@@ -50,9 +52,16 @@ final class ParserBatchReviewService
         $statement->execute();
         $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 
+        // Phase 2U: re-review must always build a fresh parser from the files that
+        // are currently deployed. Do not route this maintenance path through the
+        // global parserV2() singleton: that made production re-review harder to
+        // reason about and could leave it out of sync with direct parser tests.
+        clearstatcache(true);
+        $dataDir = dirname(__DIR__) . '/Data';
+        $parser = new ParserEngine(new Catalog($dataDir, $this->pdo));
         $writer = new StructuredOfferWriter(
             $this->pdo,
-            parserV2(),
+            $parser,
             new VariantNormalizer(),
             null
         );
@@ -73,6 +82,7 @@ final class ParserBatchReviewService
             'done' => false,
             'remaining' => 0,
             'failure_samples' => [],
+            'parser_release' => $this->parserRelease(),
         ];
 
         foreach ($rows as $row) {
@@ -162,6 +172,19 @@ final class ParserBatchReviewService
         $result['done'] = count($rows) < $limit || $result['remaining'] === 0;
 
         return $result;
+    }
+
+
+    private function parserRelease(): string
+    {
+        $path = dirname(__DIR__) . '/Data/parser-release.json';
+        if (!is_file($path)) return 'unknown';
+        try {
+            $data = json_decode((string)file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+            return trim((string)($data['release'] ?? 'unknown')) ?: 'unknown';
+        } catch (\Throwable) {
+            return 'unknown';
+        }
     }
 
     /** @return array{accepted:int,review:int} */
