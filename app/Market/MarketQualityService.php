@@ -240,6 +240,23 @@ final class MarketQualityService
             return ['unit'=>$ecto/$catalog['size'],'basis'=>'stack_inferred'];
         }
 
+        // Phase 3L.10: live Kamadan conventions that cannot be represented by
+        // one static catalog basis. Consets use bare ecto as per-set, while a
+        // bare armbrace quote is the price of a full 250 conset stack.
+        $canonicalKey=$this->canonicalCatalogKey((string)($row['item_key']??''));
+        $currency=strtolower(trim((string)($row['price_currency']??'')));
+        if ($canonicalKey==='conset' && $this->isSafeBareCatalogQuote($segment)) {
+            if ($currency==='e') return ['unit'=>$ecto,'basis'=>'each_inferred'];
+            if ($currency==='a') return ['unit'=>$ecto/250.0,'basis'=>'stack_inferred'];
+        }
+
+        // Mixed-basis markets must never inherit a parser/catalog basis from a
+        // single bare money quote. Explicit /ea, /stack and stack wording were
+        // handled above; without those signals the quote remains unresolved.
+        if ($this->isMixedBasisMarket($canonicalKey) && $this->isSafeBareCatalogQuote($segment)) {
+            return null;
+        }
+
         // First trust parser-owned canonical bases after offer-level stack
         // wording had a chance to correct an `each` interpretation.
         if (in_array($basis,['each','each_inferred'],true)) {
