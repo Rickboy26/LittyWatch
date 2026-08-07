@@ -1,5 +1,6 @@
 {
   "release": "V5.2 Phase 3I",
-  "phase": "3I",
-  "description": "Independent price-quality status, robust market outlier detection and Parser Review integration"
+  "phase": "3L.3",
+  "description": "Residual uncertain-price cleanup and historical reparse alignment",
+  "version": "V5.2 Phase 3L.3"
 }

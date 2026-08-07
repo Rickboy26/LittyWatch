@@ -411,7 +411,10 @@
       "mystical summoning stone gaki",
       "mystical summon stone gaki",
       "gaki"
-    ]
+    ],
+    "market_quote_basis": "each",
+    "market_quote_size": 1,
+    "market_display_basis": "each"
   },
   {
     "key": "cracked-ascalonian-war-horn",
