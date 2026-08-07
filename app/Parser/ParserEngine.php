@@ -160,7 +160,7 @@ final class ParserEngine
             if ($price->amount === null && count($items) === 1) $price = $wholePrice;
             $setQuantity = $this->setResolver->resolve((string)$item['item'], $slice);
             if ($setQuantity !== null && $price->amount !== null) {
-                $price = new ParsedPrice($price->amount,$price->currency,$price->ecto,'set',$setQuantity,$price->ecto!==null?$price->ecto/$setQuantity:null,$price->raw);
+                $price = new ParsedPrice($price->amount,$price->currency,$price->ectoValue,'set',$setQuantity,$price->ectoValue!==null?$price->ectoValue/$setQuantity:null,$price->raw);
             }
             $modifiers = array_merge(
                 $this->modifierMatcher->match($segment),
