@@ -197,6 +197,21 @@ $tabs = [
 
       <blockquote class="original-message"><?= h($selected['message']) ?></blockquote>
 
+      <section class="panel ai-review-card">
+        <div class="panel-head"><div><span class="eyebrow">AI CONTROLE</span><h3>Market Validator</h3></div></div>
+        <?php if (empty($selected['ai_status'])): ?>
+          <p class="muted">Nog niet in de AI-validatiequeue opgenomen. Draai <code>php tools/maintenance/ai-validate.php --sync</code>.</p>
+        <?php else: ?>
+          <div class="review-facts">
+            <div><span>Status</span><strong><?= h($selected['ai_status']) ?></strong></div>
+            <div><span>Risico</span><strong><?= (int)($selected['ai_risk_score'] ?? 0) ?>/100</strong></div>
+            <div><span>Oordeel</span><strong><?= h($selected['ai_decision'] ?: '—') ?></strong></div>
+            <div><span>AI confidence</span><strong><?= $selected['ai_confidence'] !== null ? number_format((float)$selected['ai_confidence']*100,0).'%' : '—' ?></strong></div>
+            <div class="wide"><span>Reden</span><strong><?= h($selected['ai_reason'] ?: $selected['ai_last_error'] ?: 'Nog niet gecontroleerd') ?></strong></div>
+          </div>
+        <?php endif; ?>
+      </section>
+
       <div class="parser-result-grid">
         <div><span>Parser-item</span><strong><?= h($selected['item']) ?></strong></div>
         <div><span>Marktkey</span><strong><?= h($selected['market_key'] ?: '—') ?></strong></div>

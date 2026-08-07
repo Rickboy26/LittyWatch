@@ -24,6 +24,7 @@ use LittyWatch\Market\StructuredOfferWriter;
 use LittyWatch\Market\VariantNormalizer;
 use LittyWatch\Parser\Catalog;
 use LittyWatch\Parser\ParserEngine;
+use LittyWatch\AI\AiValidationRepository;
 
 $pdo = db();
 installSchema();
@@ -31,7 +32,7 @@ installSchema();
 $lifecycle = new OfferLifecycleService($pdo);
 clearstatcache(true);
 $parser = new ParserEngine(new Catalog($root . '/app/Data', $pdo));
-$writer = new StructuredOfferWriter($pdo, $parser, new VariantNormalizer(), null);
+$writer = new StructuredOfferWriter($pdo, $parser, new VariantNormalizer(), null, false);
 
 $timestampRows = $pdo->query("SELECT id, posted_at, collected_at FROM messages")->fetchAll();
 $timestampRepair = $pdo->prepare("UPDATE messages SET posted_at=? WHERE id=?");
@@ -90,6 +91,8 @@ while (true) {
 }
 
 $lifecycleResult = $lifecycle->rebuild();
+$aiConfig = require $root . '/config/ai.php';
+$aiQueued = (new AiValidationRepository($pdo))->syncAll((string)$aiConfig['mode']);
 
 fwrite(STDOUT, "\nKlaar.\n");
 fwrite(STDOUT, "Berichten: {$processed}\n");
@@ -97,3 +100,4 @@ fwrite(STDOUT, "Legacy offers: {$legacyCreated}\n");
 fwrite(STDOUT, "Structured offers: {$structuredCreated}\n");
 fwrite(STDOUT, "Timestamps gerepareerd: {$timestampsRepaired}\n");
 fwrite(STDOUT, 'Lifecycle: ' . json_encode($lifecycleResult, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+fwrite(STDOUT, "AI queue geselecteerd: {$aiQueued} ({$aiConfig['mode']})\n");

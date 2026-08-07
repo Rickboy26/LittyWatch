@@ -73,6 +73,26 @@ CREATE INDEX IF NOT EXISTS idx_structured_message ON structured_offers(message_i
 CREATE TABLE IF NOT EXISTS parser_reviews (id INTEGER PRIMARY KEY AUTOINCREMENT,structured_offer_id INTEGER NOT NULL UNIQUE,review_status TEXT NOT NULL DEFAULT 'pending',expected_json TEXT,notes TEXT,reviewed_at TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(structured_offer_id) REFERENCES structured_offers(id) ON DELETE CASCADE);
 CREATE INDEX IF NOT EXISTS idx_parser_reviews_status ON parser_reviews(review_status);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS ai_offer_validations (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ structured_offer_id INTEGER NOT NULL UNIQUE,
+ status TEXT NOT NULL DEFAULT 'queued',
+ risk_score INTEGER NOT NULL DEFAULT 0,
+ risk_reasons_json TEXT NOT NULL DEFAULT '[]',
+ decision TEXT,
+ ai_confidence REAL,
+ reason TEXT,
+ correction_json TEXT,
+ model TEXT,
+ response_id TEXT,
+ raw_json TEXT,
+ last_error TEXT,
+ checked_at TEXT,
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL,
+ FOREIGN KEY(structured_offer_id) REFERENCES structured_offers(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_ai_offer_status ON ai_offer_validations(status,risk_score DESC);
 SQL);
     ensureColumn('offers','price_basis','TEXT');
     ensureColumn('offers','raw_segment','TEXT');
