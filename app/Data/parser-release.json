@@ -1,6 +1,6 @@
 {
-  "release": "V5.2 Phase 3L.15",
-  "phase": "3L.15",
-  "description": "Explicit quote precedence, mixed-basis market safety and stale segment-price quarantine",
-  "version": "V5.2 Phase 3L.15"
+  "release": "V5.2 Phase 3M.1",
+  "phase": "3M.1",
+  "description": "Continuous Kamadan collector with cron-safe locking, retries, raw payload retention and status logging",
+  "version": "V5.2 Phase 3M.1"
 }

@@ -29,8 +29,18 @@ final class AdminController
             'summary'=>$this->dataset->summary(),
             'patterns'=>$this->dataset->patterns(),
             'reviewReasons'=>$this->dataset->reviewReasons(),
+            'collectorStatus'=>$this->collectorStatus(),
         ]));
     }
+
+    private function collectorStatus(): array
+    {
+        $path=dirname(__DIR__,2).'/storage/kamadan-collector-status.json';
+        if(!is_file($path)) return [];
+        $decoded=json_decode((string)file_get_contents($path),true);
+        return is_array($decoded)?$decoded:[];
+    }
+
     public function datasetExport(Request $request): Response
     {
         $lines=[]; foreach($this->dataset->exportRows() as $row)$lines[]=json_encode($row,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
