@@ -2157,5 +2157,14 @@
       "spear grip of fortitude",
       "spear grips of fortitude"
     ]
+  },
+  {
+    "key": "spear-of-the-hierophant",
+    "name": "Spear of the Hierophant",
+    "category": "weapon",
+    "aliases": [
+      "Spear of the Hierophant",
+      "spear of the hierophant"
+    ]
   }
 ]
