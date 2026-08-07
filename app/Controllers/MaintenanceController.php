@@ -89,9 +89,9 @@ final class MaintenanceController
             'offers_created' => $legacyCreated,
             'structured_offers_created' => $structuredCreated,
             'lifecycle' => $lifecycle->rebuild(),
-            'parser_fix' => 'Canonical Items-index herbouwd uit structured offers; alleen expliciete geldprijzen tellen mee in prijsstatistieken.',
+            'parser_fix' => 'Phase 3E canonical price normalization actief; stale Armbrace-prijzen worden defensief geweigerd en stackprijzen worden per item omgerekend.',
             'items_source' => 'structured_offers',
-            'parser_release' => 'V5.2 Phase 3A/3B',
+            'parser_release' => 'V5.2 Phase 3E',
             'timestamps_repaired' => $timestampsRepaired,
         ], '/items');
     }

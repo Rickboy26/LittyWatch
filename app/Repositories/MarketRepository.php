@@ -119,7 +119,7 @@ final class MarketRepository
             WHERE lower(o.item)=lower(:item) AND o.quality_status='accepted' AND COALESCE(o.lifecycle_status,'active')='active'
             ORDER BY datetime(m.posted_at) DESC,o.id DESC LIMIT ".max(1,min(500,$limit)));
         $statement->execute([':item'=>$name]);
-        return $statement->fetchAll();
+        return $this->sanitizeDisplayedPrices($statement->fetchAll());
     }
 
     /** @return list<array<string,mixed>> */
@@ -187,7 +187,7 @@ final class MarketRepository
              WHERE lower(o.item)=lower(:item) AND o.trade_type=:type AND o.quality_status='accepted' AND COALESCE(o.lifecycle_status,'active')='active'
              ORDER BY CASE WHEN o.unit_price_ecto IS NULL THEN 1 ELSE 0 END,$order,datetime(m.posted_at) DESC,o.id DESC
              LIMIT ".max(1,min(100,$limit)));
-        $statement->execute([':item'=>$name,':type'=>$type]); return$statement->fetchAll();
+        $statement->execute([':item'=>$name,':type'=>$type]); return $this->sanitizeDisplayedPrices($statement->fetchAll());
     }
 
     /** @return array{buy:?array,sell:?array} */
@@ -225,10 +225,37 @@ final class MarketRepository
 
     private function trustedPriceExpr(string $alias): string
     {
-        // Phase 3B: only explicit money observations contribute to price stats.
-        // Quantity-only, bundle and exchange observations stay visible as offers
-        // but cannot distort the item averages/medians.
-        return "$alias.unit_price_ecto IS NOT NULL AND $alias.unit_price_ecto > 0 AND COALESCE($alias.price_currency,'') IN ('a','e','k') AND COALESCE($alias.price_basis,'') NOT IN ('bundle','currency_exchange','unknown') AND COALESCE($alias.price_basis,'') NOT IN ('currency_conversion','unqualified','uncertain')";
+        // Phase 3E: canonical market-price trust gate. Besides the normal basis
+        // exclusions, defend against stale pre-3D Armbrace rows that may still
+        // contain divided bundle totals or leaked a/k prices. For Armbrace of
+        // Truth the stored raw amount must itself be the ecto unit quote.
+        $base = "$alias.unit_price_ecto IS NOT NULL AND $alias.unit_price_ecto > 0 AND COALESCE($alias.price_currency,'') IN ('a','e','k') AND COALESCE($alias.price_basis,'') NOT IN ('bundle','currency_exchange','unknown') AND COALESCE($alias.price_basis,'') NOT IN ('currency_conversion','unqualified','uncertain')";
+        $armbrace = "(COALESCE($alias.item_key,'') <> 'armbrace-of-truth' OR (COALESCE($alias.price_currency,'')='e' AND $alias.price_amount IS NOT NULL AND $alias.price_amount > 0 AND $alias.price_amount <= 100 AND ABS($alias.unit_price_ecto-$alias.price_amount) < 0.001))";
+        return "$base AND $armbrace";
+    }
+
+    /** @param list<array<string,mixed>> $rows @return list<array<string,mixed>> */
+    private function sanitizeDisplayedPrices(array $rows): array
+    {
+        foreach ($rows as &$row) {
+            if (!$this->rowHasTrustedPrice($row)) {
+                $row['unit_price_ecto'] = null;
+            }
+        }
+        unset($row);
+        return $rows;
+    }
+
+    /** @param array<string,mixed> $row */
+    private function rowHasTrustedPrice(array $row): bool
+    {
+        $unit = isset($row['unit_price_ecto']) ? (float)$row['unit_price_ecto'] : 0.0;
+        $currency = strtolower((string)($row['price_currency'] ?? ''));
+        $basis = strtolower((string)($row['price_basis'] ?? ''));
+        if ($unit <= 0 || !in_array($currency, ['a','e','k'], true) || in_array($basis, ['bundle','currency_exchange','unknown','currency_conversion','unqualified','uncertain'], true)) return false;
+        if ((string)($row['item_key'] ?? '') !== 'armbrace-of-truth') return true;
+        $amount = isset($row['price_amount']) ? (float)$row['price_amount'] : 0.0;
+        return $currency === 'e' && $amount > 0 && $amount <= 100 && abs($unit - $amount) < 0.001;
     }
 
     private function variantExpr(string $alias): string

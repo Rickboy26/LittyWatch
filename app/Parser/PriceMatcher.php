@@ -28,6 +28,14 @@ final class PriceMatcher
             return $this->make($amount, strtolower($m[3]), 'exchange', $quantity, $m[0]);
         }
 
+        // Explicit multi-stack total: "Royal Gift Stacks (x8) 8a" means
+        // eight full stacks for 8a total. A full GW1 stack contains 250 items.
+        if (preg_match('/\bstacks?\b\s*(?:\(\s*)?x\s*(\d+)(?:\s*\))?[^|;,]{0,24}?(\d+(?:[.,]\d+)?)\s*(a|e|k)\b/i', $segment, $m)) {
+            $stackCount = $this->number($m[1]);
+            $amount = $this->number($m[2]);
+            return $this->make($amount, strtolower($m[3]), 'stack_total', $stackCount * 250.0, $m[0]);
+        }
+
         // Inspect every money token and prefer an explicit per-unit observation.
         // This prevents a later conversion ("1750e = 64a") from replacing an
         // earlier unit price ("27e/ea").
@@ -58,8 +66,12 @@ final class PriceMatcher
             $quantity = null;
             $priority = 1;
 
-            if (preg_match('/^\s*\/\s*(?:st|stk|stack)\b/i', $tail)) {
-                $basis = 'stack'; $quantity = 250.0; $priority = 5;
+            if (preg_match('/^\s*(?:[\/\-]\s*)?(?:st|stk|stack)\b/i', $tail)) {
+                // 9a/stk, 9a-stk and 9a stack = price for one 250-item stack.
+                $basis = 'stack'; $quantity = 250.0; $priority = 7;
+            } elseif (preg_match('/^\s*(?:ea|each)\s*\/\s*(?:st|stk|stack)\b/i', $tail)) {
+                // Kamadan "9a ea/stack" means 9a for each stack, not 9a for each item.
+                $basis = 'stack'; $quantity = 250.0; $priority = 8;
             } elseif (preg_match('/^\s*\/\s*(?:ea|each|e)\b/i', $tail) || preg_match('/^\s*(?:ea|each)\b/i', $tail)) {
                 $basis = 'each'; $quantity = $this->detectInventoryQuantity($segment); $priority = 6;
             } elseif (preg_match('/^\s*(?:\/\s*)?x\s*(\d+)\b/i', $tail, $qm)) {
@@ -111,7 +123,7 @@ final class PriceMatcher
         if ($ecto !== null) {
             if (in_array($basis, ['each','unqualified'], true)) {
                 $unit = $ecto;
-            } elseif ($quantity !== null && $quantity > 0 && in_array($basis, ['ratio','exchange','total','stack','set'], true)) {
+            } elseif ($quantity !== null && $quantity > 0 && in_array($basis, ['ratio','exchange','total','stack','stack_total','set'], true)) {
                 $unit = $ecto / $quantity;
             }
         }
