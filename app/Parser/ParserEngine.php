@@ -103,7 +103,8 @@ final class ParserEngine
         }
 
         $results = $this->promoteExplicitGenericRequirements($results);
-        return $this->deduplicate($this->suppressLowConfidenceGenericShadows($results));
+        $results = $this->promoteExplicitGenericMarketSearches($results, $normalized);
+        return $this->deduplicate($this->suppressGenericCatalogShadows($results, $normalized));
     }
 
     /** @return list<ParsedOffer> */
@@ -404,6 +405,168 @@ final class ParserEngine
 
             return true;
         }));
+    }
+
+    /**
+     * Phase 2Q: accepted catalog matches below 0.85 are still seeded into the
+     * review queue. Promote well-defined generic market searches so legitimate
+     * requests such as Q8 Bows, Q9 Wands and generic Sword collection searches
+     * stop consuming manual review capacity.
+     *
+     * @param list<ParsedOffer> $offers
+     * @return list<ParsedOffer>
+     */
+    private function promoteExplicitGenericMarketSearches(array $offers, string $fullMessage): array
+    {
+        return array_map(function (ParsedOffer $offer) use ($fullMessage): ParsedOffer {
+            if ($offer->status !== 'accepted' || $offer->reason !== 'catalog_match' || $offer->confidence >= 0.85) return $offer;
+            if (!$this->taxonomy->isGenericName($offer->item)) return $offer;
+
+            $segment = mb_strtolower($offer->segment);
+            $generic = mb_strtolower(trim($offer->item));
+            // Component/mod advertisements mention a weapon family as the target
+            // of the upgrade. They are not generic weapon-market observations.
+            if ($this->isUpgradeTargetContext($segment) || $this->isUpgradeTargetContextForFamily($fullMessage, $generic)) return $offer;
+            $explicitGeneric = false;
+            $context = mb_strtolower($fullMessage . ' ' . $segment);
+            if (preg_match('/\b(?:q|r|req)\s*\d{1,2}\b/iu', $context)) $explicitGeneric = true;
+            if (preg_match('/\b(?:many|all|any|collection|white|minis?|weapons?|staves|wands|bows|axes|swords|shields|daggers|spears)\b/iu', $context)) $explicitGeneric = true;
+            if ($offer->price->amount !== null && preg_match('/\b'.preg_quote($generic, '/').'s?\b/iu', $context)) $explicitGeneric = true;
+
+            if (!$explicitGeneric) return $offer;
+            return new ParsedOffer(
+                $offer->tradeType, $offer->item, $offer->itemKey, $offer->modifiers, $offer->price,
+                0.86, 'accepted', 'catalog_match', $offer->segment,
+                $offer->tokens, $offer->profile, $offer->relevantProperties, $offer->marketKey, $offer->exchange
+            );
+        }, $offers);
+    }
+
+    /**
+     * Phase 2Q: suppress generic catalog rows even when they are technically
+     * accepted. The review repository seeds every offer below 0.85, so an 0.84
+     * Staff next to Plagueborn Staff still becomes manual review. Concrete item
+     * identity always wins over a family/category shadow.
+     *
+     * @param list<ParsedOffer> $offers
+     * @return list<ParsedOffer>
+     */
+    private function suppressGenericCatalogShadows(array $offers, string $fullMessage): array
+    {
+        return array_values(array_filter($offers, function (ParsedOffer $offer) use ($offers, $fullMessage): bool {
+            if (!in_array($offer->reason, ['catalog_match','low_confidence'], true)) return true;
+
+            $itemLower = mb_strtolower(trim($offer->item));
+            $segment = mb_strtolower(trim($offer->segment));
+
+            // Learned modifier adjectives are not standalone items when a concrete
+            // skin or weapon is present (e.g. Fiery Chaos Axe).
+            if (in_array($itemLower, ['fiery','icy','cruel','shocking','shock','defense','enchanting'], true)) {
+                foreach ($offers as $other) {
+                    if ($other === $offer || $this->taxonomy->isGenericName($other->item)) continue;
+                    if ($other->status === 'accepted' && $other->itemKey !== $offer->itemKey) return false;
+                }
+            }
+
+            if (!$this->taxonomy->isGenericName($offer->item)) return true;
+
+            // A weapon family inside an upgrade/component request is merely the
+            // target type: +30hp for Staff, Zealous for Spear, Bowstring, etc.
+            if ($this->isUpgradeTargetContextForFamily($fullMessage, $itemLower) || $this->isUpgradeTargetContext($segment)) return false;
+
+            $generic = $itemLower;
+
+            // Concrete matches from the same message/parse outrank generic family
+            // or category rows. This catches Miniature -> Kuuna/Dhuum/Rift Warden,
+            // Staff -> Plagueborn/Outcast/BDS, Focus item -> Bogroot Focus, etc.
+            foreach ($offers as $other) {
+                if ($other === $offer || $other->status !== 'accepted') continue;
+                if ($this->taxonomy->isGenericName($other->item)) continue;
+                if ($other->itemKey === $offer->itemKey) continue;
+
+                $otherItem = mb_strtolower(trim($other->item));
+                $otherSegment = mb_strtolower(trim($other->segment));
+                $sameContext = $segment === $otherSegment
+                    || str_contains($segment, $otherSegment)
+                    || str_contains($otherSegment, $segment);
+
+                $familyRelated = $this->concreteBelongsToGeneric($otherItem, $generic);
+                if ($familyRelated && $sameContext) return false;
+            }
+
+            // Collector/category buckets are useful only when the trader is truly
+            // asking for the category itself (e.g. "Unded White Minis"). If the
+            // segment names a concrete mini/green elsewhere in the parse, remove it.
+            if (in_array($generic, ['miniature','unique item','focus item'], true)) {
+                foreach ($offers as $other) {
+                    if ($other === $offer || $other->status !== 'accepted' || $this->taxonomy->isGenericName($other->item)) continue;
+                    $otherItem = mb_strtolower($other->item);
+                    if ($this->concreteBelongsToGeneric($otherItem, $generic)) return false;
+                }
+            }
+
+            // Keep true generic requests. Review-level generic shadows that survived
+            // all rules above retain the old 2N behavior.
+            if ($offer->status === 'review' && $offer->reason === 'low_confidence') {
+                if (in_array($generic, ['miniature','unique item'], true)) return false;
+                if ($offer->price->amount === null
+                    && preg_match('~\b(?:sword|staff|staves|daggers?|axe|axes|bow|bows|spear|scythe|hammer|wand|focus|shield)s?\b[^|]*[,/]\s*(?:sword|staff|staves|daggers?|axe|axes|bow|bows|spear|scythe|hammer|wand|focus|shield)~iu', $segment)) return false;
+            }
+            return true;
+        }));
+    }
+
+    private function isUpgradeTargetContext(string $segment): bool
+    {
+        $patterns = [
+            '/\b(?:staff\s+(?:head|wrap(?:ping)?)|wand\s+(?:wrap(?:ping)?|memory)|bow\s*(?:string|sr)|bowstring|(?:spear|axe|hammer|scythe)\s+(?:head|haft|grip|wrap(?:ping)?))\b/iu',
+            '/\+\s*\d+\s*(?:hp|sr|crit|energy)?\s+(?:for|to)\s+(?:staff|spear|bow|axe|sword|scythe)\b/iu',
+            '/\b(?:vamp|vampiric|zealous|sundering|furious|enchant(?:ing)?|insightful|def(?:ense)?|armor\s*pen)\b[^|]{0,24}\b(?:staff|spear|bow|axe|sword|scythe|hammer)\b/iu',
+            '/\b(?:staff|spear|bow|axe|sword|scythe|hammer)\b[^|]{0,24}\b(?:vamp|vampiric|zealous|sundering|furious|enchant(?:ing)?|insightful|def(?:ense)?|armor\s*pen)\b/iu',
+        ];
+        foreach ($patterns as $pattern) if (preg_match($pattern, $segment)) return true;
+        return false;
+    }
+
+    private function isUpgradeTargetContextForFamily(string $message, string $generic): bool
+    {
+        $m = mb_strtolower($message);
+        $family = match ($generic) {
+            'staff' => 'staff|staves', 'wand' => 'wand|wands', 'bow' => 'bow|bows',
+            'axe' => 'axe|axes', 'sword' => 'sword|swords', 'spear' => 'spear|spears',
+            'scythe' => 'scythe|scythes', 'hammer' => 'hammer|hammers', default => preg_quote($generic, '/'),
+        };
+
+        // Direct target phrases: +30hp for Staff, Zealous for Spear, Vamp Bow.
+        if (preg_match('/\+\s*\d+\s*(?:hp|sr|crit|energy)?\s+(?:for|to)\s+(?:'.$family.')\b/iu', $m)) return true;
+        if (preg_match('/\b(?:vamp|vampiric|zealous|sundering|furious|enchant(?:ing)?|insightful|def(?:ense)?|armor\s*pen)\b[^|,;]{0,22}\b(?:'.$family.')\b/iu', $m)) return true;
+
+        // Component-list shorthand: Bow/Axe/Spear Grip of Defense. A family token
+        // anywhere in the slash-list is a component target, not a base weapon offer.
+        if (preg_match('/\b(?:bow|axe|spear|sword|staff|scythe|hammer)(?:\s*\/\s*(?:bow|axe|spear|sword|staff|scythe|hammer))+\s+(?:grip|haft|head|wrap(?:ping)?|string|bowstring|pommel)\b/iu', $m)
+            && preg_match('/\b(?:'.$family.')\b/iu', $m)) return true;
+
+        if ($generic === 'staff' && preg_match('/\bstaff\s+(?:head|wrap(?:ping)?)\b/iu', $m)) return true;
+        if ($generic === 'wand' && preg_match('/\bwand\s+(?:wrap(?:ping)?|memory)\b/iu', $m)) return true;
+        if ($generic === 'bow' && preg_match('/\bbow\s*(?:string|sr)\b|\bbowstring\b/iu', $m)) return true;
+        if ($generic === 'spear' && preg_match('/\bspear\s+(?:head|wrap(?:ping)?|grip)\b/iu', $m)) return true;
+        return false;
+    }
+
+    private function concreteBelongsToGeneric(string $concrete, string $generic): bool
+    {
+        $map = [
+            'staff' => ['staff','stave'], 'wand' => ['wand','scepter','cane'], 'bow' => ['bow'],
+            'axe' => ['axe'], 'sword' => ['sword','blade','edge'], 'spear' => ['spear'],
+            'shield' => ['shield','aegis','buckler'], 'focus item' => ['focus','chakram','idol','prism','offhand'],
+            'miniature' => ['miniature','kuuna','dhuum','destroyer','mallyx','rift warden','ghostly hero','gray giant','grey giant','mox','salma','evennia','polar bear','mad king'],
+            'unique item' => ['bogroot','green','unique'],
+            'daggers' => ['dagger'], 'scythe' => ['scythe'], 'hammer' => ['hammer'],
+        ];
+        foreach (($map[$generic] ?? [$generic]) as $needle) {
+            if (str_contains($concrete, $needle)) return true;
+        }
+        return false;
     }
 
     /** @param list<ParsedOffer> $offers @return list<ParsedOffer> */

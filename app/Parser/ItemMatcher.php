@@ -70,6 +70,9 @@ final class ItemMatcher
     {
         $a = mb_strtolower(trim($alias));
         $name = mb_strtolower((string)($item['name'] ?? ''));
+        // Phase 2Q: an exact canonical catalog name is a strong identity. Generic
+        // market families remain context-scored by the parser and are excluded here.
+        if ($a === $name && !$this->taxonomy->isGenericName((string)($item['name'] ?? ''))) return 0.92;
         if (($name === 'bone dragon staff' && $a === 'bds')
             || ($name === 'gift of the traveler' && in_array($a, ['gott','gotts','nick gift','nick gifts'], true))
             || ($name === 'golden phoenix blade' && $a === 'gpb')
@@ -121,7 +124,10 @@ final class ItemMatcher
         // 'cons' is generic consumables prose in barter lines such as Tengu Guard Cons
         // or Cons GoM for EoC/AoS and must not become Conset.
         if ($name === 'conset' && $a === 'cons') {
-            if (preg_match('/\b(?:tengu\s+guard|ghastly|summon(?:ing)?\s+stone|gom|eoc|aos)\b/iu', $t)) return false;
+            // Phase 2Q: bare `Cons` is ambiguous consumables shorthand. Treat it
+            // as Conset only in the established stack-sale form; barter fragments
+            // such as Tengu Guard Cons 3:1 must not become Conset.
+            if (!preg_match('/\bcons\b[^|]{0,24}(?:\/\s*stack|per\s+stack|\bstk\b)/iu', $t)) return false;
         }
         // 'guard' is far too broad by itself. Preserve the full Imperial Guard names,
         // but never resolve a bare Guard token from Tengu Guard / Guard Cons text.
