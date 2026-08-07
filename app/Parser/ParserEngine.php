@@ -109,6 +109,21 @@ final class ParserEngine
             }
         }
 
+        // Generic family searches such as "q5-7 flatbows" describe several
+        // requirement variants. Expand the small range before normal matching.
+        if (preg_match('/\b(?:q|r)\s*(\d{1,2})\s*-\s*(\d{1,2})\b/iu', $segment, $range)) {
+            $genericRange = $this->genericRecognizer->recognize($segment);
+            $from=(int)$range[1]; $to=(int)$range[2];
+            if ($genericRange !== null && $to >= $from && ($to-$from) <= 10) {
+                $expanded=[];
+                for($q=$from;$q<=$to;$q++) {
+                    $variant = preg_replace('/'.preg_quote($range[0],'/').'/u', 'q'.$q, $segment, 1) ?? $segment;
+                    $expanded = array_merge($expanded, $this->parseSegment($tradeType, $variant));
+                }
+                return $expanded;
+            }
+        }
+
         $items = $this->itemMatcher->matchAll($segment);
         if ($this->categoryExpander !== null) {
             $expanded = $this->categoryExpander->expand($segment);
@@ -120,6 +135,8 @@ final class ParserEngine
                 $items = [$generic];
             } else {
                 $price = $this->priceMatcher->parse($segment);
+                $fallback = $this->fallbackName($segment, $price);
+                if ($this->isNoiseCandidate($fallback, $segment)) return [];
                 $metadata = array_merge(
                     $this->modifierMatcher->match($segment),
                     $this->metadataExtractor->extract($segment)
@@ -127,8 +144,8 @@ final class ParserEngine
                 [$confidence, $status, $reason] = $this->confidenceScorer->score(null, $metadata, $price, $segment);
                 return [new ParsedOffer(
                     $tradeType,
-                    $this->fallbackName($segment, $price),
-                    $this->key($this->fallbackName($segment, $price)),
+                    $fallback,
+                    $this->key($fallback),
                     $metadata,
                     $price,
                     $confidence,
@@ -331,6 +348,22 @@ final class ParserEngine
         $name = preg_replace('/\b(?:pm|wsp|offer|offers)\b.*$/i', '', $name) ?? $name;
         $name = $this->tradeNotationCleaner->cleanItemCandidate($name);
         return mb_substr($name !== '' ? $name : 'Unknown', 0, 120);
+    }
+
+
+    private function isNoiseCandidate(string $candidate, string $segment): bool
+    {
+        $candidate = trim($candidate);
+        if ($candidate === '' || $candidate === 'Unknown') return true;
+        if (!preg_match('/[\p{L}\p{N}]/u', $candidate)) return true;
+
+        $noise = preg_replace('/\b(?:q|r|rq|req(?:uirement)?)\s*\d{0,2}\b/iu', ' ', $candidate) ?? $candidate;
+        $noise = preg_replace('/\b(?:es|fc|sr|df|spaw(?:ning)?|dom(?:ination)?|illu(?:sion)?|inspi(?:ration)?|heal(?:ing)?|smite|smiting|fire|water|air|earth|blood|death|curs(?:es)?|resto(?:ration)?|com(?:muning)?|chan(?:neling)?|str(?:ength)?|tac(?:tics)?|lead(?:ership)?)\b/iu', ' ', $noise) ?? $noise;
+        $noise = preg_replace('/\b(?:insc(?:r(?:ibable|iptable)?)?|inscribable|os|old\s*school|unid(?:entified)?|unded(?:icated)?|ded(?:icated)?|pm|offer(?:s)?|each|ea|for\s+all)\b/iu', ' ', $noise) ?? $noise;
+        $noise = preg_replace('/[\d\s.,:;!?.=_+\-\/|()\[\]]+/u', '', $noise) ?? $noise;
+        if ($noise === '') return true;
+
+        return (bool)preg_match('/^(?:for\s+all|each|ea|pm|offers?|price|tell\s+me\s+your\s+price)$/iu', $candidate);
     }
 
     private function key(string $value): string

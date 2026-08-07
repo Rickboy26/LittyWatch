@@ -25,10 +25,10 @@ foreach ($cases as $input => $expected) {
 
 $offers = parseOffers('WTS Rez 4e/stk');
 $first = $offers[0] ?? null;
-if (!$first || ($first['item'] ?? '') !== 'Rez' || ($first['basis'] ?? '') !== 'stack' || (float)($first['quantity'] ?? 0) !== 250.0) {
+if (!$first || ($first['item'] ?? '') !== 'Scroll of Resurrection' || ($first['basis'] ?? '') !== 'stack' || (float)($first['quantity'] ?? 0) !== 250.0) {
     $failed[] = [
         'input' => 'WTS Rez 4e/stk',
-        'expected' => ['item' => 'Rez', 'basis' => 'stack', 'quantity' => 250],
+        'expected' => ['item' => 'Scroll of Resurrection', 'basis' => 'stack', 'quantity' => 250],
         'actual' => $first,
     ];
 }

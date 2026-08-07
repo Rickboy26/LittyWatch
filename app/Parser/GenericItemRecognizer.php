@@ -13,11 +13,11 @@ final class GenericItemRecognizer
     public function recognize(string $segment): ?array
     {
         $families = [
-            'Flatbow' => ['flatbow','flat bow'],
-            'Longbow' => ['longbow','long bow'],
-            'Shortbow' => ['shortbow','short bow'],
-            'Recurve Bow' => ['recurve bow'],
-            'Hornbow' => ['hornbow','horn bow'],
+            'Flatbow' => ['flatbow','flatbows','flat bow','flat bows'],
+            'Longbow' => ['longbow','longbows','long bow','long bows'],
+            'Shortbow' => ['shortbow','shortbows','short bow','short bows'],
+            'Recurve Bow' => ['recurve bow','recurve bows'],
+            'Hornbow' => ['hornbow','hornbows','horn bow','horn bows'],
             'Shield' => ['shield','shields'],
             'Staff' => ['staff','staves'],
             'Wand' => ['wand','wands'],

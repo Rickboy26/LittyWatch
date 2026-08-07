@@ -21,6 +21,7 @@ final class SemanticNormalizer
         $text = preg_replace('/\bpm(?:\s+me)?\b.*$/iu','',$text) ?? $text;
         $text = preg_replace('/\bopen\s+trade\b.*$/iu','',$text) ?? $text;
 
+        $text = preg_replace('/\b([qr])\s+([0-9]{1,2})\b/iu', '$1$2', $text) ?? $text;
         $text = preg_replace('/\brq\s*([0-9]{1,2})\b/iu', 'q$1', $text) ?? $text;
         $text = preg_replace('/\breq(?:uirement)?\s*([0-9]{1,2})\b/iu', 'q$1', $text) ?? $text;
         $text = preg_replace('/\binsc(?:r(?:ibable|iptable)?)?\b/iu', 'inscribable', $text) ?? $text;
@@ -41,6 +42,11 @@ final class SemanticNormalizer
             '/\b(?:kebab|kabob)s?\b/iu' => 'Drake Kabob',
             '/\blunars?\b/iu' => 'Lunar Fortune',
             '/\blightbringer\s+scrolls?\b/iu' => 'Scroll of the Lightbringer',
+            '/\brez\b/iu' => 'Scroll of Resurrection',
+            '/\bz\s*keys?\b|\bzkeys?\b/iu' => 'Zaishen Key',
+            '/\bparty\s+beaco(?:n)?\b/iu' => 'Party Beacon',
+            '/\bsephis\s+word\b/iu' => 'Sephis Sword',
+            '/\bfrogg?y?\b/iu' => 'Frog Scepter',
         ];
         foreach ($marketAliases as $pattern => $replacement) {
             $text = preg_replace($pattern, $replacement, $text) ?? $text;

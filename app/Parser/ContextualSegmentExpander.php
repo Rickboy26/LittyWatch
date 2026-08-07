@@ -99,7 +99,12 @@ final class ContextualSegmentExpander
                 if ($this->requirement($segment) === null && $activeRequirement !== null) {
                     $prepared = $activeItem . ' ' . $activeRequirement . ' ' . $segment;
                 }
-                foreach ($this->expandRequirements($prepared) as $expanded) $out[] = $expanded;
+                $attributeVariants = $this->expandAttributeRequirementPairs($activeItem, $segment);
+                if ($attributeVariants !== []) {
+                    foreach ($attributeVariants as $expanded) $out[] = $expanded;
+                } else {
+                    foreach ($this->expandRequirements($prepared) as $expanded) $out[] = $expanded;
+                }
                 continue;
             }
 
@@ -169,7 +174,7 @@ final class ContextualSegmentExpander
 
     private function isVariantDescriptor(string $segment): bool
     {
-        $attributePattern = '/\b(?:air|blood|sr|soul\s+reaping|fc|fast\s+casting|illu(?:sion)?|illus(?:ion)?|dom(?:ination)?|df|divine\s+favor|smite|smiting|resto(?:ration)?|com(?:muning)?|chan(?:neling)?|spaw(?:ning)?|inspi(?:ration)?|fire|water|earth|curs(?:es)?|death|heal(?:ing)?|prot(?:ection)?|strength|str|tac(?:tics)?|lead(?:ership)?)\b/iu';
+        $attributePattern = '/\b(?:air|blood|sr|soul\s+reaping|fc|fast\s+casting|es|energy\s+storage|illu(?:sion)?|illus(?:ion)?|dom(?:ination)?|df|divine\s+favor|smite|smiting|resto(?:ration)?|com(?:muning)?|chan(?:neling)?|spaw(?:ning)?|inspi(?:ration)?|fire|water|earth|curs(?:es)?|death|heal(?:ing)?|prot(?:ection)?|strength|str|tac(?:tics)?|lead(?:ership)?)\b/iu';
         if (!preg_match($attributePattern, $segment)) return false;
 
         $remaining = preg_replace($attributePattern, ' ', $segment) ?? $segment;
@@ -197,17 +202,37 @@ final class ContextualSegmentExpander
     /** @return list<string> */
     private function expandRequirements(string $segment): array
     {
-        if (!preg_match('/\b(?:q|r)\s*(\d{1,2}(?:\s*\/\s*\d{1,2})+)\b/iu', $segment, $m, PREG_OFFSET_CAPTURE)) {
+        if (preg_match('/\b(?:q|r)\s*(\d{1,2})\s*-\s*(\d{1,2})\b/iu', $segment, $m)) {
+            $from=(int)$m[1]; $to=(int)$m[2];
+            if ($to >= $from && ($to-$from) <= 10) {
+                $out=[];
+                for($q=$from;$q<=$to;$q++) $out[] = preg_replace('/'.preg_quote($m[0],'/').'/u', 'q'.$q, $segment, 1) ?? $segment;
+                return $out;
+            }
+        }
+        if (!preg_match('/\b(?:q|r)\s*(\d{1,2}(?:\s*\/\s*\d{1,2})+)\b/iu', $segment, $m)) {
             return [$segment];
         }
-        $raw = $m[0][0];
-        $numbers = preg_split('/\s*\/\s*/u', $m[1][0]) ?: [];
+        $raw = $m[0];
+        $numbers = preg_split('/\s*\/\s*/u', $m[1]) ?: [];
         $out = [];
         foreach ($numbers as $number) {
             if ($number === '') continue;
             $out[] = preg_replace('/'.preg_quote($raw,'/').'/u', 'q'.$number, $segment, 1) ?? $segment;
         }
         return $out !== [] ? $out : [$segment];
+    }
+
+    /** @return list<string> */
+    private function expandAttributeRequirementPairs(string $item, string $segment): array
+    {
+        if (!preg_match_all('/\b(?:q|r)\s*(\d{1,2})\s+(es|energy\s+storage|fc|fast\s+casting|sr|soul\s+reaping|spaw(?:ning)?|dom(?:ination)?|illu(?:sion)?|inspi(?:ration)?|heal(?:ing)?|smite|smiting|fire|water|air|earth|blood|death|curs(?:es)?|resto(?:ration)?|com(?:muning)?|chan(?:neling)?|df|divine\s+favor|str(?:ength)?|tac(?:tics)?|lead(?:ership)?)/iu', $segment, $matches, PREG_SET_ORDER)) {
+            return [];
+        }
+        if (count($matches) < 2) return [];
+        $out=[];
+        foreach($matches as $m) $out[] = trim($item.' q'.$m[1].' '.$m[2]);
+        return $out;
     }
 
     private function attachFamily(string $segment, string $family, ?string $requirement): string

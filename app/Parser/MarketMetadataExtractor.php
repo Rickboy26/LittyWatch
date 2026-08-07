@@ -17,7 +17,7 @@ final class MarketMetadataExtractor
         $attributes = [
             'soul reaping' => ['soul reaping','sr'],
             'fast casting' => ['fast casting','fc'],
-            'energy storage' => ['energy storage','estorage','e storage'],
+            'energy storage' => ['energy storage','estorage','e storage','es'],
             'channeling magic' => ['channeling magic','channeling'],
             'communing' => ['communing','com'],
             'domination magic' => ['domination magic','domination','dom'],
