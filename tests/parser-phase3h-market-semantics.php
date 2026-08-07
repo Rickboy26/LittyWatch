@@ -36,11 +36,9 @@ $o=$one('WTS Royal Gift Stacks (x8) 8a','Royal Gift');
 $unit($o,(8*27)/(8*250),'Royal Gift x8 stack total');
 if ($o->price->quantity !== 2000.0) exit(1);
 
-// Ordinary consumables remain conservative without explicit item metadata.
-$o=$one('WTS Conset 8e','Conset');
-if ($o->price->unitEcto !== null || $o->price->basis === 'stack_inferred') {
-    fwrite(STDERR,"Conset inherited stack semantics\n"); exit(1);
-}
+// Phase 3L.1: Conset bare ecto is per set; bare armbrace is stack.
+$o=$one('WTS Conset 2e','Conset'); $unit($o,2.0,'Conset each quote');
+$o=$one('WTS Conset 9a','Conset'); $unit($o,(9*27)/250,'Conset armbrace stack quote');
 
 // Metadata parser supports non-default quote sizes without parser regex changes.
 $m=MarketSemantics::fromItem(['market_quote_basis'=>'stack','market_quote_size'=>100,'market_display_basis'=>'each']);

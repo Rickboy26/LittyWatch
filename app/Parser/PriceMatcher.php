@@ -110,8 +110,13 @@ final class PriceMatcher
         $after = substr($segment, $offset + $length, 24);
         // token is on either side of "27e = 1a" / "1a = 27e"
         return (bool)(
-            preg_match('/=\s*$/', $before)
-            || preg_match('/^\s*=\s*\d+(?:[.,]\d+)?\s*(?:a|e|k)\b/i', $after)
+            // A token after '=' is a conversion only when the left side is
+            // itself a money token: "1750e = 64a". Plain item separators such
+            // as "Emerald Blade = 15a" or stat notation "20%=1e" are prices,
+            // not currency conversions.
+            preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*=\s*$/i', $before)
+            // A token before '=' is a conversion when the right side is money.
+            || preg_match('/^\s*=\s*\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i', $after)
         );
     }
 

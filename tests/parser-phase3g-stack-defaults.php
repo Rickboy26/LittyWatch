@@ -29,10 +29,8 @@ $assert($o,20.0/250.0,'stack_inferred','Candy Corn 20e');
 $o=$one('WTB Candy Corn 1a','Candy Corn');
 $assert($o,27.0/250.0,'stack_inferred','Candy Corn 1a');
 
-// Regression guard: generic consumables must NOT all become stacks.
+// Phase 3L.1: Conset is a specific exception learned from real Kamadan usage.
 $o=$one('WTS Conset 8e','Conset');
-if ($o->price->basis === 'stack_inferred' || $o->price->unitEcto !== null) {
-    fwrite(STDERR,"Conset bare price incorrectly inferred as stack\n"); exit(1);
-}
+$assert($o,8.0,'each_inferred','Conset 8e');
 
 echo "Phase 3G stack-default semantics OK\n";

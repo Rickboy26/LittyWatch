@@ -415,6 +415,37 @@ final class ParserEngine
             );
         }
 
+        // Phase 3L.1: Kamadan Conset convention is currency-sensitive.
+        // Bare ecto quotes are per conset ("Conset 2e"), while bare armbrace
+        // quotes represent a full stack ("Consets 9a"). Explicit /ea or /stk
+        // syntax has already been handled by PriceMatcher and never reaches
+        // this branch.
+        if ($key === 'conset') {
+            if ($price->currency === 'e') {
+                return new ParsedPrice(
+                    $price->amount,
+                    $price->currency,
+                    $ecto,
+                    'each_inferred',
+                    1.0,
+                    $ecto,
+                    $price->raw,
+                );
+            }
+            if ($price->currency === 'a') {
+                $quantity = 250.0;
+                return new ParsedPrice(
+                    $price->amount,
+                    $price->currency,
+                    $ecto,
+                    'stack_inferred',
+                    $quantity,
+                    $ecto !== null ? $ecto / $quantity : null,
+                    $price->raw,
+                );
+            }
+        }
+
         if ($key === 'armbrace-of-truth') {
             // Armbraces are normally quoted in ecto per armbrace. Bare armbrace
             // currency prices ("17a") or extreme bare ecto totals ("250e") are

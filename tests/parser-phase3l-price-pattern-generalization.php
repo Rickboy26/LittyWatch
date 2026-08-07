@@ -21,5 +21,5 @@ if($o->price->unitEcto!==null||$o->price->basis!=='uncertain'){fwrite(STDERR,"sh
 $o=$one('WTS Cupcakes WarSupps 20e','Cupcake');
 if($o->price->unitEcto!==null||$o->price->basis!=='uncertain'){fwrite(STDERR,"compact shared price trusted\n");exit(1);}
 $o=$one('WTS Conset 2e','Conset');
-if($o->price->unitEcto!==null){fwrite(STDERR,"ambiguous conset promoted\n");exit(1);}
+$unit($o,2.0,'conset bare each');
 echo "Phase 3L price pattern generalization OK\n";
