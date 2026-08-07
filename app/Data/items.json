@@ -1774,5 +1774,69 @@
       "diessa sets",
       "full diessa set"
     ]
+  },
+  {
+    "key": "flames-of-balthazar",
+    "name": "Flames of Balthazar",
+    "category": "consumable",
+    "aliases": [
+      "Flames of Balthazar",
+      "Flame of Balthazar"
+    ]
+  },
+  {
+    "key": "inscribed-chakram",
+    "name": "Inscribed Chakram",
+    "category": "focus",
+    "aliases": [
+      "Inscribed Chakram"
+    ]
+  },
+  {
+    "key": "superior-rune-of-vigor",
+    "name": "Superior Rune of Vigor",
+    "category": "rune",
+    "aliases": [
+      "Superior Rune of Vigor",
+      "sup rune vigor",
+      "superior vigor rune"
+    ]
+  },
+  {
+    "key": "stygian-gem",
+    "name": "Stygian Gem",
+    "category": "trophy",
+    "aliases": [
+      "Stygian Gem",
+      "Stygian Gems",
+      "styg",
+      "stygs"
+    ]
+  },
+  {
+    "key": "grog",
+    "name": "Grog",
+    "category": "consumable",
+    "aliases": [
+      "Grog"
+    ]
+  },
+  {
+    "key": "bone-idol",
+    "name": "Bone Idol",
+    "category": "focus",
+    "aliases": [
+      "Bone Idol"
+    ]
+  },
+  {
+    "key": "iron-ingot",
+    "name": "Iron Ingot",
+    "category": "material",
+    "aliases": [
+      "Iron Ingot",
+      "Iron Ingots",
+      "stack of iron"
+    ]
   }
 ]
