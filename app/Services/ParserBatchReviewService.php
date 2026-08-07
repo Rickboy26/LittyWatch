@@ -6,6 +6,7 @@ namespace LittyWatch\Services;
 use LittyWatch\Market\OfferLifecycleService;
 use LittyWatch\Market\StructuredOfferWriter;
 use LittyWatch\Market\VariantNormalizer;
+use LittyWatch\Market\MarketQualityService;
 use LittyWatch\Parser\Catalog;
 use LittyWatch\Parser\DynamicKnowledge;
 use LittyWatch\Parser\MessageClassifier;
@@ -158,6 +159,7 @@ final class ParserBatchReviewService
         if ($result['checked'] > 0 && $result['failed'] < $result['checked']) {
             try {
                 $lifecycle->rebuild();
+                (new MarketQualityService($this->pdo))->rebuildAll();
             } catch (Throwable $exception) {
                 $failureText = 'Lifecycle rebuild: ' . $exception->getMessage();
                 if (count($result['failure_samples']) < 5) {

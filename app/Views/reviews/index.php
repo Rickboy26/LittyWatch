@@ -170,7 +170,7 @@ $tabs = [
           <p><?= h(mb_strimwidth((string)$row['message'], 0, 115, '…')) ?></p>
           <div class="queue-meta">
             <span><?= h($row['item']) ?></span>
-            <span><?= h($row['quality_reason']) ?></span>
+            <span><?= h(($row['price_quality_status'] ?? 'trusted') !== 'trusted' ? ($row['price_quality_reason'] ?? $row['price_quality_status']) : $row['quality_reason']) ?></span>
           </div>
         </a>
       <?php endforeach; ?>
@@ -202,6 +202,8 @@ $tabs = [
         <div><span>Marktkey</span><strong><?= h($selected['market_key'] ?: '—') ?></strong></div>
         <div><span>Requirement</span><strong><?= h($selected['requirement'] ?: '—') ?></strong></div>
         <div><span>Attribuut</span><strong><?= h($selected['attribute_name'] ?: '—') ?></strong></div>
+        <div><span>Prijsstatus</span><strong><?= h($selected['price_quality_status'] ?? 'trusted') ?></strong></div>
+        <div><span>Prijsreden</span><strong><?= h($selected['price_quality_reason'] ?? '—') ?></strong></div>
         <div class="wide"><span>Segment</span><code><?= h($selected['raw_segment']) ?></code></div>
       </div>
 

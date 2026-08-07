@@ -22,6 +22,7 @@ require $root . '/bootstrap.php';
 use LittyWatch\Market\OfferLifecycleService;
 use LittyWatch\Market\StructuredOfferWriter;
 use LittyWatch\Market\VariantNormalizer;
+use LittyWatch\Market\MarketQualityService;
 use LittyWatch\Parser\Catalog;
 use LittyWatch\Parser\ParserEngine;
 
@@ -66,7 +67,7 @@ $processed = 0;
 $lastId = 0;
 $batchSize = 250;
 
-fwrite(STDOUT, "LittyWatch Phase 3F volledige reparse gestart ({$total} berichten).\n");
+fwrite(STDOUT, "LittyWatch Phase 3I volledige reparse gestart ({$total} berichten).\n");
 
 while (true) {
     $stmt = $pdo->prepare('SELECT id, message FROM messages WHERE id > :last_id ORDER BY id LIMIT :limit');
@@ -90,6 +91,8 @@ while (true) {
 }
 
 $lifecycleResult = $lifecycle->rebuild();
+$marketQualityResult = (new MarketQualityService($pdo))->rebuildAll();
+(new LittyWatch\Repositories\ParserReviewRepository($pdo, new LittyWatch\Repositories\ParserKnowledgeRepository($pdo)))->seedPending();
 
 fwrite(STDOUT, "\nKlaar.\n");
 fwrite(STDOUT, "Berichten: {$processed}\n");
@@ -97,3 +100,4 @@ fwrite(STDOUT, "Legacy offers: {$legacyCreated}\n");
 fwrite(STDOUT, "Structured offers: {$structuredCreated}\n");
 fwrite(STDOUT, "Timestamps gerepareerd: {$timestampsRepaired}\n");
 fwrite(STDOUT, 'Lifecycle: ' . json_encode($lifecycleResult, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+fwrite(STDOUT, 'Market quality: ' . json_encode($marketQualityResult, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");

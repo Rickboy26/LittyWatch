@@ -93,8 +93,13 @@ SQL);
     ensureColumn('structured_offers','lifecycle_status',"TEXT NOT NULL DEFAULT 'active'");
     ensureColumn('structured_offers','superseded_by','INTEGER');
     ensureColumn('structured_offers','lifecycle_updated_at','TEXT');
+    ensureColumn('structured_offers','price_quality_status',"TEXT NOT NULL DEFAULT 'trusted'");
+    ensureColumn('structured_offers','price_quality_reason','TEXT');
+    ensureColumn('structured_offers','price_outlier_score','REAL');
+    ensureColumn('structured_offers','price_baseline_ecto','REAL');
     db()->exec('CREATE INDEX IF NOT EXISTS idx_structured_normalized_market ON structured_offers(normalized_market_key)');
     db()->exec('CREATE INDEX IF NOT EXISTS idx_structured_lifecycle ON structured_offers(lifecycle_status)');
+    db()->exec('CREATE INDEX IF NOT EXISTS idx_structured_price_quality ON structured_offers(price_quality_status)');
 }
 
 function ensureColumn(string $table,string $column,string $type): void {

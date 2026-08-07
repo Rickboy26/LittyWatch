@@ -191,9 +191,9 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
   <section class="panel">
     <span class="kicker">DATAKWALITEIT</span>
     <h2>Snelle beoordeling</h2>
-    <div class="callout"><strong>Vraagzijde</strong><p><?= (int)$item['buy_count'] ?> koopadvertenties geregistreerd.</p></div>
-    <div class="callout"><strong>Aanbodzijde</strong><p><?= (int)$item['sell_count'] ?> verkoopadvertenties geregistreerd.</p></div>
-    <div class="callout"><strong>Controle</strong><p><?= (int)$item['review_count'] ?> aanbiedingen wachten nog op controle.</p></div>
+    <div class="callout"><strong>Vraagzijde</strong><p><?= (int)$item['buy_count'] ?> koopadvertenties · <?= (int)($item['buy_usable_count'] ?? 0) ?> bruikbare prijzen · <?= (int)($item['buy_uncertain_count'] ?? 0) ?> onzeker.</p></div>
+    <div class="callout"><strong>Aanbodzijde</strong><p><?= (int)$item['sell_count'] ?> verkoopadvertenties · <?= (int)($item['sell_usable_count'] ?? 0) ?> bruikbare prijzen · <?= (int)($item['sell_uncertain_count'] ?? 0) ?> onzeker.</p></div>
+    <div class="callout"><strong>Controle</strong><p><?= (int)$item['review_count'] ?> aanbiedingen vragen prijscontrole.</p></div>
   </section>
 </div>
 
@@ -225,7 +225,7 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
       <tr>
         <td><span class="badge <?= h($offer['trade_type']) ?>"><?= strtoupper(h($offer['trade_type'])) ?></span></td>
         <td><?= h($offer['details'] ?: 'Standaard') ?><div class="muted"><?= (int)round((float)$offer['confidence']*100) ?>% · <?= h($offer['quality_status']) ?></div></td>
-        <td><?php if(($offer['price_basis']??'')==='barter'): ?><?=h($rawPrice($offer))?><?php else: ?><?= $offer['price_amount']!==null ? h($offer['price_amount']).h($offer['price_currency']) : '—' ?><?php if($offer['unit_price_ecto']!==null): ?><div class="muted"><?= $price($offer['unit_price_ecto']) ?>/stuk</div><?php endif; ?><?php endif; ?></td>
+        <td><?php if(($offer['price_basis']??'')==='barter'): ?><?=h($rawPrice($offer))?><?php else: ?><?= $offer['price_amount']!==null ? h($offer['price_amount']).h($offer['price_currency']) : '—' ?><?php if($offer['unit_price_ecto']!==null): ?><div class="muted"><?= $price($offer['unit_price_ecto']) ?>/stuk</div><?php endif; ?><?php if(in_array(($offer['price_quality_status'] ?? 'trusted'), ['uncertain','outlier'], true)): ?><div class="muted">⚠ <?= h($offer['price_quality_status']) ?></div><?php endif; ?><?php endif; ?></td>
         <td><?= h($offer['player']) ?><div class="muted"><?= h($time($offer['posted_at'])) ?></div></td>
         <td><code><?= h($offer['raw_segment'] ?: $offer['message']) ?></code></td>
       </tr>

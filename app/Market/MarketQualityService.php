@@ -3,50 +3,158 @@ declare(strict_types=1);
 
 namespace LittyWatch\Market;
 
+use PDO;
+
+/**
+ * Phase 3I: independent market-price quality layer.
+ * Parser correctness and price trust are deliberately separate concerns.
+ */
 final class MarketQualityService
 {
-    public function score(array $stats): array
+    public function __construct(private readonly PDO $pdo) {}
+
+    /** @return array{trusted:int,uncertain:int,outlier:int,unpriced:int,groups:int} */
+    public function rebuildAll(): array
     {
-        $traders = (int)($stats['unique_traders'] ?? 0);
-        $samples = (int)($stats['active_samples'] ?? $stats['samples'] ?? 0);
-        $buyCount = (int)($stats['buy_count'] ?? $stats['buys'] ?? 0);
-        $sellCount = (int)($stats['sell_count'] ?? $stats['sells'] ?? 0);
-        $dispersion = $this->dispersion($stats);
-        $reviewShare = (float)($stats['review_share'] ?? 0.0);
-
-        $data = min(100, $traders * 12 + min(35, $samples * 3) + (($buyCount > 0 && $sellCount > 0) ? 15 : 0) - (int)round($reviewShare * 25));
-        $liquidity = min(100, $traders * 15 + min(40, $samples * 4));
-        $certainty = max(0, min(100, 100 - (int)round($dispersion * 100) - (int)round($reviewShare * 40) + (($buyCount >= 2 && $sellCount >= 2) ? 10 : 0)));
-        $overall = (int)round($data * .4 + $liquidity * .3 + $certainty * .3);
-
-        return [
-            'score' => $overall,
-            'label' => $this->label($overall),
-            'data_quality' => $this->label($data),
-            'liquidity' => $this->label($liquidity),
-            'price_certainty' => $this->label($certainty),
-            'dispersion' => $dispersion,
-        ];
+        return $this->rebuildForItemKeys([]);
     }
 
-    private function dispersion(array $stats): float
+    /** @param list<string> $itemKeys @return array{trusted:int,uncertain:int,outlier:int,unpriced:int,groups:int} */
+    public function rebuildForItemKeys(array $itemKeys): array
     {
-        $ranges = [];
-        foreach ([['buy_min','buy_max','buy_median'],['sell_min','sell_max','sell_median']] as [$min,$max,$median]) {
-            $m = isset($stats[$median]) ? (float)$stats[$median] : 0.0;
-            if ($m > 0 && isset($stats[$min],$stats[$max])) $ranges[] = max(0.0, ((float)$stats[$max] - (float)$stats[$min]) / $m);
+        $filter = '';
+        $params = [];
+        $keys = array_values(array_unique(array_filter(array_map('strval', $itemKeys), static fn(string $v): bool => $v !== '')));
+        if ($keys !== []) {
+            $marks = [];
+            foreach ($keys as $i => $key) {
+                $marks[] = ':k'.$i;
+                $params[':k'.$i] = $key;
+            }
+            $filter = ' AND so.item_key IN ('.implode(',', $marks).')';
         }
-        return $ranges ? min(1.0, array_sum($ranges) / count($ranges)) : 1.0;
+
+        $sql = "SELECT so.id,so.trade_type,so.item_key,so.price_amount,so.price_currency,so.unit_price_ecto,so.price_basis,so.quality_status,so.lifecycle_status,so.price_quality_reason,m.player
+                FROM structured_offers so
+                JOIN messages m ON m.id=so.message_id
+                WHERE so.quality_status='accepted'
+                  AND COALESCE(so.lifecycle_status,'active')='active'{$filter}
+                ORDER BY so.item_key,so.id";
+        $statement = $this->pdo->prepare($sql);
+        $statement->execute($params);
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+        $update = $this->pdo->prepare(
+            "UPDATE structured_offers
+             SET price_quality_status=:status,
+                 price_quality_reason=:reason,
+                 price_outlier_score=:score,
+                 price_baseline_ecto=:baseline
+             WHERE id=:id"
+        );
+
+        $counts = ['trusted'=>0,'uncertain'=>0,'outlier'=>0,'unpriced'=>0,'groups'=>0];
+        $candidates = [];
+
+        foreach ($rows as $row) {
+            [$status, $reason] = $this->semanticStatus($row);
+            $id = (int)$row['id'];
+            $update->execute([':status'=>$status,':reason'=>$reason,':score'=>null,':baseline'=>null,':id'=>$id]);
+            $counts[$status]++;
+            if ($status === 'trusted' && in_array((string)$row['trade_type'], ['buy','sell'], true)) {
+                $candidates[(string)$row['item_key']][] = $row;
+            }
+        }
+
+        foreach ($candidates as $itemKey => $group) {
+            $prices = [];
+            $traders = [];
+            foreach ($group as $row) {
+                $price = (float)$row['unit_price_ecto'];
+                if ($price <= 0) continue;
+                $prices[] = $price;
+                $traders[mb_strtolower(trim((string)$row['player']))] = true;
+            }
+            if (count($prices) < 5 || count($traders) < 3) continue;
+
+            $median = $this->median($prices);
+            if ($median === null || $median <= 0) continue;
+            $deviations = array_map(static fn(float $v): float => abs($v - $median), $prices);
+            $mad = $this->median($deviations) ?? 0.0;
+            $counts['groups']++;
+
+            foreach ($group as $row) {
+                if ((string)($row['price_quality_reason'] ?? '') === 'handmatig_goedgekeurd') continue;
+                $price = (float)$row['unit_price_ecto'];
+                if ($price <= 0) continue;
+                $ratio = $price / $median;
+                $robustZ = $mad > 0.000001 ? abs($price - $median) / (1.4826 * $mad) : 0.0;
+
+                // Require a very large relative departure. This prevents normal
+                // spreads in illiquid GW1 markets from being treated as errors.
+                $extremeRatio = $ratio >= 4.0 || $ratio <= 0.25;
+                $extremeZ = $mad > 0.000001 && $robustZ >= 8.0 && ($ratio >= 2.5 || $ratio <= 0.4);
+                if (!$extremeRatio && !$extremeZ) continue;
+
+                $score = $mad > 0.000001 ? $robustZ : max($ratio, 1 / max($ratio, 0.000001));
+                $reason = sprintf('market_outlier: %.3fe vs mediaan %.3fe (%dx verschil)', $price, $median, (int)round(max($ratio, 1 / max($ratio, 0.000001))));
+                $update->execute([
+                    ':status'=>'outlier',
+                    ':reason'=>$reason,
+                    ':score'=>round($score, 3),
+                    ':baseline'=>$median,
+                    ':id'=>(int)$row['id'],
+                ]);
+                $counts['trusted']--;
+                $counts['outlier']++;
+            }
+        }
+
+        return $counts;
     }
 
-    private function label(int $score): string
+    /** @param array<string,mixed> $row @return array{0:string,1:string} */
+    private function semanticStatus(array $row): array
     {
-        return match (true) {
-            $score >= 80 => 'Hoog',
-            $score >= 60 => 'Goed',
-            $score >= 40 => 'Redelijk',
-            $score >= 20 => 'Laag',
-            default => 'Zeer laag',
-        };
+        $tradeType = (string)($row['trade_type'] ?? '');
+        if (!in_array($tradeType, ['buy','sell'], true)) return ['unpriced', 'trade_offer'];
+
+        $amount = isset($row['price_amount']) && $row['price_amount'] !== null ? (float)$row['price_amount'] : null;
+        $unit = isset($row['unit_price_ecto']) && $row['unit_price_ecto'] !== null ? (float)$row['unit_price_ecto'] : null;
+        $currency = strtolower(trim((string)($row['price_currency'] ?? '')));
+        $basis = strtolower(trim((string)($row['price_basis'] ?? '')));
+        $itemKey = (string)($row['item_key'] ?? '');
+        if ((string)($row['price_quality_reason'] ?? '') === 'handmatig_goedgekeurd') {
+            return ['trusted', 'handmatig_goedgekeurd'];
+        }
+
+        if ($amount === null && ($unit === null || $unit <= 0)) return ['unpriced', 'geen_geldprijs'];
+        if ($unit === null || $unit <= 0) return ['uncertain', 'geldprijs_gevonden_maar_geen_betrouwbare_unitprijs'];
+        if (!in_array($currency, ['a','e','k'], true)) return ['uncertain', 'onbekende_prijseenheid'];
+        if (in_array($basis, ['bundle','currency_exchange','unknown','currency_conversion','unqualified','uncertain'], true)) {
+            return ['uncertain', 'onzekere_prijsbasis: '.($basis !== '' ? $basis : 'unknown')];
+        }
+
+        // Preserve the conservative Armbrace rule from 3E, but expose it through
+        // the generic price-quality layer instead of hiding it only in SQL/views.
+        if ($itemKey === 'armbrace-of-truth') {
+            if ($currency !== 'e' || $amount === null || $amount <= 0 || $amount > 100 || abs($unit - $amount) >= 0.001) {
+                return ['uncertain', 'armbrace_unitprijs_niet_explicitiet_betrouwbaar'];
+            }
+        }
+
+        return ['trusted', 'semantiek_ok'];
+    }
+
+    /** @param list<float> $values */
+    private function median(array $values): ?float
+    {
+        if ($values === []) return null;
+        sort($values, SORT_NUMERIC);
+        $count = count($values);
+        $middle = intdiv($count, 2);
+        return $count % 2 === 1
+            ? (float)$values[$middle]
+            : (((float)$values[$middle - 1] + (float)$values[$middle]) / 2);
     }
 }

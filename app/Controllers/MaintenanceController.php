@@ -10,6 +10,7 @@ use LittyWatch\Knowledge\Seeder;
 use LittyWatch\Market\OfferLifecycleService;
 use LittyWatch\Market\StructuredOfferWriter;
 use LittyWatch\Market\VariantNormalizer;
+use LittyWatch\Market\MarketQualityService;
 use LittyWatch\Parser\Catalog;
 use LittyWatch\Parser\ParserEngine;
 use LittyWatch\V2\Alerts\LiveFeedService;
@@ -91,14 +92,18 @@ final class MaintenanceController
             $structuredCreated += $writer->parseMessage($messageId, $message, true);
         }
 
+        $lifecycleResult = $lifecycle->rebuild();
+        $marketQualityResult = (new MarketQualityService($this->pdo))->rebuildAll();
+
         return $this->resultPage('Alle aanbiedingen opnieuw geparsed', [
             'messages_reparsed' => count($rows),
             'offers_created' => $legacyCreated,
             'structured_offers_created' => $structuredCreated,
-            'lifecycle' => $lifecycle->rebuild(),
-            'parser_fix' => 'Phase 3E canonical price normalization actief; stale Armbrace-prijzen worden defensief geweigerd en stackprijzen worden per item omgerekend.',
+            'lifecycle' => $lifecycleResult,
+            'market_quality' => $marketQualityResult,
+            'parser_fix' => 'Phase 3I market outlier & review detection actief.',
             'items_source' => 'structured_offers',
-            'parser_release' => 'V5.2 Phase 3E',
+            'parser_release' => 'V5.2 Phase 3I',
             'timestamps_repaired' => $timestampsRepaired,
         ], '/items');
     }
@@ -106,6 +111,7 @@ final class MaintenanceController
     public function marketMaintenance(Request $request): Response
     {
         $result = (new OfferLifecycleService($this->pdo))->rebuild();
+        $result['market_quality'] = (new MarketQualityService($this->pdo))->rebuildAll();
         return $this->resultPage('Market maintenance voltooid', $result, '/markets');
     }
 
