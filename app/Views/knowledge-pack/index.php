@@ -45,11 +45,20 @@ $profiles = $sources['profiles'] ?? [];
 
   <div class="kp-profile-grid">
     <?php foreach($profiles as $profile):?>
+      <?php
+        $sourceType = (string)($profile['source_type'] ?? 'category');
+        $sourceLabel = match($sourceType) {
+          'list-page' => 'Pagina: ' . (string)($profile['page'] ?? ''),
+          'categories' => count($profile['categories'] ?? []) . ' Wiki-categorieën',
+          default => (string)($profile['category'] ?? ''),
+        };
+        $configJson = json_encode($profile, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+      ?>
       <article class="kp-profile">
         <div>
-          <span class="kicker"><?=h($profile['key'])?></span>
+          <span class="kicker"><?=h($profile['key'])?> · <?=h($sourceType)?></span>
           <h3><?=h($profile['label'])?></h3>
-          <code><?=h($profile['category'])?></code>
+          <code><?=h($sourceLabel)?></code>
         </div>
         <div>
           <span class="count-pill"><?=number_format((int)($staged_profiles[$profile['key']]??0),0,',','.')?></span>
@@ -57,9 +66,7 @@ $profiles = $sources['profiles'] ?? [];
             class="btn small"
             type="button"
             data-kp-profile
-            data-profile="<?=h($profile['key'])?>"
-            data-category="<?=h($profile['category'])?>"
-            data-kind="<?=h($profile['kind'])?>"
+            data-config="<?=h((string)$configJson)?>"
           >Ophalen</button>
         </div>
       </article>
@@ -125,11 +132,30 @@ $profiles = $sources['profiles'] ?? [];
     throw new Error(`${label}: ${lastError?.message || 'Failed to fetch'} (na ${attempts} pogingen)`);
   }
 
-  async function fetchCategory(profile, category, kind) {
+  async function stagePages(profile, kind, pages) {
+    if (!pages.length) return 0;
+    const body = new URLSearchParams({profile, kind, payload: JSON.stringify(pages)});
+    const response = await fetch('/knowledge-pack/stage', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
+        'Accept':'application/json'
+      },
+      body
+    });
+    const raw = await response.text();
+    let data;
+    try { data = JSON.parse(raw); }
+    catch (_) { throw new Error(raw.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim() || 'Staging opslaan gaf geen geldige JSON.'); }
+    if (!response.ok || !data.ok) throw new Error(data.error || 'Staging opslaan mislukt.');
+    return Number(data.received || pages.length);
+  }
+
+  async function fetchCategory(profile, category, kind, progressPrefix = '') {
     let cmcontinue = '';
     let pages = 0;
     let categoryMembers = 0;
-    show(profile, `Categorie ${category} wordt gelezen…`, 5, 0);
+    show(profile, `${progressPrefix}${category} wordt gelezen…`, 5, 0);
 
     do {
       const categoryUrl = new URL(api);
@@ -147,8 +173,6 @@ $profiles = $sources['profiles'] ?? [];
       const titles = members.map(member => member.title).filter(Boolean);
       categoryMembers += titles.length;
 
-      // Do not put up to 100 page titles into one huge GET URL. Large categories
-      // such as Miniatures can otherwise hit URL/proxy/CORS limits.
       const DETAIL_BATCH_SIZE = 20;
       for (let start = 0; start < titles.length; start += DETAIL_BATCH_SIZE) {
         const titleBatch = titles.slice(start, start + DETAIL_BATCH_SIZE);
@@ -166,56 +190,132 @@ $profiles = $sources['profiles'] ?? [];
         detailUrl.searchParams.set('origin','*');
 
         const detailData = await wikiFetch(detailUrl, `Wiki details ${category}`);
-        const batch = Object.values(detailData?.query?.pages ?? {});
-
-        const body = new URLSearchParams({
-          profile,
-          kind,
-          payload: JSON.stringify(batch)
-        });
-        const saveResponse = await fetch('/knowledge-pack/stage', {
-          method:'POST',
-          headers:{
-            'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
-            'Accept':'application/json'
-          },
-          body
-        });
-        const raw = await saveResponse.text();
-        let saveData;
-        try { saveData = JSON.parse(raw); }
-        catch (_) { throw new Error(raw.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim() || 'Staging opslaan gaf geen geldige JSON.'); }
-        if (!saveResponse.ok || !saveData.ok) throw new Error(saveData.error || 'Staging opslaan mislukt.');
-        pages += batch.length;
-        show(profile, `${pages} pagina’s opgeslagen…`, 55, pages);
+        const batch = Object.values(detailData?.query?.pages ?? {}).filter(page => !page?.missing);
+        pages += await stagePages(profile, kind, batch);
+        show(profile, `${progressPrefix}${pages} pagina’s opgeslagen…`, 55, pages);
         await sleep(120);
       }
 
       cmcontinue = categoryData?.continue?.cmcontinue ?? '';
-      show(profile, `${pages} pagina’s opgeslagen…`, cmcontinue ? 70 : 100, pages);
-      await sleep(250);
+      await sleep(180);
     } while (cmcontinue);
 
     if (categoryMembers === 0) {
-      throw new Error(`${category} leverde 0 pagina’s op. Controleer of deze categorie op Guild Wars Wiki bestaat; dit is waarschijnlijk een onjuiste broncategorie.`);
+      throw new Error(`${category} leverde 0 pagina’s op. Controleer of deze categorie op Guild Wars Wiki bestaat.`);
+    }
+    return pages;
+  }
+
+  function cleanListName(value) {
+    return String(value || '')
+      .replace(/\[[^\]]*\]/g, '')
+      .replace(/[†‡*]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function regexMatches(value, pattern) {
+    if (!pattern) return true;
+    try { return new RegExp(pattern, 'iu').test(value); }
+    catch (_) { return true; }
+  }
+
+  async function fetchListPage(config) {
+    const profile = config.key;
+    const kind = config.kind;
+    const pageName = config.page;
+    show(profile, `Wiki-pagina ${pageName} wordt gelezen…`, 10, 0);
+
+    const pageUrl = new URL(`https://wiki.guildwars.com/wiki/${encodeURIComponent(pageName.replace(/ /g,'_'))}`);
+    let rows = [];
+
+    if (config.extractor === 'configured-names') {
+      rows = (config.names || []).map(name => ({
+        title: name,
+        pageid: 0,
+        fullurl: pageUrl.toString(),
+        extract: `Afgeleid van Guild Wars Wiki-pagina ${pageName}.`,
+        categories: [],
+        redirects: []
+      }));
+    } else {
+      const parseUrl = new URL(api);
+      parseUrl.searchParams.set('action','parse');
+      parseUrl.searchParams.set('page',pageName);
+      parseUrl.searchParams.set('prop','text');
+      parseUrl.searchParams.set('format','json');
+      parseUrl.searchParams.set('origin','*');
+      const data = await wikiFetch(parseUrl, `Wiki lijstpagina ${pageName}`);
+      const html = data?.parse?.text?.['*'];
+      if (!html) throw new Error(`Wiki-pagina ${pageName} bevatte geen parseerbare HTML.`);
+
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const seen = new Set();
+      for (const table of doc.querySelectorAll('table.wikitable')) {
+        for (const tr of table.querySelectorAll('tr')) {
+          const cell = tr.querySelector('td');
+          if (!cell) continue;
+          let name = cleanListName(cell.textContent);
+          if (!name || name.length > 100) continue;
+          if (config.exclude_regex && regexMatches(name, config.exclude_regex)) continue;
+          if (config.include_regex && !regexMatches(name, config.include_regex)) continue;
+          const key = name.toLocaleLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          rows.push({
+            title: name,
+            pageid: 0,
+            fullurl: pageUrl.toString(),
+            extract: cleanListName(tr.textContent).slice(0, 1000),
+            categories: [],
+            redirects: []
+          });
+        }
+      }
     }
 
-    show(profile, `${pages} pagina’s uit ${category} opgehaald.`, 100, pages);
-    return pages;
+    if (!rows.length) throw new Error(`${pageName} leverde 0 bruikbare lijstregels op.`);
+
+    const BATCH_SIZE = 40;
+    let saved = 0;
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      saved += await stagePages(profile, kind, rows.slice(i, i + BATCH_SIZE));
+      show(profile, `${saved}/${rows.length} lijstitems opgeslagen…`, 30 + (saved / rows.length) * 70, saved);
+      await sleep(100);
+    }
+    show(profile, `${saved} items uit ${pageName} opgehaald.`, 100, saved);
+    return saved;
+  }
+
+  async function fetchProfile(config) {
+    const type = config.source_type || 'category';
+    if (type === 'list-page') return fetchListPage(config);
+    if (type === 'categories') {
+      const categories = config.categories || [];
+      let total = 0;
+      for (let i = 0; i < categories.length; i++) {
+        total += await fetchCategory(config.key, categories[i], config.kind, `${i+1}/${categories.length} · `);
+        show(config.key, `${i+1}/${categories.length} wapencategorieën verwerkt · ${total} pagina’s`, ((i+1)/categories.length)*100, total);
+      }
+      if (!categories.length) throw new Error(`${config.label} heeft geen broncategorieën ingesteld.`);
+      show(config.key, `${total} pagina’s uit ${categories.length} categorieën opgehaald.`, 100, total);
+      return total;
+    }
+    return fetchCategory(config.key, config.category, config.kind);
+  }
+
+  function configFromButton(button) {
+    try { return JSON.parse(button.dataset.config || '{}'); }
+    catch (_) { throw new Error('Ongeldige bronconfiguratie in sources.json.'); }
   }
 
   async function runProfile(button) {
     if (busy) return;
     busy = true;
     button.disabled = true;
-    try {
-      await fetchCategory(button.dataset.profile, button.dataset.category, button.dataset.kind);
-    } catch (error) {
-      show('Importfout', error.message, 0, 0);
-    } finally {
-      busy = false;
-      button.disabled = false;
-    }
+    try { await fetchProfile(configFromButton(button)); }
+    catch (error) { show('Importfout', error.message, 0, 0); }
+    finally { busy = false; button.disabled = false; }
   }
 
   document.querySelectorAll('[data-kp-profile]').forEach(button => {
@@ -230,11 +330,11 @@ $profiles = $sources['profiles'] ?? [];
     let total = 0;
     try {
       for (let index=0; index<buttons.length; index++) {
-        const button = buttons[index];
-        total += await fetchCategory(button.dataset.profile, button.dataset.category, button.dataset.kind);
-        show('Alle categorieën', `${index+1}/${buttons.length} categorieën verwerkt`, ((index+1)/buttons.length)*100, total);
+        const config = configFromButton(buttons[index]);
+        total += await fetchProfile(config);
+        show('Alle bronnen', `${index+1}/${buttons.length} bronnen verwerkt`, ((index+1)/buttons.length)*100, total);
       }
-      show('Import voltooid', `${total} Wiki-pagina’s staan in staging.`, 100, total);
+      show('Import voltooid', `${total} Wiki-items/pagina’s staan in staging.`, 100, total);
     } catch (error) {
       show('Importfout', error.message, 0, total);
     } finally {
@@ -251,9 +351,8 @@ $profiles = $sources['profiles'] ?? [];
       const response = await fetch('/knowledge-pack/compile', {method:'POST',headers:{'Accept':'application/json'}});
       const raw = await response.text();
       let data;
-      try {
-        data = JSON.parse(raw);
-      } catch (_) {
+      try { data = JSON.parse(raw); }
+      catch (_) {
         const cleaned = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
         throw new Error(cleaned || `Server gaf geen geldige JSON terug (HTTP ${response.status}).`);
       }
@@ -262,9 +361,7 @@ $profiles = $sources['profiles'] ?? [];
       setTimeout(() => location.reload(), 1200);
     } catch (error) {
       show('Publicatiefout', error.message, 0, 0);
-    } finally {
-      busy = false;
-    }
+    } finally { busy = false; }
   });
 
   document.querySelector('[data-kp-clear]')?.addEventListener('click', async () => {

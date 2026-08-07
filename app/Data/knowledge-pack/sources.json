@@ -1,53 +1,101 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "wiki_api": "https://wiki.guildwars.com/api.php",
   "profiles": [
     {
       "key": "unique-items",
       "label": "Green / unique items",
       "category": "Category:Unique items",
-      "kind": "unique-item"
+      "kind": "unique-item",
+      "source_type": "category"
     },
     {
       "key": "weapon-upgrades",
       "label": "Weapon upgrades",
-      "category": "Category:Weapon upgrades",
-      "kind": "weapon-upgrade"
+      "source_type": "list-page",
+      "page": "List of weapon upgrades",
+      "kind": "weapon-upgrade",
+      "extractor": "table-first-cell",
+      "exclude_regex": "^(?:Prefix|Suffix|Inscription|Weapon|Item|Bonus|Effect|Type|Name)$"
     },
     {
       "key": "inscriptions",
       "label": "Inscriptions",
-      "category": "Category:Inscriptions",
-      "kind": "inscription"
+      "source_type": "list-page",
+      "page": "Inscription",
+      "kind": "inscription",
+      "extractor": "table-first-cell",
+      "include_regex": "^(?:[\"“].+[\"”]|.+)$",
+      "table_heading_contains": "inscription"
     },
     {
       "key": "miniatures",
       "label": "Miniatures",
       "category": "Category:Miniatures",
-      "kind": "miniature"
+      "kind": "miniature",
+      "source_type": "category"
     },
     {
       "key": "tonics",
       "label": "Tonics",
       "category": "Category:Tonics",
-      "kind": "tonic"
+      "kind": "tonic",
+      "source_type": "category"
     },
     {
       "key": "consumables",
       "label": "Consumables",
       "category": "Category:Consumables",
-      "kind": "consumable"
+      "kind": "consumable",
+      "source_type": "category"
     },
     {
       "key": "tomes",
       "label": "Tomes",
-      "category": "Category:Tomes",
-      "kind": "tome"
+      "source_type": "list-page",
+      "page": "Skill tome",
+      "kind": "tome",
+      "extractor": "configured-names",
+      "names": [
+        "Warrior Tome",
+        "Elite Warrior Tome",
+        "Ranger Tome",
+        "Elite Ranger Tome",
+        "Monk Tome",
+        "Elite Monk Tome",
+        "Necromancer Tome",
+        "Elite Necromancer Tome",
+        "Mesmer Tome",
+        "Elite Mesmer Tome",
+        "Elementalist Tome",
+        "Elite Elementalist Tome",
+        "Assassin Tome",
+        "Elite Assassin Tome",
+        "Ritualist Tome",
+        "Elite Ritualist Tome",
+        "Paragon Tome",
+        "Elite Paragon Tome",
+        "Dervish Tome",
+        "Elite Dervish Tome"
+      ]
     },
     {
       "key": "weapon-skins",
       "label": "Weapon skins",
-      "category": "Category:Weapon skins",
+      "source_type": "categories",
+      "categories": [
+        "Category:Axes",
+        "Category:Bows",
+        "Category:Daggers",
+        "Category:Focus items",
+        "Category:Hammers",
+        "Category:Scythes",
+        "Category:Shields",
+        "Category:Spears",
+        "Category:Staves",
+        "Category:Swords",
+        "Category:Wands"
+      ],
       "kind": "weapon"
     }
   ]

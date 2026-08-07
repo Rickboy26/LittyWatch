@@ -13,8 +13,8 @@ een eerder geblokkeerd hosting-IP geen blokkade hoeft te zijn.
 ## Veilige importflow
 
 ```text
-Wiki categorymembers
-→ details, categories en redirects
+Wiki categorymembers óf Wiki-lijstpagina
+→ details/tabellen, categories en redirects
 → lokale staging
 → validatie
 → publiceren naar knowledge-pack JSON
@@ -70,3 +70,14 @@ De bestaande catalogus wordt dus niet vervangen.
 Categorieën op een communitywiki kunnen wijzigen. De importer toont daarom
 fouten per categorie en bewaart resultaten eerst in staging. De server-side
 CLI-importer is optioneel; de browserimporter is de voorkeursroute.
+
+
+## V5.1 bronfix
+
+De importer ondersteunt nu drie bronvormen:
+
+- `category`: één echte MediaWiki-categorie;
+- `categories`: meerdere echte categorieën voor één profiel (o.a. weapon skins);
+- `list-page`: een Wiki-overzichtspagina waarvan tabelregels of vooraf gedefinieerde officiële varianten worden geïmporteerd.
+
+De foutieve categorieën `Category:Weapon upgrades`, `Category:Inscriptions`, `Category:Tomes` en `Category:Weapon skins` zijn verwijderd. Weapon upgrades gebruikt `List of weapon upgrades`, inscriptions gebruikt `Inscription`, tomes gebruikt `Skill tome`, en weapon skins worden uit de afzonderlijke wapencategorieën opgebouwd.
