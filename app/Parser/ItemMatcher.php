@@ -70,7 +70,8 @@ final class ItemMatcher
             || ($name === 'golden phoenix blade' && $a === 'gpb')
             || ($name === 'kuuna' && $a === 'kuuna')
             || ($name === 'ruby' && $a === 'ruby')
-            || ($name === 'sapphire' && $a === 'sapphire')) {
+            || ($name === 'sapphire' && $a === 'sapphire')
+            || ($name === "dhuum's soul reaper" && $a === 'dsr')) {
             return 0.88;
         }
         return min(0.99, 0.72 + min(0.24, mb_strlen($a) / 50));

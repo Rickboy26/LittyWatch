@@ -72,6 +72,16 @@ final class SemanticNormalizer
         $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
         $text = preg_replace('/\bPrimeval Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
 
+        // Phase 2M: concrete consumable/trophy shorthand from the residual queue.
+        $text = preg_replace('/\bturtle\s+stones?\b/iu', 'Jadeite Summoning Stone', $text) ?? $text;
+        $text = preg_replace('/\bgolden\s+eggs?\b/iu', 'Golden Egg', $text) ?? $text;
+        $text = preg_replace('/\bhero\s*box(?:es)?\b/iu', "Hero's Strongbox", $text) ?? $text;
+        $text = preg_replace('/\bherobox(?:es)?\b/iu', "Hero's Strongbox", $text) ?? $text;
+        $text = preg_replace('/\bchar\s+carvings?\b/iu', 'Charr Carving', $text) ?? $text;
+        // Bare Rin/Diessa are standard stack shorthand when they are sold as list entries.
+        $text = preg_replace('/(?<![\p{L}])Rin(?=\s+(?:\d+(?:[.,]\d+)?[eakg]|$))/iu', 'Rin Relic', $text) ?? $text;
+        $text = preg_replace('/(?<![\p{L}])Diessa(?=\s+(?:\d+(?:[.,]\d+)?[eakg]|$))/iu', 'Diessa Chalice', $text) ?? $text;
+
         // Phase 2L: final concrete skin aliases and truncated review spellings.
         $text = preg_replace('/\bPrenerf\s+Strongroot(?:\'s)?\s+Shelte\b/iu', "Strongroot's Shelter", $text) ?? $text;
         $text = preg_replace('/\bStrongroot(?:\'s)?\s+Shelte\b/iu', "Strongroot's Shelter", $text) ?? $text;

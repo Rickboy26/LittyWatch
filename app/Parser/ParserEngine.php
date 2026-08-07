@@ -24,6 +24,7 @@ final class ParserEngine
     private GenericItemRecognizer $genericRecognizer;
     private ContextualSegmentExpander $contextualSegmentExpander;
     private ReviewCandidateClassifier $reviewCandidateClassifier;
+    private ItemTaxonomy $taxonomy;
     private SharedOfferListExpander $sharedOfferListExpander;
     private ?CategoryExpander $categoryExpander = null;
     private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
@@ -55,7 +56,8 @@ final class ParserEngine
         $this->metadataExtractor = new MarketMetadataExtractor();
         $this->genericRecognizer = new GenericItemRecognizer();
         $this->contextualSegmentExpander = new ContextualSegmentExpander($this->itemMatcher);
-        $this->reviewCandidateClassifier = new ReviewCandidateClassifier();
+        $this->taxonomy = new ItemTaxonomy($catalog->taxonomy());
+        $this->reviewCandidateClassifier = new ReviewCandidateClassifier($this->taxonomy);
         $this->sharedOfferListExpander = new SharedOfferListExpander();
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());

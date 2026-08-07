@@ -1994,5 +1994,48 @@
     "aliases": [
       "Plagueborn Staff"
     ]
+  },
+  {
+    "key": "golden-egg",
+    "name": "Golden Egg",
+    "category": "sweet",
+    "aliases": [
+      "Golden Egg",
+      "Golden Eggs",
+      "gold egg",
+      "gold eggs"
+    ]
+  },
+  {
+    "key": "jadeite-summoning-stone",
+    "name": "Jadeite Summoning Stone",
+    "category": "summoning-stone",
+    "aliases": [
+      "Jadeite Summoning Stone",
+      "Jadeite Summoning Stones",
+      "turtle stone",
+      "turtle stones"
+    ]
+  },
+  {
+    "key": "charr-carving",
+    "name": "Charr Carving",
+    "category": "trophy",
+    "aliases": [
+      "Charr Carving",
+      "Charr Carvings",
+      "char carving",
+      "char carvings"
+    ]
+  },
+  {
+    "key": "dhuums-soul-reaper",
+    "name": "Dhuum's Soul Reaper",
+    "category": "weapon",
+    "aliases": [
+      "Dhuum's Soul Reaper",
+      "Dhuums Soul Reaper",
+      "DSR"
+    ]
   }
 ]

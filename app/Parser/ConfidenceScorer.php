@@ -5,7 +5,9 @@ namespace LittyWatch\Parser;
 
 final class ConfidenceScorer
 {
-    public function __construct(private readonly Catalog $catalog) {}
+    private ItemTaxonomy $taxonomy;
+
+    public function __construct(private readonly Catalog $catalog) { $this->taxonomy = new ItemTaxonomy($catalog->taxonomy()); }
 
     public function score(?array $item, array $modifiers, ParsedPrice $price, string $segment): array
     {
@@ -20,7 +22,7 @@ final class ConfidenceScorer
         // trader omits the price. This prevents exact matches from lingering at 0.80.
         if (($item['category'] ?? '') !== 'generic-weapon-family'
             && ($item['score'] ?? 0.0) >= 0.86
-            && !in_array(mb_strtolower((string)($item['item'] ?? $item['name'] ?? '')), ['miniature','unique item','staff','wand','bow','axe','sword','spear','daggers','shield'], true)) {
+            && $this->taxonomy->isConcreteMatch($item)) {
             return [max(0.86, (float)$item['score']), 'accepted', 'catalog_match'];
         }
 

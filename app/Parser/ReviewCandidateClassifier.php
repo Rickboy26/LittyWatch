@@ -10,14 +10,35 @@ namespace LittyWatch\Parser;
  */
 final class ReviewCandidateClassifier
 {
+    public function __construct(private readonly ?ItemTaxonomy $taxonomy = null) {}
+
     /** @return array{kind:string,reason:string} */
     public function classify(string $candidate, string $segment): array
     {
         $c = trim(mb_strtolower($candidate));
         $s = trim(mb_strtolower($segment));
 
+        if ($this->taxonomy !== null) {
+            $taxonomyClass = $this->taxonomy->classifyNonItemContext($candidate);
+            if ($taxonomyClass !== null) return $taxonomyClass;
+        }
+
         if ($c === '' || $c === 'unknown') return ['kind'=>'noise','reason'=>'empty'];
         if (!preg_match('/[\p{L}\p{N}]/u', $c)) return ['kind'=>'noise','reason'=>'punctuation'];
+
+        // Phase 2M: orphan list/trade context emitted by punctuation-heavy Kamadan ads.
+        if (preg_match('/^(?:or\s+sale\s*[-:|]*\s*)?cons\s+gom\s+for\s+eoc\s*[\/]\s*aos$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'barter_consumable_context'];
+        }
+        if (preg_match('/^(?:dervish|necro|necromancer|mesmer|ritualist|monk|warrior|ranger|elementalist|assassin|paragon)(?:\s*,\s*(?:dervish|necro|necromancer|mesmer|ritualist|monk|warrior|ranger|elementalist|assassin|paragon))*$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'profession_list_context'];
+        }
+        if (preg_match('/^(?:\d+\s+)?stacks?\)?$/iu', $c)
+            || preg_match('/^stacks?\s*=.*(?:trade|pm)?$/iu', $c)
+            || preg_match('/^(?:or\s+)?\d+(?:[.,]\d+)?\s*(?:a|e|k|g)$/iu', $c)
+            || preg_match('/^(?:each\s+)?open\s+tra(?:de)?$/iu', $c)) {
+            return ['kind'=>'noise','reason'=>'orphan_trade_quantity_context'];
+        }
 
         // Pure currency/price leftovers are never item names.
         if (preg_match('/^(?:\d+(?:[.,]\d+)?\s*)?(?:k|e|a|g|zkeys?|100k)(?:\s*x\s*\d+)?$/iu', $c)) {

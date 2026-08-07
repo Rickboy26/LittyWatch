@@ -10,6 +10,7 @@ final class Catalog
     private array $items;
     private array $modifiers;
     private array $rejectPatterns;
+    private array $taxonomy = [];
     private ?\LittyWatch\Knowledge\KnowledgeBase $knowledgeBase = null;
     private ?\PDO $database = null;
 
@@ -27,6 +28,8 @@ final class Catalog
 
         $this->modifiers = $this->loadJson($dataDir . '/modifiers.json');
         $this->rejectPatterns = $this->loadJson($dataDir . '/reject-patterns.json');
+        $taxonomyPath = $dataDir . '/taxonomy.json';
+        $this->taxonomy = is_file($taxonomyPath) ? $this->loadJson($taxonomyPath) : [];
         if ($db !== null) {
             $this->database = $db;
             \LittyWatch\Knowledge\Schema::install($db);
@@ -50,6 +53,7 @@ final class Catalog
     public function items(): array { return $this->items; }
     public function modifiers(): array { return $this->modifiers; }
     public function rejectPatterns(): array { return $this->rejectPatterns; }
+    public function taxonomy(): array { return $this->taxonomy; }
     public function knowledgeBase(): ?\LittyWatch\Knowledge\KnowledgeBase { return $this->knowledgeBase; }
     public function database(): ?\PDO { return $this->database; }
 
