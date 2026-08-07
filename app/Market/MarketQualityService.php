@@ -34,7 +34,7 @@ final class MarketQualityService
             $filter = ' AND so.item_key IN ('.implode(',', $marks).')';
         }
 
-        $sql = "SELECT so.id,so.trade_type,so.item_key,so.price_amount,so.price_currency,so.price_ecto,so.unit_price_ecto,so.quantity,so.price_basis,so.raw_segment,so.quality_status,so.lifecycle_status,so.price_quality_reason,m.player
+        $sql = "SELECT so.id,so.trade_type,so.item_key,so.normalized_market_key,so.price_amount,so.price_currency,so.price_ecto,so.unit_price_ecto,so.quantity,so.price_basis,so.raw_segment,so.quality_status,so.lifecycle_status,so.price_quality_reason,m.player
                 FROM structured_offers so
                 JOIN messages m ON m.id=so.message_id
                 WHERE so.quality_status='accepted'
@@ -83,11 +83,13 @@ final class MarketQualityService
             ]);
             $counts[$status]++;
             if ($status === 'trusted' && in_array((string)$row['trade_type'], ['buy','sell'], true)) {
-                $candidates[(string)$row['item_key']][] = $row;
+                $baselineKey=trim((string)($row['normalized_market_key']??''));
+                if ($baselineKey==='') $baselineKey=(string)$row['item_key'];
+                $candidates[$baselineKey][] = $row;
             }
         }
 
-        foreach ($candidates as $itemKey => $group) {
+        foreach ($candidates as $baselineKey => $group) {
             $prices = [];
             $traders = [];
             foreach ($group as $row) {
@@ -179,7 +181,41 @@ final class MarketQualityService
         $ecto=$this->ectoValue($row);
         if ($ecto===null || $ecto<=0) return null;
 
-        // First trust parser-owned canonical bases.
+        $segment=trim((string)($row['raw_segment']??''));
+
+        // Phase 3L.8: explicit stack nouns describe the quoted lot even when
+        // traders append /ea or /each ("stacks 22e/ea" = 22e per stack).
+        // This must run before trusting a stale parser-owned `each` basis.
+        // A trailing availability marker such as x15 is inventory count, not
+        // the number of items inside the quoted stack.
+        if ($segment!=='' && preg_match('/\b(?:stack|stacks)\b/i',$segment)) {
+            if (preg_match_all('/(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\s*(?:\/\s*)?(?:ea|each)\b/i',$segment,$quotes,PREG_SET_ORDER)) {
+                // Prefer the first explicit per-lot quote. Bulk totals such as
+                // `10=250a` remain secondary alternatives and cannot replace it.
+                $q=$quotes[0];
+                $quoted=$this->moneyToEcto((float)str_replace(',','.',$q[1]),strtolower($q[2]));
+                if ($quoted!==null && $quoted>0) return ['unit'=>$quoted/250.0,'basis'=>'stack'];
+            }
+            // A single money quote next to explicit stack wording is per stack.
+            preg_match_all('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i',$segment,$money,PREG_SET_ORDER);
+            if (count($money)===1) {
+                $quoted=$this->moneyToEcto((float)str_replace(',','.',$money[0][1]),strtolower($money[0][2]));
+                if ($quoted!==null && $quoted>0) return ['unit'=>$quoted/250.0,'basis'=>'stack'];
+            }
+        }
+
+        // For catalog-declared stack markets, `/ea` commonly means each
+        // quoted stack/lot (Kamadan shorthand), not each underlying item.
+        // Keep explicit numeric ratios (3=1e etc.) outside this shortcut.
+        $catalog=$this->catalogSemantics((string)($row['item_key']??''));
+        if ($segment!=='' && $catalog!==null && $catalog['basis']==='stack' && $catalog['size']>1
+            && preg_match('/\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\s*\/\s*(?:ea|each)\b/i',$segment)
+            && !preg_match('/(?<![a-z0-9.])\d+(?:[.,]\d+)?\s*(?::|=|\/)\s*\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?)\b/i',$segment)) {
+            return ['unit'=>$ecto/$catalog['size'],'basis'=>'stack_inferred'];
+        }
+
+        // First trust parser-owned canonical bases after offer-level stack
+        // wording had a chance to correct an `each` interpretation.
         if (in_array($basis,['each','each_inferred'],true)) {
             return ['unit'=>$ecto,'basis'=>$basis];
         }
@@ -193,7 +229,6 @@ final class MarketQualityService
         // offer slice. The returned basis is part of the recovery contract, so
         // Market Quality cannot reject a safe recovered unit merely because an
         // earlier full-message parse left price_basis='uncertain'.
-        $segment=trim((string)($row['raw_segment']??''));
         if ($segment==='') return null;
 
         // N:price / N=price / N/price = total price for N items.
@@ -298,6 +333,17 @@ final class MarketQualityService
         // Kept as a tiny compatibility wrapper for existing regression probes.
         $recovery=$this->recoverCanonicalPrice($row);
         return $recovery['unit'] ?? null;
+    }
+
+    private function moneyToEcto(float $amount,string $currency): ?float
+    {
+        if ($amount<=0) return null;
+        return match($currency){
+            'a'=>$amount*27.0,
+            'e'=>$amount,
+            'k','plat','platinum'=>$amount/15.0,
+            default=>null,
+        };
     }
 
     /** @param array<string,mixed> $row */
