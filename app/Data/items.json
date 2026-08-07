@@ -1118,5 +1118,127 @@
       "bday voucher",
       "bday vouchers"
     ]
+  },
+  {
+    "key": "scroll-of-resurrection",
+    "name": "Scroll of Resurrection",
+    "category": "consumable",
+    "aliases": [
+      "scroll of resurrection",
+      "res scroll",
+      "res scrolls",
+      "resurrection scroll",
+      "resurrection scrolls"
+    ]
+  },
+  {
+    "key": "candy-apple",
+    "name": "Candy Apple",
+    "category": "consumable",
+    "aliases": [
+      "candy apple",
+      "candy apples",
+      "apple",
+      "apples"
+    ]
+  },
+  {
+    "key": "slice-of-pumpkin-pie",
+    "name": "Slice of Pumpkin Pie",
+    "category": "consumable",
+    "aliases": [
+      "slice of pumpkin pie",
+      "pumpkin pie",
+      "pumpkin pies",
+      "pie",
+      "pies"
+    ]
+  },
+  {
+    "key": "pumpkin-cookie",
+    "name": "Pumpkin Cookie",
+    "category": "consumable",
+    "aliases": [
+      "pumpkin cookie",
+      "pumpkin cookies",
+      "cookie",
+      "cookies"
+    ]
+  },
+  {
+    "key": "candy-corn",
+    "name": "Candy Corn",
+    "category": "consumable",
+    "aliases": [
+      "candy corn",
+      "corn"
+    ]
+  },
+  {
+    "key": "drake-kabob",
+    "name": "Drake Kabob",
+    "category": "consumable",
+    "aliases": [
+      "drake kabob",
+      "kabob",
+      "kabobs",
+      "kebab",
+      "kebabs"
+    ]
+  },
+  {
+    "key": "lunar-fortune",
+    "name": "Lunar Fortune",
+    "category": "consumable",
+    "aliases": [
+      "lunar fortune",
+      "lunar fortunes",
+      "lunar",
+      "lunars",
+      "lunar's fortune",
+      "lunar's fortunes"
+    ]
+  },
+  {
+    "key": "scroll-of-the-lightbringer",
+    "name": "Scroll of the Lightbringer",
+    "category": "consumable",
+    "aliases": [
+      "scroll of the lightbringer",
+      "lightbringer scroll",
+      "lightbringer scrolls",
+      "lb scroll",
+      "lb scrolls"
+    ]
+  },
+  {
+    "key": "droknars-key",
+    "name": "Droknar's Key",
+    "category": "trophy",
+    "aliases": [
+      "droknar's key",
+      "droknars key",
+      "droknar key",
+      "drok key",
+      "drok keys"
+    ]
+  },
+  {
+    "key": "fellblade",
+    "name": "Fellblade",
+    "category": "weapon",
+    "aliases": [
+      "fellblade",
+      "fell blade"
+    ]
+  },
+  {
+    "key": "fiery-dragon-sword",
+    "name": "Fiery Dragon Sword",
+    "category": "weapon",
+    "aliases": [
+      "fiery dragon sword",
+      "fds"
+    ]
   }
 ]

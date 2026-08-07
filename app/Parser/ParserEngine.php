@@ -74,7 +74,10 @@ final class ParserEngine
             // Normalize the complete block first. Some market shorthand (for example
             // birthday ranges) expands into multiple logical offers before segmentation.
             $blockText = $this->semantic->normalize($block['text']);
-            $segments = $this->grammarSegmenter->split($blockText);
+            // Tome advertisements use profession shorthand and comma/space lists that
+            // need semantic expansion before the generic grammar splitter flattens them.
+            $smartSegments = preg_match('/\btomes?\b/iu', $blockText) ? $this->segmenter->split($blockText) : [];
+            $segments = count($smartSegments) > 1 ? $smartSegments : $this->grammarSegmenter->split($blockText);
             if ($segments === []) $segments = $this->segmenter->split($blockText);
             $segments = $this->contextualSegmentExpander->expand($segments);
 

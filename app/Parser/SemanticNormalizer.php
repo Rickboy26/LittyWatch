@@ -25,6 +25,27 @@ final class SemanticNormalizer
         $text = preg_replace('/\breq(?:uirement)?\s*([0-9]{1,2})\b/iu', 'q$1', $text) ?? $text;
         $text = preg_replace('/\binsc(?:r(?:ibable|iptable)?)?\b/iu', 'inscribable', $text) ?? $text;
 
+        // Compact market notation frequently glues requirement + item together.
+        $text = preg_replace('/\b([qr])\s*([0-9]{1,2})(?=[A-Za-z])/iu', '$1$2 ', $text) ?? $text;
+
+        // High-frequency community aliases from the remaining review queue.
+        $marketAliases = [
+            '/\bobby\s+shards?\b/iu' => 'Obsidian Shard',
+            '/\b(?:drok|droknar)\s+keys?\b/iu' => "Droknar's Key",
+            '/\bres(?:urrection)?\s+scrolls?\b/iu' => 'Scroll of Resurrection',
+            '/\bstack\s+of\s+res(?:urrection)?\s+scrolls?\b/iu' => 'Scroll of Resurrection stack',
+            '/\b(?:candy\s+)?apples?\b/iu' => 'Candy Apple',
+            '/\b(?:pumpkin\s+)?pies?\b/iu' => 'Slice of Pumpkin Pie',
+            '/\bcookies?\b/iu' => 'Pumpkin Cookie',
+            '/\b(?:candy\s+)?corn\b/iu' => 'Candy Corn',
+            '/\b(?:kebab|kabob)s?\b/iu' => 'Drake Kabob',
+            '/\blunars?\b/iu' => 'Lunar Fortune',
+            '/\blightbringer\s+scrolls?\b/iu' => 'Scroll of the Lightbringer',
+        ];
+        foreach ($marketAliases as $pattern => $replacement) {
+            $text = preg_replace($pattern, $replacement, $text) ?? $text;
+        }
+
         // Birthday items are commonly advertised as ranges/shorthand in Kamadan.
         $birthdayRange = implode(' | ', [
             'Xunlai Birthday Present 1st Year', 'Xunlai Birthday Present 2nd Year',

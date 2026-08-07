@@ -41,6 +41,26 @@ final class ContextualSegmentExpander
                 continue;
             }
 
+            // Family headers are often followed by a comma-only name list, e.g.
+            // "Everlasting Tonics | Tahlkora,Morgahn,Dunkoro". Expand each
+            // child under the inherited family before catalog matching.
+            if ($activeFamily !== null && str_contains($segment, ',')) {
+                $parts = array_values(array_filter(array_map('trim', preg_split('/\s*,\s*/u', $segment) ?: [])));
+                if (count($parts) > 1) {
+                    $expandedAny = false;
+                    foreach ($parts as $part) {
+                        $candidate = $this->attachFamily($part, $activeFamily, $activeRequirement);
+                        $candidateMatches = $this->items->matchAll($candidate);
+                        if ($candidateMatches === []) continue;
+                        if ($pendingHeader !== null) { $pendingHeader = null; }
+                        foreach ($this->expandRequirements($candidate) as $expanded) $out[] = $expanded;
+                        $activeItem = (string)$candidateMatches[0]['item'];
+                        $expandedAny = true;
+                    }
+                    if ($expandedAny) continue;
+                }
+            }
+
             $matches = $this->items->matchAll($segment);
             if ($matches !== []) {
                 if ($pendingHeader !== null) { $out[] = $pendingHeader; $pendingHeader = null; }
@@ -59,6 +79,16 @@ final class ContextualSegmentExpander
                     continue;
                 }
                 foreach ($this->expandRequirements($prepared) as $expanded) $out[] = $expanded;
+                continue;
+            }
+
+            if ($activeItem !== null && $this->isModifierOnlyDescriptor($segment)) {
+                // A pipe-separated modifier belongs to the previous item, e.g.
+                // "Q11 Eternal Blade | Insc". Merge it into the pending header
+                // instead of creating a fake item called "inscribable".
+                if ($pendingHeader !== null) {
+                    $pendingHeader = trim($pendingHeader . ' ' . $segment);
+                }
                 continue;
             }
 
@@ -95,7 +125,7 @@ final class ContextualSegmentExpander
     /** @return array{family:string,requirement:?string}|null */
     private function familyHeader(string $segment): ?array
     {
-        if (!preg_match('/^(?:(?:q|r|rq|req(?:uirement)?)\s*([0-9]{1,2})\s+)?(staves|staffs|staff|wands?|bows?|swords?|axes?|hammers?|shields?|spears?|scythes?|daggers?|focus(?:es)?)(?:\s+skins?)?$/iu', trim($segment), $m)) {
+        if (!preg_match('/^(?:(?:q|r|rq|req(?:uirement)?)\s*([0-9]{1,2})\s+)?(staves|staffs|staff|wands?|bows?|swords?|axes?|hammers?|shields?|spears?|scythes?|daggers?|focus(?:es)?|everlasting\s+tonics?|tonics?)(?:\s+skins?)?$/iu', trim($segment), $m)) {
             return null;
         }
         return [
@@ -119,14 +149,15 @@ final class ContextualSegmentExpander
             str_starts_with($f, 'scythe') => 'Scythe',
             str_starts_with($f, 'dagger') => 'Daggers',
             str_starts_with($f, 'focus') => 'Focus',
+            str_contains($f, 'tonic') => 'Everlasting Tonic',
             default => ucfirst($family),
         };
     }
 
     private function familyFromItem(string $item): ?string
     {
-        foreach (['Staff','Wand','Bow','Sword','Axe','Hammer','Shield','Spear','Scythe','Daggers','Dagger','Focus'] as $family) {
-            if (preg_match('/\b'.preg_quote($family,'/').'\b/iu', $item)) return $family === 'Dagger' ? 'Daggers' : $family;
+        foreach (['Staff','Wand','Bow','Sword','Axe','Hammer','Shield','Spear','Scythe','Daggers','Dagger','Focus','Tonic'] as $family) {
+            if (preg_match('/\b'.preg_quote($family,'/').'\b/iu', $item)) return $family === 'Dagger' ? 'Daggers' : ($family === 'Tonic' ? 'Everlasting Tonic' : $family);
         }
         return null;
     }
@@ -145,6 +176,17 @@ final class ContextualSegmentExpander
         $remaining = preg_replace('/\b(?:q|r|rq|req(?:uirement)?)\s*\d{1,2}(?:\s*\/\s*\d{1,2})*\b/iu', ' ', $remaining) ?? $remaining;
         $remaining = preg_replace('/[()\[\],+\-\/\s]+/u', '', $remaining) ?? $remaining;
         return $remaining === '';
+    }
+
+    private function isModifierOnlyDescriptor(string $segment): bool
+    {
+        $clean = trim($segment);
+        if ($clean === '') return false;
+        $clean = preg_replace('/\b(?:insc|inscr|inscribable|inscriptable|os|old\s*school|unid(?:entified)?|unded(?:icated)?|ded(?:icated)?)\b/iu', ' ', $clean) ?? $clean;
+        $clean = preg_replace('/\b(?:q|r|rq|req(?:uirement)?)\s*\d{1,2}\b/iu', ' ', $clean) ?? $clean;
+        $clean = preg_replace('/\b(?:pm|offer|offers|price)\b.*$/iu', ' ', $clean) ?? $clean;
+        $clean = preg_replace('/[^\p{L}\p{N}]+/u', '', $clean) ?? $clean;
+        return $clean === '';
     }
 
     private function requirement(string $segment): ?string
@@ -176,7 +218,9 @@ final class ContextualSegmentExpander
             $segment = trim($m[1]);
             $suffix = $m[2];
         }
-        $candidate = trim($segment . ' ' . $family . $suffix);
+        $candidate = $family === 'Everlasting Tonic'
+            ? trim('Everlasting ' . $segment . ' Tonic' . $suffix)
+            : trim($segment . ' ' . $family . $suffix);
         if ($requirement !== null && $this->requirement($candidate) === null) {
             $candidate = $requirement . ' ' . $candidate;
         }
