@@ -1240,5 +1240,124 @@
       "fiery dragon sword",
       "fds"
     ]
+  },
+  {
+    "key": "trick-or-treat-bag",
+    "name": "Trick-or-Treat Bag",
+    "category": "consumable",
+    "aliases": [
+      "trick-or-treat bag",
+      "trick or treat bag",
+      "trick-or-treat bags",
+      "trick or treat bags",
+      "tot bag",
+      "tot bags"
+    ]
+  },
+  {
+    "key": "deldrimor-armor-remnant",
+    "name": "Deldrimor Armor Remnant",
+    "category": "hero-armor",
+    "aliases": [
+      "deldrimor armor remnant",
+      "deldrimor armor remnants",
+      "deld hero armor",
+      "deld armor"
+    ]
+  },
+  {
+    "key": "cloth-of-brotherhood",
+    "name": "Cloth of Brotherhood",
+    "category": "hero-armor",
+    "aliases": [
+      "cloth of brotherhood",
+      "cloth hero armor"
+    ]
+  },
+  {
+    "key": "mysterious-armor-piece",
+    "name": "Mysterious Armor Piece",
+    "category": "hero-armor",
+    "aliases": [
+      "mysterious armor piece",
+      "mysterious armor pieces",
+      "mysterious armor",
+      "mysterious hero armor"
+    ]
+  },
+  {
+    "key": "stolen-sunspear-armor",
+    "name": "Stolen Sunspear Armor",
+    "category": "hero-armor",
+    "aliases": [
+      "stolen sunspear armor",
+      "sunspear armor",
+      "sunspear hero armor"
+    ]
+  },
+  {
+    "key": "clockwork-scythe",
+    "name": "Clockwork Scythe",
+    "category": "weapon",
+    "aliases": [
+      "clockwork scythe",
+      "clockwork scy"
+    ]
+  },
+  {
+    "key": "winged-axe",
+    "name": "Winged Axe",
+    "category": "weapon",
+    "aliases": [
+      "winged axe"
+    ]
+  },
+  {
+    "key": "dual-winged-axe",
+    "name": "Dual Winged Axe",
+    "category": "weapon",
+    "aliases": [
+      "dual winged axe"
+    ]
+  },
+  {
+    "key": "halo-axe",
+    "name": "Halo Axe",
+    "category": "weapon",
+    "aliases": [
+      "halo axe"
+    ]
+  },
+  {
+    "key": "igneous-blade",
+    "name": "Igneous Blade",
+    "category": "weapon",
+    "aliases": [
+      "igneous blade"
+    ]
+  },
+  {
+    "key": "platinum-blade",
+    "name": "Platinum Blade",
+    "category": "weapon",
+    "aliases": [
+      "platinum blade"
+    ]
+  },
+  {
+    "key": "gazing-scythe",
+    "name": "Gazing Scythe",
+    "category": "weapon",
+    "aliases": [
+      "gazing scythe"
+    ]
+  },
+  {
+    "key": "razorclaw-scythe",
+    "name": "Razorclaw Scythe",
+    "category": "weapon",
+    "aliases": [
+      "razorclaw scythe"
+    ]
   }
 ]

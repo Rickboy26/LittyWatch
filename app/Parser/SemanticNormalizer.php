@@ -56,16 +56,21 @@ final class SemanticNormalizer
             '/\b(?:all\s+)?tot\s+bags?\b/iu' => 'Trick-or-Treat Bag',
             '/\btrick\s*(?:-|\s)?or\s*(?:-|\s)?treat\s+bags?\b/iu' => 'Trick-or-Treat Bag',
             '/\bclockwork\s+scy\b/iu' => 'Clockwork Scythe',
-            '/\bdeld(?:rimor|imore)?\s+(?:hero\s+)?armor\b/iu' => 'Deldrimor Armor Remnant',
+            '/\bdeld(?:rimor|imore)?\s+(?:hero\s+)?armor(?!\s+remnants?\b)/iu' => 'Deldrimor Armor Remnant',
             '/\bcloth\s+(?:hero\s+)?armor\b/iu' => 'Cloth of Brotherhood',
-            '/\bmysterious\s+(?:hero\s+)?armor\b/iu' => 'Mysterious Armor Piece',
-            '/\bprimeval\s+(?:hero\s+)?armor\b/iu' => 'Primeval Armor Remnant',
+            '/\bmysterious\s+(?:hero\s+)?armor(?!\s+pieces?\b)/iu' => 'Mysterious Armor Piece',
+            '/\bprimeval\s+(?:hero\s+)?armor(?!\s+remnants?\b)/iu' => 'Primeval Armor Remnant',
             '/\bsunspear\s+(?:hero\s+)?armor\b/iu' => 'Stolen Sunspear Armor',
             '/\beshortbow\b/iu' => 'Eternal Bow',
         ];
         foreach ($marketAliases as $pattern => $replacement) {
             $text = preg_replace($pattern, $replacement, $text) ?? $text;
         }
+
+        // Phase 2F: canonical names must remain idempotent after repeated normalization.
+        $text = preg_replace('/\bDeldrimor Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Deldrimor Armor Remnant', $text) ?? $text;
+        $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
+        $text = preg_replace('/\bPrimeval Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
 
         // Birthday items are commonly advertised as ranges/shorthand in Kamadan.
         $birthdayRange = implode(' | ', [

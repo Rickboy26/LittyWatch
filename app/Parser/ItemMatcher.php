@@ -14,23 +14,34 @@ final class ItemMatcher
         $matches = [];
         foreach ($this->catalog->items() as $item) {
             foreach ($item['aliases'] as $alias) {
-                $aliasLower = mb_strtolower($alias);
-                $offset = 0;
-                while (($pos = mb_stripos($lower, $aliasLower, $offset)) !== false) {
-                    if (!$this->hasBoundaries($lower, $pos, mb_strlen($aliasLower))) {
-                        $offset = $pos + 1;
-                        continue;
+                $variants = [$alias];
+                // Kamadan traders frequently remove spaces from skin names
+                // (WingedAxe, GoldenMachete, RazorclawScythe). Generate this
+                // variant at match time instead of polluting the alias store.
+                if (preg_match('/[\s-]/u', $alias)) {
+                    $compact = preg_replace('/[\s-]+/u', '', $alias) ?? $alias;
+                    if (mb_strlen($compact) >= 6 && $compact !== $alias) $variants[] = $compact;
+                }
+
+                foreach (array_values(array_unique($variants)) as $variant) {
+                    $aliasLower = mb_strtolower($variant);
+                    $offset = 0;
+                    while (($pos = mb_stripos($lower, $aliasLower, $offset)) !== false) {
+                        if (!$this->hasBoundaries($lower, $pos, mb_strlen($aliasLower))) {
+                            $offset = $pos + 1;
+                            continue;
+                        }
+                        $matches[] = [
+                            'item' => $item['name'],
+                            'key' => $item['key'],
+                            'category' => $item['category'] ?? 'unknown',
+                            'start' => $pos,
+                            'length' => mb_strlen($aliasLower),
+                            'alias' => $variant,
+                            'score' => min(0.99, 0.72 + min(0.24, mb_strlen($aliasLower) / 50)),
+                        ];
+                        $offset = $pos + max(1, mb_strlen($aliasLower));
                     }
-                    $matches[] = [
-                        'item' => $item['name'],
-                        'key' => $item['key'],
-                        'category' => $item['category'] ?? 'unknown',
-                        'start' => $pos,
-                        'length' => mb_strlen($aliasLower),
-                        'alias' => $alias,
-                        'score' => min(0.99, 0.72 + min(0.24, mb_strlen($aliasLower) / 50)),
-                    ];
-                    $offset = $pos + max(1, mb_strlen($aliasLower));
                 }
             }
         }

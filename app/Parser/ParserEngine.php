@@ -24,6 +24,7 @@ final class ParserEngine
     private GenericItemRecognizer $genericRecognizer;
     private ContextualSegmentExpander $contextualSegmentExpander;
     private ReviewCandidateClassifier $reviewCandidateClassifier;
+    private SharedOfferListExpander $sharedOfferListExpander;
     private ?CategoryExpander $categoryExpander = null;
     private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
     private ?AttributeMatcher $attributeMatcher = null;
@@ -55,6 +56,7 @@ final class ParserEngine
         $this->genericRecognizer = new GenericItemRecognizer();
         $this->contextualSegmentExpander = new ContextualSegmentExpander($this->itemMatcher);
         $this->reviewCandidateClassifier = new ReviewCandidateClassifier();
+        $this->sharedOfferListExpander = new SharedOfferListExpander();
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
@@ -78,8 +80,11 @@ final class ParserEngine
             $blockText = $this->semantic->normalize($block['text']);
             // Tome advertisements use profession shorthand and comma/space lists that
             // need semantic expansion before the generic grammar splitter flattens them.
+            $sharedListSegments = $this->sharedOfferListExpander->expand($blockText);
             $smartSegments = preg_match('/\btomes?\b/iu', $blockText) ? $this->segmenter->split($blockText) : [];
-            $segments = count($smartSegments) > 1 ? $smartSegments : $this->grammarSegmenter->split($blockText);
+            $segments = $sharedListSegments !== null
+                ? $sharedListSegments
+                : (count($smartSegments) > 1 ? $smartSegments : $this->grammarSegmenter->split($blockText));
             if ($segments === []) $segments = $this->segmenter->split($blockText);
             $segments = $this->contextualSegmentExpander->expand($segments);
 
