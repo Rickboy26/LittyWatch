@@ -40,6 +40,16 @@ final class ReviewCandidateClassifier
             return ['kind'=>'generic','reason'=>'generic_upgrade_category'];
         }
 
+        // Residual review phrases that describe a build/stat family rather than
+        // one concrete inventory item. Keep them out of no_catalog_item.
+        if (preg_match('/^(?:dom(?:ination)?|heal(?:ing)?|prot(?:ection)?|smite|fc|sr|df|spaw(?:ning)?|resto(?:ration)?|com(?:muning)?|inspi(?:ration)?|illu(?:sion)?)\s+sets?$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'attribute_set_category'];
+        }
+        if (preg_match('/\b(?:for|on)\s+(?:scy(?:the)?|staff|wand|shield|sword|axe|bow|spear|daggers?)\b/iu', $c)
+            && preg_match('/\b(?:elementalist|warrior|ranger|monk|necromancer|mesmer|assassin|ritualist|paragon|dervish)\b/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'profession_weapon_modifier_search'];
+        }
+
         // Services / non-item requests can still be market chat, but cannot be
         // represented as an item price point in the current data model.
         if (preg_match('/\b(?:towns?\s+in\s+proph|rp\s+to\s+trim\s+your\s+guild|storage\s+sale|inventory\s+list)\b/iu', $s)) {

@@ -73,5 +73,55 @@
     "alias": "sapphires",
     "item": "Sapphire",
     "source": "community"
+  },
+  {
+    "alias": "tot bag",
+    "item": "Trick-or-Treat Bag",
+    "source": "community"
+  },
+  {
+    "alias": "tot bags",
+    "item": "Trick-or-Treat Bag",
+    "source": "community"
+  },
+  {
+    "alias": "clockwork scy",
+    "item": "Clockwork Scythe",
+    "source": "community"
+  },
+  {
+    "alias": "deld hero armor",
+    "item": "Deldrimor Armor Remnant",
+    "source": "community"
+  },
+  {
+    "alias": "deld armor",
+    "item": "Deldrimor Armor Remnant",
+    "source": "community"
+  },
+  {
+    "alias": "cloth hero armor",
+    "item": "Cloth of Brotherhood",
+    "source": "community"
+  },
+  {
+    "alias": "mysterious hero armor",
+    "item": "Mysterious Armor Piece",
+    "source": "community"
+  },
+  {
+    "alias": "primeval hero armor",
+    "item": "Primeval Armor Remnant",
+    "source": "community"
+  },
+  {
+    "alias": "sunspear hero armor",
+    "item": "Stolen Sunspear Armor",
+    "source": "community"
+  },
+  {
+    "alias": "eshortbow",
+    "item": "Eternal Bow",
+    "source": "community"
   }
 ]

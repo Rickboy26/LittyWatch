@@ -52,6 +52,16 @@ final class SemanticNormalizer
             '/\bparty\s+beaco(?:n)?\b/iu' => 'Party Beacon',
             '/\bsephis\s+word\b/iu' => 'Sephis Sword',
             '/\bfrogg?y?\b/iu' => 'Frog Scepter',
+            // Phase 2E: high-confidence residual aliases from Parser Review.
+            '/\b(?:all\s+)?tot\s+bags?\b/iu' => 'Trick-or-Treat Bag',
+            '/\btrick\s*(?:-|\s)?or\s*(?:-|\s)?treat\s+bags?\b/iu' => 'Trick-or-Treat Bag',
+            '/\bclockwork\s+scy\b/iu' => 'Clockwork Scythe',
+            '/\bdeld(?:rimor|imore)?\s+(?:hero\s+)?armor\b/iu' => 'Deldrimor Armor Remnant',
+            '/\bcloth\s+(?:hero\s+)?armor\b/iu' => 'Cloth of Brotherhood',
+            '/\bmysterious\s+(?:hero\s+)?armor\b/iu' => 'Mysterious Armor Piece',
+            '/\bprimeval\s+(?:hero\s+)?armor\b/iu' => 'Primeval Armor Remnant',
+            '/\bsunspear\s+(?:hero\s+)?armor\b/iu' => 'Stolen Sunspear Armor',
+            '/\beshortbow\b/iu' => 'Eternal Bow',
         ];
         foreach ($marketAliases as $pattern => $replacement) {
             $text = preg_replace($pattern, $replacement, $text) ?? $text;
