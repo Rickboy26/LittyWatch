@@ -328,26 +328,46 @@ final class ParserEngine
     private function resolvePriceSemantics(ParsedPrice $price, array $item, string $slice): ParsedPrice
     {
         if ($price->amount === null) return $price;
+
+        $market = MarketSemantics::fromItem($item);
+        // PriceMatcher recognizes explicit stack wording syntactically. 3H owns
+        // the actual stack size here so future non-250 quote units do not require
+        // regex changes. Multi-stack totals preserve their detected stack count.
+        if ($market->isStackQuoted() && in_array($price->basis, ['stack','stack_total'], true)) {
+            $quantity = $market->quoteSize;
+            if ($price->basis === 'stack_total' && $price->quantity !== null && $price->quantity > 0) {
+                // PriceMatcher currently reports item quantity using a 250 base.
+                $stackCount = $price->quantity / 250.0;
+                $quantity = $stackCount * $market->quoteSize;
+            }
+            return new ParsedPrice(
+                $price->amount,
+                $price->currency,
+                $price->ectoValue,
+                $price->basis,
+                $quantity,
+                $price->ectoValue !== null && $quantity > 0 ? $price->ectoValue / $quantity : null,
+                $price->raw,
+            );
+        }
+
         if ($price->basis !== 'unqualified') return $price;
 
         $key = (string)($item['key'] ?? '');
         $category = (string)($item['category'] ?? '');
         $ecto = $price->ectoValue;
 
-        // Phase 3G: some stackable market commodities are conventionally
-        // quoted as a full 250-item stack even when traders omit `stk`/`stack`.
-        // This is catalog metadata, not a blanket consumable rule: Consets,
-        // Essences and other per-item consumables therefore keep their semantics.
-        if (($item['market_price_basis'] ?? '') === 'stack') {
-            $stackSize = (float)($item['market_stack_size'] ?? 250);
-            if ($stackSize <= 0) $stackSize = 250.0;
+        // Phase 3H: market quote semantics are catalog-owned. A known
+        // stack-quoted item may omit `stk` in Kamadan; only that item's declared
+        // quote size is used. No category-wide consumable assumption is made.
+        if ($market->isStackQuoted()) {
             return new ParsedPrice(
                 $price->amount,
                 $price->currency,
                 $ecto,
                 'stack_inferred',
-                $stackSize,
-                $ecto !== null ? $ecto / $stackSize : null,
+                $market->quoteSize,
+                $ecto !== null ? $ecto / $market->quoteSize : null,
                 $price->raw,
             );
         }

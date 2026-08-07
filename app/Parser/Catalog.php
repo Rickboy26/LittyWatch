@@ -84,6 +84,9 @@ final class Catalog
                 // catalog. Preserve them across knowledge-pack/database merges.
                 'market_price_basis'=>(string)($item['market_price_basis'] ?? ($indexed[$key]['market_price_basis'] ?? '')),
                 'market_stack_size'=>(int)($item['market_stack_size'] ?? ($indexed[$key]['market_stack_size'] ?? 0)),
+                'market_quote_basis'=>(string)($item['market_quote_basis'] ?? ($indexed[$key]['market_quote_basis'] ?? $item['market_price_basis'] ?? ($indexed[$key]['market_price_basis'] ?? ''))),
+                'market_quote_size'=>(int)($item['market_quote_size'] ?? ($indexed[$key]['market_quote_size'] ?? $item['market_stack_size'] ?? ($indexed[$key]['market_stack_size'] ?? 0))),
+                'market_display_basis'=>(string)($item['market_display_basis'] ?? ($indexed[$key]['market_display_basis'] ?? 'each')),
             ];
         }
         return array_values($indexed);

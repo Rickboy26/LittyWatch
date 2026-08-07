@@ -1,5 +1,5 @@
 {
-  "release": "V5.2 Phase 4A",
-  "phase": "4A",
-  "description": "Optional AI market validation queue with structured OpenAI verdicts and Parser Review integration"
+  "release": "V5.2 Phase 3D",
+  "phase": "3D",
+  "description": "Segment-local price semantics, trusted unit pricing and Armbrace-native market display"
 }

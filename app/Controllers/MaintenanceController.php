@@ -10,7 +10,6 @@ use LittyWatch\Knowledge\Seeder;
 use LittyWatch\Market\OfferLifecycleService;
 use LittyWatch\Market\StructuredOfferWriter;
 use LittyWatch\Market\VariantNormalizer;
-use LittyWatch\AI\AiValidationRepository;
 use LittyWatch\Parser\Catalog;
 use LittyWatch\Parser\ParserEngine;
 use LittyWatch\V2\Alerts\LiveFeedService;
@@ -48,7 +47,7 @@ final class MaintenanceController
         // parser/data files as Parser Review. Items now reads structured_offers.
         clearstatcache(true);
         $parser = new ParserEngine(new Catalog($this->root . '/app/Data', $this->pdo));
-        $writer = new StructuredOfferWriter($this->pdo, $parser, new VariantNormalizer(), null, false);
+        $writer = new StructuredOfferWriter($this->pdo, $parser, new VariantNormalizer(), null);
         // Repair historic millisecond timestamps that were previously
         // interpreted as seconds and therefore produced years such as 58567.
         $timestampRows = $this->pdo->query("SELECT id, posted_at, collected_at FROM messages")->fetchAll();
@@ -92,9 +91,6 @@ final class MaintenanceController
             $structuredCreated += $writer->parseMessage($messageId, $message, true);
         }
 
-        $aiConfig = require $this->root . '/config/ai.php';
-        $aiQueued = (new AiValidationRepository($this->pdo))->syncAll((string)$aiConfig['mode']);
-
         return $this->resultPage('Alle aanbiedingen opnieuw geparsed', [
             'messages_reparsed' => count($rows),
             'offers_created' => $legacyCreated,
@@ -102,9 +98,7 @@ final class MaintenanceController
             'lifecycle' => $lifecycle->rebuild(),
             'parser_fix' => 'Phase 3E canonical price normalization actief; stale Armbrace-prijzen worden defensief geweigerd en stackprijzen worden per item omgerekend.',
             'items_source' => 'structured_offers',
-            'parser_release' => 'V5.2 Phase 4A',
-            'ai_queue_selected' => $aiQueued,
-            'ai_mode' => (string)$aiConfig['mode'],
+            'parser_release' => 'V5.2 Phase 3E',
             'timestamps_repaired' => $timestampsRepaired,
         ], '/items');
     }

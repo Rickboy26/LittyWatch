@@ -273,7 +273,10 @@
     "aliases": [
       "royal gift",
       "royal gifts"
-    ]
+    ],
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "lockpick",
@@ -1207,8 +1210,9 @@
       "candy corn",
       "corn"
     ],
-    "market_price_basis": "stack",
-    "market_stack_size": 250
+    "market_quote_basis": "stack",
+    "market_quote_size": 250,
+    "market_display_basis": "each"
   },
   {
     "key": "drake-kabob",
