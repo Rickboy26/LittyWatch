@@ -104,6 +104,7 @@ final class ParserEngine
 
         $results = $this->promoteExplicitGenericRequirements($results);
         $results = $this->promoteExplicitGenericMarketSearches($results, $normalized);
+        $results = $this->promotePhase2RTrustedCatalogMatches($results, $normalized);
         return $this->deduplicate($this->suppressGenericCatalogShadows($results, $normalized));
     }
 
@@ -549,8 +550,42 @@ final class ParserEngine
         if ($generic === 'staff' && preg_match('/\bstaff\s+(?:head|wrap(?:ping)?)\b/iu', $m)) return true;
         if ($generic === 'wand' && preg_match('/\bwand\s+(?:wrap(?:ping)?|memory)\b/iu', $m)) return true;
         if ($generic === 'bow' && preg_match('/\bbow\s*(?:string|sr)\b|\bbowstring\b/iu', $m)) return true;
-        if ($generic === 'spear' && preg_match('/\bspear\s+(?:head|wrap(?:ping)?|grip)\b/iu', $m)) return true;
+        if ($generic === 'spear' && preg_match('/\bspear\s+(?:heads?|wrap(?:ping)?s?|grips?)\b/iu', $m)) return true;
+        if ($generic === 'sword' && preg_match('/\+\s*\d+\s*(?:sr|crit|energy|hp)?\s+sword\s+of\b/iu', $m)) return true;
+        if ($generic === 'axe' && preg_match('/\+\s*30\s*hp\s+for\s+staff\s*[.;,]\s*axe\b/iu', $m)) return true;
         return false;
+    }
+
+    /** @param list<ParsedOffer> $offers @return list<ParsedOffer> */
+    private function promotePhase2RTrustedCatalogMatches(array $offers, string $fullMessage): array
+    {
+        return array_map(function (ParsedOffer $offer) use ($fullMessage): ParsedOffer {
+            if ($offer->reason !== 'catalog_match' || $offer->confidence >= 0.85) return $offer;
+            $item = mb_strtolower(trim($offer->item));
+            $segment = mb_strtolower(trim($offer->segment));
+
+            // Final observed trusted aliases/canonical identities from the 2Q queue.
+            if ($item === 'voltaic spear' && preg_match('/\b(?:volta|voltaic spear)\b/iu', $segment.' '.$fullMessage)) {
+                return $this->withConfidence($offer, 0.90);
+            }
+            if ($item === 'tall shield' && preg_match('/\b(?:q|r)\s*\d{1,2}\b[^|]{0,24}\b(?:tall|tall shield)\b/iu', $fullMessage)) {
+                return $this->withConfidence($offer, 0.90);
+            }
+            if (in_array($item, ['wand','staff'], true)
+                && preg_match('/\b(?:sr|soul\s*reaping)\s+(?:wand|staff)\b/iu', $fullMessage)) {
+                return $this->withConfidence($offer, 0.86);
+            }
+            return $offer;
+        }, $offers);
+    }
+
+    private function withConfidence(ParsedOffer $offer, float $confidence): ParsedOffer
+    {
+        return new ParsedOffer(
+            $offer->tradeType, $offer->item, $offer->itemKey, $offer->modifiers, $offer->price,
+            $confidence, 'accepted', 'catalog_match', $offer->segment,
+            $offer->tokens, $offer->profile, $offer->relevantProperties, $offer->marketKey, $offer->exchange
+        );
     }
 
     private function concreteBelongsToGeneric(string $concrete, string $generic): bool

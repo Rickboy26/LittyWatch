@@ -2129,5 +2129,33 @@
     "aliases": [
       "Spear Grip of Enchanting"
     ]
+  },
+  {
+    "key": "bogroot-focus",
+    "name": "Bogroot Focus",
+    "category": "focus",
+    "aliases": [
+      "Bogroot Focus",
+      "bogroot focus"
+    ]
+  },
+  {
+    "key": "stygian-spear",
+    "name": "Stygian Spear",
+    "category": "weapon",
+    "aliases": [
+      "Stygian Spear",
+      "stygian spear"
+    ]
+  },
+  {
+    "key": "spear-grip-of-fortitude",
+    "name": "Spear Grip of Fortitude",
+    "category": "weapon-upgrade",
+    "aliases": [
+      "Spear Grip of Fortitude",
+      "spear grip of fortitude",
+      "spear grips of fortitude"
+    ]
   }
 ]
