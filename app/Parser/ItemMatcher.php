@@ -96,6 +96,17 @@ final class ItemMatcher
         }
         if ($name === 'mystical summoning stone (gaki)' && $a === 'gaki' && preg_match('/\bpolymock\b/iu', $t)) return false;
 
+
+        // Phase 2L: these short aliases are valid only when they really denote the item.
+        // 'cons' is generic consumables prose in barter lines such as Tengu Guard Cons
+        // or Cons GoM for EoC/AoS and must not become Conset.
+        if ($name === 'conset' && $a === 'cons') {
+            if (preg_match('/\b(?:tengu\s+guard|ghastly|summon(?:ing)?\s+stone|gom|eoc|aos)\b/iu', $t)) return false;
+        }
+        // 'guard' is far too broad by itself. Preserve the full Imperial Guard names,
+        // but never resolve a bare Guard token from Tengu Guard / Guard Cons text.
+        if ($name === 'imperial guard reinforcement order' && $a === 'guard') return false;
+
         // One/two-character aliases are too weak for catalog identity. They may
         // exist in imported knowledge, but should not create price observations.
         if (mb_strlen($a) <= 2) return false;

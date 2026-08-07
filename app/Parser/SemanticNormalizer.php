@@ -72,6 +72,14 @@ final class SemanticNormalizer
         $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
         $text = preg_replace('/\bPrimeval Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Primeval Armor Remnant', $text) ?? $text;
 
+        // Phase 2L: final concrete skin aliases and truncated review spellings.
+        $text = preg_replace('/\bPrenerf\s+Strongroot(?:\'s)?\s+Shelte\b/iu', "Strongroot's Shelter", $text) ?? $text;
+        $text = preg_replace('/\bStrongroot(?:\'s)?\s+Shelte\b/iu', "Strongroot's Shelter", $text) ?? $text;
+        $text = preg_replace('/\bapt\s+not\s+att(?:\s+\d+%)?/iu', 'Aptitude Not Attitude', $text) ?? $text;
+        $text = preg_replace('/\bAttitude\s+not\s+Aptitude\s+not\s+att(?:\s+\d+%)?/iu', 'Aptitude Not Attitude', $text) ?? $text;
+        $text = preg_replace('/\bPlagueb\s+D\b/iu', 'Plagueborn Daggers', $text) ?? $text;
+        $text = preg_replace('/\bChromium\s+Shard\b/iu', 'Chromium Shards', $text) ?? $text;
+
         // Phase 2K: final residual shorthand and malformed-list cleanup.
         $text = preg_replace('/\baptitude\s+no\s+attitude\b/iu', 'Aptitude not Attitude', $text) ?? $text;
         $text = preg_replace('/\bBUs?\b/u', 'Essence of Celerity', $text) ?? $text;

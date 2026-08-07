@@ -1958,5 +1958,41 @@
       "Ancient Remnant",
       "Ancient Remnants"
     ]
+  },
+  {
+    "key": "shinobi-blade",
+    "name": "Shinobi Blade",
+    "category": "sword",
+    "aliases": [
+      "Shinobi Blade",
+      "Shinobi blade"
+    ]
+  },
+  {
+    "key": "plagueborn-daggers",
+    "name": "Plagueborn Daggers",
+    "category": "daggers",
+    "aliases": [
+      "Plagueborn Daggers",
+      "Plagueborn D",
+      "Plagueb D"
+    ]
+  },
+  {
+    "key": "chromium-shards",
+    "name": "Chromium Shards",
+    "category": "daggers",
+    "aliases": [
+      "Chromium Shards",
+      "Chromium Shard"
+    ]
+  },
+  {
+    "key": "plagueborn-staff",
+    "name": "Plagueborn Staff",
+    "category": "staff",
+    "aliases": [
+      "Plagueborn Staff"
+    ]
   }
 ]

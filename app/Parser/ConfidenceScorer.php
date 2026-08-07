@@ -16,6 +16,14 @@ final class ConfidenceScorer
             return [$price->amount !== null ? 0.35 : 0.20, 'review', 'no_catalog_item'];
         }
 
+        // Phase 2L: exact named catalog skins/minis are identities even when a
+        // trader omits the price. This prevents exact matches from lingering at 0.80.
+        if (($item['category'] ?? '') !== 'generic-weapon-family'
+            && ($item['score'] ?? 0.0) >= 0.86
+            && !in_array(mb_strtolower((string)($item['item'] ?? $item['name'] ?? '')), ['miniature','unique item','staff','wand','bow','axe','sword','spear','daggers','shield'], true)) {
+            return [max(0.86, (float)$item['score']), 'accepted', 'catalog_match'];
+        }
+
         // Phase 2K: an explicit requirement makes a generic weapon-family
         // request a well-defined market variant (e.g. Q8 Bow / Q5 Focus).
         if (($item['category'] ?? '') === 'generic-weapon-family'

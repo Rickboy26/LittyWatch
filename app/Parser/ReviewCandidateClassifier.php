@@ -25,6 +25,18 @@ final class ReviewCandidateClassifier
         }
         if (preg_match('/^[a-z]$/iu', $c)) return ['kind'=>'noise','reason'=>'single_token_fragment'];
 
+        // Phase 2L: dedication and broad rarity/category fragments can be emitted
+        // as their own grammar segment next to the actual concrete item. They must
+        // never create a second generic Miniature/Unique-item review row.
+        if (preg_match('/^(?:ded|unded|dedicated|undedicated)$/iu', $c)) {
+            return ['kind'=>'noise','reason'=>'dedication_only'];
+        }
+        if (preg_match('/^(?:new\s+)?fow\s+green$/iu', $c)
+            || preg_match('~^(?:purple|green|yellow)(?:\s*[/,&+]\s*(?:purple|green|yellow))+\s+minis?$~iu', $c)
+            || preg_match('/^green\s+(?:monk\s+)?weapons?$/iu', $c)
+            || preg_match('/^green\s+(?:swords?|scythes?|bows?|axes?|staves|wands?)$/iu', $c)) {
+            return ['kind'=>'generic','reason'=>'rarity_or_collection_category'];
+        }
         // Category-level searches are useful market intent, but they are not
         // concrete catalog items and must not pollute no_catalog_item review.
         if (preg_match('/\b(?:old\s*school|os)\b.*\b(?:weapons?|shields?)\b|\b(?:weapons?|shields?)\b.*\b(?:old\s*school|os)\b/iu', $c)) {
