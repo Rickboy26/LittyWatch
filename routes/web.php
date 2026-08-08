@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 use LittyWatch\Controllers\{AdminController,AlertController,AssetController,DashboardController,IntelligenceController,ItemController,KnowledgeController,KnowledgePackController,LiveController,MaintenanceController,ParserReviewController,StructuredMarketController,StructuredOfferController,SystemController,TraderController,TrendController,WatchlistController};
-use LittyWatch\Core\{Container,Router};
+use LittyWatch\Core\{Container,Router,Response};
 return static function(Router $router,Container $c):void{
  $router->get('/',fn($r)=>$c->get(DashboardController::class)->index($r));
  $router->get('/live',fn($r)=>$c->get(LiveController::class)->index($r));
@@ -9,9 +9,9 @@ return static function(Router $router,Container $c):void{
  $router->get('/items',fn($r)=>$c->get(ItemController::class)->index($r));$router->get('/item',fn($r)=>$c->get(ItemController::class)->show($r));
  $router->get('/traders',fn($r)=>$c->get(TraderController::class)->index($r));$router->get('/trader',fn($r)=>$c->get(TraderController::class)->show($r));
  $router->get('/trends',fn($r)=>$c->get(TrendController::class)->index($r));$router->get('/intelligence',fn($r)=>$c->get(IntelligenceController::class)->index($r));
- $router->get('/watchlist',fn($r)=>$c->get(WatchlistController::class)->index($r));$router->post('/watchlist',fn($r)=>$c->get(WatchlistController::class)->update($r));
+ $router->get('/watchlist',fn($r)=>new Response('',302,['Location'=>'/alerts']));$router->post('/watchlist',fn($r)=>$c->get(WatchlistController::class)->update($r));
  $router->get('/alerts',fn($r)=>$c->get(AlertController::class)->index($r));$router->post('/alerts',fn($r)=>$c->get(AlertController::class)->update($r));
- $router->get('/game-assets',fn($r)=>$c->get(AssetController::class)->index($r));$router->get('/system',fn($r)=>$c->get(SystemController::class)->index($r));
+ $router->get('/game-assets',fn($r)=>$c->get(AssetController::class)->index($r));$router->post('/game-assets',fn($r)=>$c->get(AssetController::class)->update($r));$router->get('/system',fn($r)=>$c->get(SystemController::class)->index($r));
  $router->get('/structured-offers',fn($r)=>$c->get(StructuredOfferController::class)->index($r));$router->get('/knowledge',fn($r)=>$c->get(KnowledgeController::class)->index($r));
  $router->get('/knowledge-pack',fn($r)=>$c->get(KnowledgePackController::class)->index($r));
  $router->post('/knowledge-pack/stage',fn($r)=>$c->get(KnowledgePackController::class)->stage($r));

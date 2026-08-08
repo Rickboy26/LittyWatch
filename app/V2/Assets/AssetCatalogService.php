@@ -157,6 +157,9 @@ SQL);
                 }
                 if (!is_file($target) && file_put_contents($target,$contents,LOCK_EX) === false) throw new RuntimeException('Icoon kon niet worden opgeslagen: '.$safe);
                 $datFileId = preg_match('/item[_-]?icon[_-]?(\d+)/i',$sourceFilename,$m) ? (int)$m[1] : null;
+                // Shared Guild Wars icons may have identical pixels but different DAT IDs.
+                // Namespace the unique DB key so no DAT entry is lost.
+                $dbHash=$hash.':'.($datFileId!==null?'dat-'.$datFileId:'file-'.hash('sha1',$manifestPath));
                 $sourceName = $this->nullableString($item['name'] ?? null);
                 $linkedKey=null; $linkedName=null;
                 if ($sourceName !== null && ($market=$this->findMarketItemByName($sourceName)) !== null) {
@@ -164,7 +167,7 @@ SQL);
                 }
                 $insert->execute([
                     ':import_id'=>$importId, ':dat_file_id'=>$datFileId, ':source_filename'=>$sourceFilename,
-                    ':relative_path'=>$relative, ':web_path'=>'/'.$relative, ':sha256'=>$hash,
+                    ':relative_path'=>$relative, ':web_path'=>'/'.$relative, ':sha256'=>$dbHash,
                     ':bytes'=>isset($item['bytes'])?(int)$item['bytes']:strlen($contents),
                     ':width'=>isset($item['width'])?(int)$item['width']:null,
                     ':height'=>isset($item['height'])?(int)$item['height']:null,
@@ -188,8 +191,8 @@ SQL);
     public function link(int $assetId,string $itemKey): void
     {
         $this->install();
-        $item=$this->findMarketItemByKey($itemKey);
-        if ($item===null) throw new RuntimeException('Het gekozen marktitem bestaat niet.');
+        $item=$this->findMarketItemByKey($itemKey) ?? $this->findMarketItemByName($itemKey);
+        if ($item===null) throw new RuntimeException('Het gekozen marktitem bestaat niet. Zoek op de exacte itemnaam of market item key.');
         $stmt=$this->pdo->prepare("UPDATE item_assets SET linked_item_key=:k,linked_item_name=:n,updated_at=CURRENT_TIMESTAMP WHERE id=:id");
         $stmt->execute([':k'=>$item['item_key'],':n'=>$item['item'],':id'=>$assetId]);
         if ($stmt->rowCount()===0) throw new RuntimeException('Het icoon bestaat niet of was al identiek gekoppeld.');
@@ -210,7 +213,20 @@ SQL);
             'assets'=>(int)$this->pdo->query('SELECT COUNT(*) FROM item_assets')->fetchColumn(),
             'linked'=>(int)$this->pdo->query("SELECT COUNT(*) FROM item_assets WHERE linked_item_key IS NOT NULL AND linked_item_key<>''")->fetchColumn(),
             'unlinked'=>(int)$this->pdo->query("SELECT COUNT(*) FROM item_assets WHERE linked_item_key IS NULL OR linked_item_key=''")->fetchColumn(),
+            'files'=>$this->bundledIconCount(),
         ];
+    }
+
+    private function bundledIconCount(): int
+    {
+        $manifest=$this->root.'/assets/game-items/inventory-manifest.json';
+        if(is_file($manifest)){
+            $decoded=json_decode((string)file_get_contents($manifest),true);
+            $count=(int)($decoded['counts']['icons']??0);
+            if($count>0)return $count;
+        }
+        $files=glob($this->root.'/assets/game-items/inventory/itemIcon_*.png')?:[];
+        return count($files);
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -231,11 +247,23 @@ SQL);
     /** @return array<int,array<string,string>> */
     public function marketItems(string $query='',int $limit=750): array
     {
-        if (!$this->tableExists('structured_offers')) return [];
-        $where="TRIM(COALESCE(item,''))<>''"; $params=[];
-        if ($query!=='') { $where.=' AND (item LIKE :q OR item_key LIKE :q)'; $params[':q']='%'.$query.'%'; }
-        $stmt=$this->pdo->prepare("SELECT MIN(item_key) item_key,item FROM structured_offers WHERE $where GROUP BY item ORDER BY item COLLATE NOCASE LIMIT :limit");
-        foreach($params as $k=>$v)$stmt->bindValue($k,$v,PDO::PARAM_STR); $stmt->bindValue(':limit',max(1,min(3000,$limit)),PDO::PARAM_INT); $stmt->execute(); return $stmt->fetchAll();
+        $max=max(1,min(3000,$limit));
+        $byKey=[];
+        if($this->tableExists('structured_offers')){
+            $where="TRIM(COALESCE(item,''))<>''"; $params=[];
+            if($query!=='') { $where.=' AND (item LIKE :q OR item_key LIKE :q)'; $params[':q']='%'.$query.'%'; }
+            $stmt=$this->pdo->prepare("SELECT MIN(item_key) item_key,item FROM structured_offers WHERE $where GROUP BY item ORDER BY item COLLATE NOCASE LIMIT :limit");
+            foreach($params as $k=>$v)$stmt->bindValue($k,$v,PDO::PARAM_STR);
+            $stmt->bindValue(':limit',$max,PDO::PARAM_INT);$stmt->execute();
+            foreach($stmt->fetchAll() as$row){$key=trim((string)($row['item_key']??''));$name=trim((string)($row['item']??''));if($key!==''&&$name!=='')$byKey[$key]=['item_key'=>$key,'item'=>$name];}
+        }
+        foreach($this->catalogItems() as$item){
+            $key=(string)$item['item_key'];$name=(string)$item['item'];
+            if($query!==''&&stripos($key,$query)===false&&stripos($name,$query)===false)continue;
+            $byKey[$key]??=$item;
+        }
+        $rows=array_values($byKey);usort($rows,static fn(array$a,array$b):int=>strcasecmp($a['item'],$b['item']));
+        return array_slice($rows,0,$max);
     }
 
     /**
@@ -252,7 +280,7 @@ SQL);
         if(!is_dir($base)&&!mkdir($base,0775,true)&&!is_dir($base))throw new RuntimeException('assets/game-items kon niet worden aangemaakt.');
 
         $batch='local-inventory-scan';
-        $stmt=$this->pdo->prepare("INSERT INTO asset_imports (batch_key,source_name,extractor_version,declared_icons,imported_icons,skipped_icons,status,message) VALUES (:b,'Lokale inventory icons','phase3m3-scan',0,0,0,'processing','') ON CONFLICT(batch_key) DO UPDATE SET status='processing',message='',created_at=CURRENT_TIMESTAMP");
+        $stmt=$this->pdo->prepare("INSERT INTO asset_imports (batch_key,source_name,extractor_version,declared_icons,imported_icons,skipped_icons,status,message) VALUES (:b,'Lokale inventory icons','phase3m4-scan',0,0,0,'processing','') ON CONFLICT(batch_key) DO UPDATE SET status='processing',message='',created_at=CURRENT_TIMESTAMP");
         $stmt->execute([':b'=>$batch]);
         $get=$this->pdo->prepare('SELECT id FROM asset_imports WHERE batch_key=:b LIMIT 1');$get->execute([':b'=>$batch]);$importId=(int)$get->fetchColumn();
 
@@ -265,24 +293,32 @@ SQL);
             $files[]=['path'=>$file->getPathname(),'name'=>$name,'id'=>(int)$m[1]];
         }
 
-        $byHash=$this->pdo->prepare('SELECT * FROM item_assets WHERE sha256=:h LIMIT 1');
         $byDat=$this->pdo->prepare('SELECT * FROM item_assets WHERE dat_file_id=:d ORDER BY CASE WHEN linked_item_key IS NULL OR linked_item_key=\'\' THEN 1 ELSE 0 END,id DESC LIMIT 1');
         $update=$this->pdo->prepare('UPDATE item_assets SET import_id=:import_id,dat_file_id=:dat_file_id,source_filename=:source_filename,relative_path=:relative_path,web_path=:web_path,sha256=:sha256,bytes=:bytes,width=:width,height=:height,updated_at=CURRENT_TIMESTAMP WHERE id=:id');
         $insert=$this->pdo->prepare('INSERT OR IGNORE INTO item_assets (import_id,dat_file_id,source_filename,relative_path,web_path,sha256,bytes,width,height,created_at,updated_at) VALUES (:import_id,:dat_file_id,:source_filename,:relative_path,:web_path,:sha256,:bytes,:width,:height,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
         $new=0;$updated=0;
+        $startedTransaction=!$this->pdo->inTransaction();
+        if($startedTransaction)$this->pdo->beginTransaction();
+        try{
         foreach($files as$f){
             $hash=hash_file('sha256',$f['path']);if(!is_string($hash)||$hash==='')continue;
+            $dbHash=$hash.':dat-'.$f['id'];
             $relative=ltrim(str_replace('\\','/',substr($f['path'],strlen($this->root))),'/');
             $dimensions=@getimagesize($f['path']);$width=is_array($dimensions)?(int)($dimensions[0]??0):null;$height=is_array($dimensions)?(int)($dimensions[1]??0):null;
-            $byHash->execute([':h'=>$hash]);$row=$byHash->fetch();
-            if(!$row){$byDat->execute([':d'=>$f['id']]);$row=$byDat->fetch();}
-            $params=[':import_id'=>$importId,':dat_file_id'=>$f['id'],':source_filename'=>$f['name'],':relative_path'=>$relative,':web_path'=>'/'.$relative,':sha256'=>$hash,':bytes'=>(int)filesize($f['path']),':width'=>$width,':height'=>$height];
+            $byDat->execute([':d'=>$f['id']]);$row=$byDat->fetch();
+            $params=[':import_id'=>$importId,':dat_file_id'=>$f['id'],':source_filename'=>$f['name'],':relative_path'=>$relative,':web_path'=>'/'.$relative,':sha256'=>$dbHash,':bytes'=>(int)filesize($f['path']),':width'=>$width,':height'=>$height];
             if($row){
                 $params[':id']=(int)$row['id'];
-                try{$update->execute($params);$updated++;}catch(Throwable){/* duplicate hash: another row already owns it */}
+                try{$update->execute($params);$updated++;}catch(Throwable){/* preserve an existing legacy/duplicate storage row */}
             }else{
                 $insert->execute($params);if($insert->rowCount()>0)$new++;
             }
+        }
+        $this->applyManualOverrides();
+        if($startedTransaction)$this->pdo->commit();
+        }catch(Throwable $e){
+            if($startedTransaction&&$this->pdo->inTransaction())$this->pdo->rollBack();
+            throw $e;
         }
         $summary=$this->summary();
         $finish=$this->pdo->prepare("UPDATE asset_imports SET declared_icons=:d,imported_icons=:i,skipped_icons=0,status='completed',message=:m WHERE id=:id");
@@ -312,12 +348,48 @@ SQL);
     /** @return array<string,mixed>|null */
     private function findMarketItemByName(string $name): ?array
     {
-        if(!$this->tableExists('structured_offers'))return null; $stmt=$this->pdo->prepare("SELECT MIN(item_key) item_key,item FROM structured_offers WHERE LOWER(TRIM(item))=LOWER(TRIM(:n)) GROUP BY item LIMIT 1"); $stmt->execute([':n'=>$name]); $row=$stmt->fetch(); return $row?:null;
+        if($this->tableExists('structured_offers')){
+            $stmt=$this->pdo->prepare("SELECT MIN(item_key) item_key,item FROM structured_offers WHERE LOWER(TRIM(item))=LOWER(TRIM(:n)) GROUP BY item LIMIT 1");
+            $stmt->execute([':n'=>$name]);$row=$stmt->fetch();if($row)return$row;
+        }
+        $needle=mb_strtolower(trim($name));
+        foreach($this->catalogItems() as$item)if(mb_strtolower($item['item'])===$needle)return$item;
+        return null;
     }
     /** @return array<string,mixed>|null */
     private function findMarketItemByKey(string $key): ?array
     {
-        if(!$this->tableExists('structured_offers'))return null; $stmt=$this->pdo->prepare("SELECT MIN(item_key) item_key,MIN(item) item FROM structured_offers WHERE item_key=:k GROUP BY item_key LIMIT 1"); $stmt->execute([':k'=>trim($key)]); $row=$stmt->fetch(); return $row?:null;
+        $key=trim($key);
+        if($this->tableExists('structured_offers')){
+            $stmt=$this->pdo->prepare("SELECT MIN(item_key) item_key,MIN(item) item FROM structured_offers WHERE item_key=:k GROUP BY item_key LIMIT 1");
+            $stmt->execute([':k'=>$key]);$row=$stmt->fetch();if($row)return$row;
+        }
+        foreach($this->catalogItems() as$item)if($item['item_key']===$key)return$item;
+        return null;
+    }
+
+    /** @return array<int,array{item_key:string,item:string}> */
+    private function catalogItems(): array
+    {
+        static $cache=null;if(is_array($cache))return$cache;
+        $cache=[];$file=$this->root.'/app/Data/items.json';if(!is_file($file))return$cache;
+        $decoded=json_decode((string)file_get_contents($file),true);if(!is_array($decoded))return$cache;
+        foreach($decoded as$row){
+            if(!is_array($row))continue;$key=trim((string)($row['key']??''));$name=trim((string)($row['name']??''));
+            if($key!==''&&$name!=='')$cache[]=['item_key'=>$key,'item'=>$name];
+        }
+        return$cache;
+    }
+
+    private function applyManualOverrides(): void
+    {
+        $file=$this->root.'/config/item-icons.php';if(!is_file($file))return;
+        $map=require$file;if(!is_array($map)||$map===[])return;
+        $update=$this->pdo->prepare("UPDATE item_assets SET linked_item_key=:k,linked_item_name=:n,updated_at=CURRENT_TIMESTAMP WHERE dat_file_id=:d AND (linked_item_key IS NULL OR linked_item_key='')");
+        foreach($map as$name=>$datId){
+            $id=(int)$datId;if($id<=0)continue;$item=$this->findMarketItemByName((string)$name);if($item===null)continue;
+            $update->execute([':k'=>$item['item_key'],':n'=>$item['item'],':d'=>$id]);
+        }
     }
     private function tableExists(string $table): bool { $stmt=$this->pdo->prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:n LIMIT 1"); $stmt->execute([':n'=>$table]); return (bool)$stmt->fetchColumn(); }
     private function nullableString(mixed $value): ?string { $v=trim((string)($value??'')); return $v!==''?$v:null; }

@@ -1,0 +1,8 @@
+﻿LittyWatch GW1 Asset Package
+============================
+
+Gegenereerd: 2026-08-06 21:05:08
+Iconen: 5277
+
+Dit pakket bevat de uit Gw.dat geÃ«xporteerde inventory-iconen.
+De koppeling met itemnamen en model-ID's volgt in extractor-fase 2.

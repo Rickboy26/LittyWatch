@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 $dq = $dataQuality['summary'] ?? [];
-$assets = $assetSummary ?? ['imports'=>0,'assets'=>0,'linked'=>0,'unlinked'=>0];
+$assets = $assetSummary ?? ['imports'=>0,'assets'=>0,'linked'=>0,'unlinked'=>0,'files'=>0];
 ?>
 
 <section class="page-intro">
@@ -17,12 +17,12 @@ $assets = $assetSummary ?? ['imports'=>0,'assets'=>0,'linked'=>0,'unlinked'=>0];
     <div class="asset-health-copy">
         <span class="kicker">INVENTORY ICONS</span>
         <h3>Lokale Guild Wars-itemicons</h3>
-        <p>LittyWatch gebruikt lokale <code>item_icon_12345.png</code>-bestanden. Geen Wiki-thumbnails op de spelerspagina's.</p>
+        <p><?= (int)($assets['files'] ?? 0) ?> echte Gw.dat inventory icons zijn meegeleverd. Geen Wiki-thumbnails op de spelerspagina's.</p>
     </div>
     <div class="asset-health-stats">
-        <span>Icons<strong><?= (int)($assets['assets'] ?? 0) ?></strong></span>
+        <span>Bestanden<strong><?= (int)($assets['files'] ?? 0) ?></strong></span>
+        <span>Geïndexeerd<strong><?= (int)($assets['assets'] ?? 0) ?></strong></span>
         <span>Gekoppeld<strong><?= (int)($assets['linked'] ?? 0) ?></strong></span>
-        <span>Ongekoppeld<strong><?= (int)($assets['unlinked'] ?? 0) ?></strong></span>
     </div>
     <a class="btn" href="/admin/assets-scan">Inventory icons indexeren</a>
 </section>

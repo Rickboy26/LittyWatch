@@ -40,7 +40,7 @@ $tradeOffers = array_values(array_filter($offers, static fn(array $offer): bool 
     </div>
   </div>
   <div class="hero-actions">
-    <a class="btn" href="/watchlist?item=<?= rawurlencode((string)$item['item']) ?>">☆ Watchlist</a>
+    <a class="btn" href="/alerts">🔔 Alert instellen</a>
     <a class="btn secondary" href="/items">← Alle items</a>
   </div>
 </section>

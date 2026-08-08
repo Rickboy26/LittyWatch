@@ -128,6 +128,11 @@ if (is_file($manualMapFile)) {
     $manual = require $manualMapFile;
     if (is_array($manual)) {
         $id = isset($manual[$item]) ? (int)$manual[$item] : 0;
+        if ($id <= 0) {
+            foreach ($manual as $name => $datId) {
+                if (strcasecmp(trim((string)$name), $item) === 0) { $id=(int)$datId; break; }
+            }
+        }
         if ($id > 0 && ($path = $findByDatId($id)) !== null) $serve($path);
     }
 }

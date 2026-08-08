@@ -20,3 +20,7 @@ Dit is een frontend- en applicatiestructuur-rewrite bovenop de bestaande datalaa
 
 ## Phase 3M3
 Zie `README-PHASE3M3.md` voor dashboard polish, correcte exchange-rate normalisatie en lokale GW1 inventory icons.
+
+
+## Phase 3M4
+De build bevat nu 5277 lokale Gw.dat inventory icons, een DAT-ID koppelbeheerder en de opgeschoonde spelersinterface. Zie `README-PHASE3M4.md`.

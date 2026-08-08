@@ -118,7 +118,7 @@ final class MaintenanceController
     public function scanAssets(Request $request): Response
     {
         $result = (new AssetCatalogService($this->pdo, $this->root))->scanLocalIcons();
-        return $this->resultPage('Inventory icons geïndexeerd', $result, '/admin');
+        return $this->resultPage('Inventory icons geïndexeerd', $result, '/game-assets');
     }
 
     public function seedKnowledge(Request $request): Response
