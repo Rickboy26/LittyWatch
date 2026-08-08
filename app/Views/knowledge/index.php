@@ -1,5 +1,17 @@
 <?php declare(strict_types=1); ?>
 <section class="pagehead"><div><div class="eyebrow">GUILD WARS KNOWLEDGE BASE</div><h1>Itemprofielen & attributes</h1><p class="muted">LittyWatch gebruikt per itemtype alleen de eigenschappen die werkelijk de marktvariant bepalen.</p></div><div class="actions"><a class="btn" href="/knowledge-pack">Wiki Knowledge Pack</a><a href="/admin/knowledge-seed">Knowledge Base opnieuw seeden</a><a class="btn secondary" href="/admin/parser-lab">Parser Lab</a></div></section>
+
+<section class="panel gwm-import-panel">
+  <div class="eyebrow">GW1 CATALOGUS · PHASE 3N2</div>
+  <h2>GW Market-catalogus in LittyWatch opnemen</h2>
+  <p class="muted">Haalt de publieke GW1-itemgegevens per categorie in je browser op en schrijft namen, categorieën, stats en bruikbare aliases naar LittyWatch. De Kamadan-prijsdata blijft volledig van LittyWatch zelf.</p>
+  <div class="actions">
+    <button type="button" class="btn" data-gwm-import>GW1 catalogus importeren / bijwerken</button>
+  </div>
+  <p class="muted" data-gwm-status>Nog niet gestart. Bestaande items worden veilig bijgewerkt; opnieuw uitvoeren maakt geen dubbele items.</p>
+</section>
+<script src="/assets/js/gw-market-catalog-import.js?v=3n2" defer></script>
+
 <div class="statgrid">
   <div class="stat"><span>Items</span><b><?=h((string)$stats['items'])?></b></div>
   <div class="stat"><span>Aliassen</span><b><?=h((string)$stats['aliases'])?></b></div>

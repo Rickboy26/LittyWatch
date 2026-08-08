@@ -10,7 +10,7 @@ $assets = $assetSummary ?? ['imports'=>0,'assets'=>0,'linked'=>0,'unlinked'=>0,'
         <h1>Admin</h1>
         <p>Alle beheerfuncties vanaf één plek. Deze ingang kan later als geheel achter authenticatie worden gezet.</p>
     </div>
-</section>
+<p><a class="btn secondary" href="/knowledge">GW1 / GW Market catalogus</a></p></section>
 
 <section class="asset-health">
     <div class="asset-health-icon">GW</div>
