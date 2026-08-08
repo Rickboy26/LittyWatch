@@ -619,6 +619,38 @@ SQL);
         return is_string($path)&&$path!==''?$path:null;
     }
 
+
+    /** @return array<int,array{item_key:string,item:string,category:string}> */
+    public function missingNamedAssets(string $query='',int $limit=500): array
+    {
+        $this->install();
+        $sql="SELECT k.key AS item_key,k.name AS item,k.category_key AS category
+              FROM kb_items k
+              LEFT JOIN item_named_assets a ON a.item_key=k.key
+              WHERE k.active=1 AND k.source='gw-market-catalog' AND a.item_key IS NULL";
+        $params=[];
+        if(trim($query)!==''){
+            $sql.=" AND (LOWER(k.name) LIKE :q OR LOWER(k.key) LIKE :q)";
+            $params[':q']='%'.mb_strtolower(trim($query)).'%';
+        }
+        $sql.=" ORDER BY k.name COLLATE NOCASE LIMIT ".max(1,min(2000,$limit));
+        $st=$this->pdo->prepare($sql);$st->execute($params);
+        return array_map(static fn(array$r)=>[
+            'item_key'=>(string)$r['item_key'],
+            'item'=>(string)$r['item'],
+            'category'=>(string)($r['category']??''),
+        ],$st->fetchAll());
+    }
+
+    /** @return array<string,int> */
+    public function namedCoverage(): array
+    {
+        $this->install();
+        $total=(int)$this->pdo->query("SELECT COUNT(*) FROM kb_items WHERE active=1 AND source='gw-market-catalog'")->fetchColumn();
+        $linked=(int)$this->pdo->query("SELECT COUNT(*) FROM item_named_assets")->fetchColumn();
+        return ['catalog_items'=>$total,'named_assets'=>$linked,'missing_named_assets'=>max(0,$total-$linked)];
+    }
+
     /** @return array<string,int> */
     public function namedAssetSummary(): array
     {

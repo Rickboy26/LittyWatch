@@ -225,6 +225,17 @@ final class AssetController
 
 
 
+
+    public function namedCoverage(Request $request): Response
+    {
+        try {
+            $q=trim($request->string('q'));
+            return Response::json(['ok'=>true]+$this->assets->namedCoverage()+[
+                'missing'=>$this->assets->missingNamedAssets($q,1000)
+            ]);
+        } catch(Throwable $e){return Response::json(['ok'=>false,'error'=>$e->getMessage()],400);}
+    }
+
     public function importNamedAsset(Request $request): Response
     {
         try {

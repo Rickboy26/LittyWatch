@@ -76,7 +76,7 @@ async function store(item,hit){
 }
 btn.addEventListener('click',async()=>{
  btn.disabled=true;
- let saved=0,missing=0,errors=0;
+ let saved=0,missing=0,errors=0,firstError='';
  try{
   const items=await loadCatalog();
   say(`${items.length} unieke GW1-items gevonden · inventory-assets koppelen…`);
@@ -89,11 +89,11 @@ btn.addEventListener('click',async()=>{
      const d=await store(group[j],hits[j]);
      saved+=Number(d.saved||0);
      if(Number(d.unknown||0)>0)missing++;
-    }catch(_){errors++;}
+    }catch(e){errors++;if(!firstError)firstError=String(e?.message||e);}
    }
    say(`${Math.min(i+4,items.length)}/${items.length} · ${saved} lokaal opgeslagen · ${missing} niet gekoppeld · ${errors} fouten`);
   }
-  say(`Klaar · ${saved} inventory icons lokaal opgeslagen · ${missing} niet gekoppeld · ${errors} fouten.`);
+  say(`Klaar · ${saved} inventory icons lokaal opgeslagen · ${missing} niet gekoppeld · ${errors} fouten.${firstError?' Eerste fout: '+firstError:''}`);document.dispatchEvent(new Event('littywatch:named-assets-updated'));
  }catch(e){
   say(`Import gestopt: ${e?.message||e}`);
  }finally{

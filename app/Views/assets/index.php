@@ -42,32 +42,29 @@ $usedAssets=(int)($s['linked']??0);
 <?php else:?>
 
 <?php if($indexed>0):?>
-<section class="surface asset-auto-map">
-  <div class="asset-auto-head">
-    <div>
-      <span class="kicker">CATALOGUS · PHASE 3N4</span>
-      <h2>GW1-catalogus gekoppeld aan LittyWatch</h2>
-      <p>De geïmporteerde GW1-itemnamen uit de Knowledge Base worden nu rechtstreeks gebruikt door het iconbeheer. De oude Wiki/GW Market beeldherkenner is verwijderd: een itemnaam bevat namelijk geen betrouwbaar Gw.dat DAT-ID en LittyWatch gaat die koppeling niet gokken.</p>
-    </div>
-    <div class="asset-auto-actions">
-      <a class="btn" href="/knowledge">GW1 catalogus beheren</a>
-      <button class="btn secondary" type="button" data-kb-cleanup>Catalogus opschonen</button>
-    </div>
-  </div>
-  <p class="muted" data-kb-cleanup-status>Exact dubbele aliases kunnen veilig worden verwijderd. Items met dezelfde zichtbare naam worden alleen gerapporteerd en niet automatisch samengevoegd.</p>
-</section>
 <?php endif;?>
 
 
 <section class="surface asset-auto-map">
  <div class="asset-auto-head"><div>
-  <span class="kicker">DIRECTE GW1 ITEM-ASSETS · PHASE 3Q</span>
+  <span class="kicker">PLAYER INVENTORY ICONS · PHASE 3R</span>
   <h2>Inventory icons rechtstreeks aan itemnamen koppelen</h2>
   <p>Leest de publieke GW1-itemcatalogus en de bijbehorende benoemde inventory-assets rechtstreeks uit dezelfde bron. Itemnaam en plaatje horen daar al bij elkaar. LittyWatch slaat het plaatje éénmalig lokaal op en gebruikt daarna alleen de lokale kopie.</p>
  </div><div class="asset-auto-actions">
-  <button class="btn" type="button" data-direct-assets>Inventory icons importeren</button>
+  <button class="btn" type="button" data-direct-assets>Ontbrekende icons opnieuw proberen</button>
+  <button class="btn secondary" type="button" data-show-missing>Ontbrekende items tonen</button>
  </div></div>
- <p class="muted" data-direct-assets-status>Nog niet gestart. Bestaande lokale Gw.dat-icons en handmatige koppelingen blijven gewoon behouden als tweede bron.</p>
+ <div class="statgrid asset-coverage" data-asset-coverage>
+  <div class="stat"><span>Catalogus</span><strong data-cov-total>…</strong></div>
+  <div class="stat"><span>Lokaal icoon</span><strong data-cov-linked>…</strong></div>
+  <div class="stat"><span>Ontbrekend</span><strong data-cov-missing>…</strong></div>
+ </div>
+ <p class="muted" data-direct-assets-status>De spelerswebsite gebruikt de lokale named inventory-icons als primaire bron.</p>
+ <div data-missing-wrap hidden>
+  <h3>Ontbrekende inventory icons</h3>
+  <input class="input" type="search" placeholder="Zoek ontbrekend item…" data-missing-search>
+  <div class="asset-missing-list" data-missing-list></div>
+ </div>
 </section>
 <script src="/assets/js/gwmarket-direct-assets.js?v=3q" defer></script>
 
@@ -138,17 +135,5 @@ $usedAssets=(int)($s['linked']??0);
 <?php endif;?>
 
 
-<script>
-document.querySelector('[data-kb-cleanup]')?.addEventListener('click',async function(){
-  const status=document.querySelector('[data-kb-cleanup-status]');
-  this.disabled=true;
-  if(status)status.textContent='Catalogus controleren en exacte dubbele aliases verwijderen…';
-  try{
-    const r=await fetch('/admin/assets-knowledge-cleanup',{method:'POST',headers:{'Accept':'application/json'}});
-    const d=await r.json();
-    if(!r.ok||!d.ok)throw new Error(d.error||'Opschonen mislukt');
-    if(status)status.textContent=`Klaar · ${d.aliases_removed} dubbele aliases verwijderd · ${d.duplicate_names} dubbele zichtbare itemnamen gerapporteerd.`;
-  }catch(e){if(status)status.textContent='Fout: '+(e?.message||e);}
-  finally{this.disabled=false;}
-});
-</script>
+
+<script src="/assets/js/named-asset-admin.js?v=3r" defer></script>
