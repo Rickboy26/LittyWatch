@@ -63,57 +63,161 @@ final class AssetController
             $host=strtolower((string)($parts['host']??''));
             $scheme=strtolower((string)($parts['scheme']??''));
             $path=(string)($parts['path']??'');
-            $allowedHost=$host==='wiki.guildwars.com'||str_ends_with($host,'.guildwars.com');
-            if($scheme==='https'&&$allowedHost&&$path!=='') $url=$remote;
+            if($scheme==='https'&&$this->allowedWikiHost($host)&&$path!=='') $url=$remote;
         }
 
         if($resolvedIp!==''&&!filter_var($resolvedIp,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4|FILTER_FLAG_IPV6)) $resolvedIp='';
         $parts=@parse_url($url);
         $targetHost=strtolower((string)($parts['host']??'wiki.guildwars.com'));
-        $body='';$status=0;$contentType='';$curlError='';
-        if(function_exists('curl_init')){
-            $ch=curl_init($url);
-            if($ch!==false){
-                $opts=[
-                    CURLOPT_RETURNTRANSFER=>true,
-                    CURLOPT_FOLLOWLOCATION=>false,
-                    CURLOPT_CONNECTTIMEOUT=>8,
-                    CURLOPT_TIMEOUT=>18,
-                    CURLOPT_USERAGENT=>'LittyWatch/5.2 inventory-icon mapper (+https://hollandseglory.nl)',
-                    CURLOPT_HTTPHEADER=>['Accept: image/png,image/*;q=0.9,*/*;q=0.1'],
-                    CURLOPT_SSL_VERIFYPEER=>true,
-                    CURLOPT_SSL_VERIFYHOST=>2,
-                ];
-                if($resolvedIp!=='') $opts[CURLOPT_RESOLVE]=[$targetHost.':443:'.$resolvedIp];
-                curl_setopt_array($ch,$opts);
-                $raw=curl_exec($ch);
-                if(is_string($raw))$body=$raw;
-                $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
-                $contentType=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);
-                $curlError=(string)curl_error($ch);
-                curl_close($ch);
-            }
+        if(!$this->allowedWikiHost($targetHost)){
+            return Response::json(['ok'=>false,'error'=>'Niet-toegestane Wiki-host.','host'=>$targetHost],400);
         }
 
-        if($status>=300&&$status<400&&$body===''){
-            // libcurl may return an empty body on redirects. Direct imageinfo URLs
-            // supplied by the browser should avoid this path entirely.
+        $attempts=[];
+        $result=$this->fetchWikiIconCurl($url,$targetHost,$resolvedIp);
+        $attempts[]=$result['debug'];
+        if(!$result['ok']&&$resolvedIp!==''){
+            $socket=$this->fetchWikiIconSocket($url,$targetHost,$resolvedIp);
+            $attempts[]=$socket['debug'];
+            if($socket['ok']) $result=$socket;
         }
 
-        if($status>=400||$body===''||!str_starts_with($body,"\x89PNG\r\n\x1a\n")){
+        if(!$result['ok']){
             return Response::json([
                 'ok'=>false,
                 'error'=>'Wiki inventory icon kon niet via de server worden gelezen.',
                 'file'=>$file,
-                'status'=>$status,
-                'content_type'=>$contentType,
+                'url'=>$url,
                 'host'=>$targetHost,
                 'resolved_ip'=>$resolvedIp,
-                'curl_error'=>$curlError,
+                'attempts'=>$attempts,
             ],502);
         }
+
+        $body=(string)$result['body'];
         if(is_dir($cacheDir)&&is_writable($cacheDir)) @file_put_contents($cacheFile,$body,LOCK_EX);
-        return new Response($body,200,['Content-Type'=>'image/png','Cache-Control'=>'public, max-age=604800','X-LittyWatch-Icon-Source'=>$resolvedIp!==''?'resolved-ip':'server-dns']);
+        return new Response($body,200,[
+            'Content-Type'=>'image/png',
+            'Cache-Control'=>'public, max-age=604800',
+            'X-LittyWatch-Icon-Source'=>(string)$result['source'],
+        ]);
+    }
+
+    private function allowedWikiHost(string $host): bool
+    {
+        $host=strtolower(trim($host));
+        return $host==='wiki.guildwars.com'||$host==='wiki-en.guildwars.com'||str_ends_with($host,'.guildwars.com');
+    }
+
+    /** @return array{ok:bool,body:string,source:string,debug:array<string,mixed>} */
+    private function fetchWikiIconCurl(string $url,string $host,string $resolvedIp): array
+    {
+        $body='';$status=0;$contentType='';$curlError='';$errno=0;$effective='';
+        if(!function_exists('curl_init')){
+            return ['ok'=>false,'body'=>'','source'=>'curl','debug'=>['method'=>'curl','error'=>'curl_ext_missing']];
+        }
+        $ch=curl_init($url);
+        if($ch===false){
+            return ['ok'=>false,'body'=>'','source'=>'curl','debug'=>['method'=>'curl','error'=>'curl_init_failed']];
+        }
+        $opts=[
+            CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_FOLLOWLOCATION=>false,
+            CURLOPT_CONNECTTIMEOUT=>10,
+            CURLOPT_TIMEOUT=>22,
+            CURLOPT_USERAGENT=>'Mozilla/5.0 (compatible; LittyWatch/5.2; +https://hollandseglory.nl)',
+            CURLOPT_REFERER=>'https://wiki.guildwars.com/',
+            CURLOPT_HTTPHEADER=>[
+                'Accept: image/avif,image/webp,image/apng,image/png,image/*;q=0.8,*/*;q=0.5',
+                'Accept-Language: en-US,en;q=0.9',
+                'Connection: close',
+            ],
+            CURLOPT_ENCODING=>'',
+            CURLOPT_SSL_VERIFYPEER=>true,
+            CURLOPT_SSL_VERIFYHOST=>2,
+        ];
+        if(defined('CURL_HTTP_VERSION_1_1')) $opts[CURLOPT_HTTP_VERSION]=CURL_HTTP_VERSION_1_1;
+        if($resolvedIp!=='') $opts[CURLOPT_RESOLVE]=[$host.':443:'.$resolvedIp];
+        curl_setopt_array($ch,$opts);
+        $raw=curl_exec($ch);
+        if(is_string($raw)) $body=$raw;
+        $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
+        $contentType=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);
+        $effective=(string)curl_getinfo($ch,CURLINFO_EFFECTIVE_URL);
+        $curlError=(string)curl_error($ch);
+        $errno=(int)curl_errno($ch);
+        curl_close($ch);
+        $isPng=$body!==''&&str_starts_with($body,"\x89PNG\r\n\x1a\n");
+        return [
+            'ok'=>$status>=200&&$status<300&&$isPng,
+            'body'=>$body,
+            'source'=>$resolvedIp!==''?'resolved-ip-curl':'server-dns-curl',
+            'debug'=>[
+                'method'=>'curl','status'=>$status,'content_type'=>$contentType,'bytes'=>strlen($body),
+                'errno'=>$errno,'error'=>$curlError,'effective_url'=>$effective,'png'=>$isPng,
+            ],
+        ];
+    }
+
+    /** @return array{ok:bool,body:string,source:string,debug:array<string,mixed>} */
+    private function fetchWikiIconSocket(string $url,string $host,string $resolvedIp): array
+    {
+        $parts=@parse_url($url);
+        $path=(string)($parts['path']??'/');
+        $query=(string)($parts['query']??'');
+        if($query!=='') $path.='?'.$query;
+        $ctx=stream_context_create(['ssl'=>[
+            'verify_peer'=>true,'verify_peer_name'=>true,'peer_name'=>$host,'SNI_enabled'=>true,
+        ]]);
+        $errno=0;$errstr='';
+        $socket=@stream_socket_client('ssl://'.$resolvedIp.':443',$errno,$errstr,10,STREAM_CLIENT_CONNECT,$ctx);
+        if(!is_resource($socket)){
+            return ['ok'=>false,'body'=>'','source'=>'resolved-ip-socket','debug'=>['method'=>'socket','errno'=>$errno,'error'=>$errstr]];
+        }
+        stream_set_timeout($socket,18);
+        $request="GET ".$path." HTTP/1.1\r\nHost: ".$host."\r\nUser-Agent: Mozilla/5.0 (compatible; LittyWatch/5.2)\r\nAccept: image/png,image/*;q=0.9,*/*;q=0.1\r\nReferer: https://wiki.guildwars.com/\r\nConnection: close\r\n\r\n";
+        fwrite($socket,$request);
+        $raw='';
+        while(!feof($socket)){
+            $chunk=fread($socket,65536);
+            if($chunk===false) break;
+            $raw.=$chunk;
+            if(strlen($raw)>2_000_000) break;
+        }
+        $meta=stream_get_meta_data($socket);
+        fclose($socket);
+        $split=strpos($raw,"\r\n\r\n");
+        $headers=$split===false?$raw:substr($raw,0,$split);
+        $body=$split===false?'':substr($raw,$split+4);
+        preg_match('/^HTTP\/\S+\s+(\d{3})/',$headers,$m);
+        $status=(int)($m[1]??0);
+        if(preg_match('/\r\nTransfer-Encoding:\s*chunked/i',$headers)) $body=$this->decodeChunkedBody($body);
+        $isPng=$body!==''&&str_starts_with($body,"\x89PNG\r\n\x1a\n");
+        return [
+            'ok'=>$status>=200&&$status<300&&$isPng,
+            'body'=>$body,
+            'source'=>'resolved-ip-socket',
+            'debug'=>[
+                'method'=>'socket','status'=>$status,'bytes'=>strlen($body),'png'=>$isPng,
+                'timed_out'=>(bool)($meta['timed_out']??false),'headers'=>substr(str_replace("\r\n",' | '),0,500),
+            ],
+        ];
+    }
+
+    private function decodeChunkedBody(string $body): string
+    {
+        $out='';$offset=0;$len=strlen($body);
+        while($offset<$len){
+            $lineEnd=strpos($body,"\r\n",$offset);
+            if($lineEnd===false) break;
+            $hex=trim(substr($body,$offset,$lineEnd-$offset));
+            $semi=strpos($hex,';');if($semi!==false)$hex=substr($hex,0,$semi);
+            if($hex===''||!ctype_xdigit($hex)) break;
+            $size=hexdec($hex);$offset=$lineEnd+2;
+            if($size===0) break;
+            $out.=substr($body,$offset,$size);$offset+=$size+2;
+        }
+        return $out;
     }
 
     public function update(Request $request): Response

@@ -150,8 +150,17 @@
     let via = '';
     for (const url of urls) {
       try {
-        const response = await fetch(url, {mode:'cors', cache:'force-cache', headers:{'Accept':'image/png,image/*'}});
-        if (!response.ok) throw new Error(`Afbeelding HTTP ${response.status}`);
+        const response = await fetch(url, {mode:'cors', cache:'no-store', headers:{'Accept':'image/png,image/*,application/json'}});
+        if (!response.ok) {
+          let detail = '';
+          try {
+            const text = await response.text();
+            const data = JSON.parse(text);
+            const attempts = Array.isArray(data?.attempts) ? data.attempts : [];
+            detail = attempts.map(a => `${a.method || '?'} status=${a.status ?? '-'} errno=${a.errno ?? '-'} bytes=${a.bytes ?? '-'} error=${a.error || ''}`).join(' / ');
+          } catch (_) {}
+          throw new Error(`Afbeelding HTTP ${response.status}${detail ? ` · ${detail}` : ''}`);
+        }
         const type = String(response.headers.get('content-type') || '').toLowerCase();
         const candidateBlob = await response.blob();
         if (!type.includes('image') && candidateBlob.type && !candidateBlob.type.includes('image')) throw new Error('Geen afbeelding ontvangen.');
@@ -375,6 +384,7 @@
 
     let processed = 0, matched = 0, unresolved = 0, failed = 0;
     let wikiCandidates = 0, imageReads = 0, proxyReads = 0, resolvedProxyReads = 0, directReads = 0, imageReadFailures = 0;
+    const readErrorSamples = [];
     const total = items.length;
     const pendingSave = [];
     setProgress(0, total, 0, 0, 0, 'Mapper starten…');
@@ -449,8 +459,12 @@
                   };
                   break;
                 }
-              } catch (_) {
+              } catch (error) {
                 imageReadFailures++;
+                if (readErrorSamples.length < 3) {
+                  const message = String(error?.message || error || 'onbekende leesfout');
+                  readErrorSamples.push(`${candidate.sourceTitle || 'Wiki-icon'}: ${message}`);
+                }
                 // One unreadable Wiki image must not stop the complete run.
               }
             }
@@ -493,7 +507,10 @@
         if (detail) detail.textContent = 'Alles wat al met hoge zekerheid was gevonden, is opgeslagen. Je kunt later verdergaan.';
       } else {
         if (status) status.textContent = 'Automatische herkenning afgerond.';
-        if (detail) detail.textContent = `${matched} nieuwe koppelingen · ${wikiCandidates} Wiki-bestanden gevonden · ${imageReads} afbeeldingen gelezen (${proxyReads} via LittyWatch, waarvan ${resolvedProxyReads} via DNS-bypass; ${directReads} direct) · ${imageReadFailures} leesfouten · ${unresolved} niet zeker genoeg.`;
+        if (detail) {
+          const samples = readErrorSamples.length ? ` Eerste leesfout: ${readErrorSamples[0]}` : '';
+          detail.textContent = `${matched} nieuwe koppelingen · ${wikiCandidates} Wiki-bestanden gevonden · ${imageReads} afbeeldingen gelezen (${proxyReads} via LittyWatch, waarvan ${resolvedProxyReads} via DNS-bypass; ${directReads} direct) · ${imageReadFailures} leesfouten · ${unresolved} niet zeker genoeg.${samples}`;
+        }
         if (matched > 0) {
           const reload = document.createElement('button');
           reload.className = 'btn secondary';
