@@ -194,6 +194,11 @@ final class ReviewCandidateClassifier
             return ['kind'=>'generic','reason'=>'profession_weapon_modifier_search'];
         }
 
+        // Phase 3V: service fragments that survived block-level classification.
+        if (preg_match('/\b(?:outpost\s+runs?|crystal\s+desert\s+tours?|campaign\s+tours?|service\s+tours?|ferry\s+to|ferry\s+from|tours?\s+whisper|runs?\s+to\s+[a-z])\b/iu', $s)) {
+            return ['kind'=>'service','reason'=>'service_transport_or_tour'];
+        }
+
         // Services / non-item requests can still be market chat, but cannot be
         // represented as an item price point in the current data model.
         if (preg_match('/\b(?:towns?\s+in\s+proph|rp\s+to\s+trim\s+your\s+guild|storage\s+sale|inventory\s+list)\b/iu', $s)) {

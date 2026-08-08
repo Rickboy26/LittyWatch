@@ -197,6 +197,13 @@ final class SemanticNormalizer
             $text
         ) ?? $text;
 
+        // Phase 3V: canonical miniature identities are applied before the
+        // generic fallback path. Dedication remains metadata, not part of the name.
+        $text = preg_replace('/\b(?:ded(?:icated)?|unded(?:icated)?)\s+ghostly\s+hero\b/iu', 'Miniature Ghostly Hero', $text) ?? $text;
+        $text = preg_replace('/\bmini(?:ature)?\s+undead\s+prince(?:\s+rurik)?\b/iu', 'Miniature Undead Prince Rurik', $text) ?? $text;
+        $text = preg_replace('/\bundead\s+prince\s+rurik\b/iu', 'Miniature Undead Prince Rurik', $text) ?? $text;
+        $text = preg_replace('/\belixirs?\s+of\s+valor\b/iu', 'Elixir of Valor', $text) ?? $text;
+
         $rules = [
             '/\bunded(?:icated)?\s+dhuum\b/iu'=>'Miniature Dhuum unded',
             '/\bded(?:icated)?\s+dhuum\b/iu'=>'Miniature Dhuum ded',

@@ -1,6 +1,6 @@
 {
-  "release": "V5.2 Phase 3M.1",
-  "phase": "3M.1",
-  "description": "Continuous Kamadan collector with cron-safe locking, retries, raw payload retention and status logging",
-  "version": "V5.2 Phase 3M.1"
+  "release": "V5.2 Phase 3V",
+  "phase": "3V",
+  "description": "Context-aware parser intelligence: negation, service classification, variant inheritance and canonical package members",
+  "version": "V5.2 Phase 3V"
 }

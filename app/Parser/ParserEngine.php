@@ -80,6 +80,10 @@ final class ParserEngine
             // Normalize the complete block first. Some market shorthand (for example
             // birthday ranges) expands into multiple logical offers before segmentation.
             $blockText = $this->semantic->normalize($block['text']);
+            // Phase 3V: remove explicit negative/exclusion clauses before item
+            // segmentation. "unid golds (no scythes, shields or spears)" is one
+            // offer for Unidentified Gold, not four separate offers.
+            $blockText = $this->stripNegativeItemClauses($blockText);
             // Tome advertisements use profession shorthand and comma/space lists that
             // need semantic expansion before the generic grammar splitter flattens them.
             $sharedListSegments = $this->sharedOfferListExpander->expand($blockText);
@@ -89,6 +93,11 @@ final class ParserEngine
                 : (count($smartSegments) > 1 ? $smartSegments : $this->grammarSegmenter->split($blockText));
             if ($segments === []) $segments = $this->segmenter->split($blockText);
             $segments = $this->contextualSegmentExpander->expand($segments);
+            // Phase 3V: expand comma-separated requirement/attribute variants and
+            // inherit the concrete item identity across shorthand continuation
+            // clauses (e.g. "BDS q9 FC 35a | q11 Inspa 12a").
+            $segments = $this->expandVariantClauses($segments);
+            $segments = $this->inheritConcreteItemContext($segments);
 
             foreach ($segments as $segment) {
                 if ($this->classifier->classify($segment)['kind'] !== 'market') continue;
@@ -240,23 +249,41 @@ final class ParserEngine
             }
         }
 
-        // Multiple catalog items sharing one explicit package price stay a bundle.
+        // Phase 3V: a package/bundle is a trade construction, not a fake item.
+        // Keep every real catalog item visible, but never assign the total package
+        // price to an individual item and never invent "Bundle: A + B" as an item.
         $wholePrice = $this->priceMatcher->parse($segment);
         if (count($items) > 1 && $wholePrice->amount !== null && preg_match('/\b(?:package|bundle|all unidentified|together)\b/i', $segment)) {
-            $names = array_values(array_unique(array_column($items, 'item')));
-            $itemName = 'Bundle: ' . implode(' + ', $names);
-            return [new ParsedOffer(
-                $tradeType,
-                $itemName,
-                $this->key($itemName),
-                $this->modifierMatcher->match($segment),
-                $wholePrice,
-                0.92,
-                'accepted',
-                'explicit_bundle',
-                $segment,
-                $this->tokenizer->tokenize($segment),
-            )];
+            $bundleOffers = [];
+            $seen = [];
+            foreach ($items as $item) {
+                $key = (string)$item['key'];
+                if (isset($seen[$key]) || !$this->taxonomy->isConcreteMatch($item)) continue;
+                $seen[$key] = true;
+                $mods = array_merge($this->modifierMatcher->match($segment), $this->metadataExtractor->extract($segment));
+                $mods['bundle_total_amount'] = $wholePrice->amount;
+                $mods['bundle_total_currency'] = $wholePrice->currency;
+                $mods['bundle_member_count'] = count($items);
+                $profileData = $this->profileResolver?->resolve($key, $item['category'] ?? 'unknown', $mods) ?? [
+                    'profile'=>[], 'relevant'=>$mods, 'market_key'=>$key
+                ];
+                $bundleOffers[] = new ParsedOffer(
+                    $tradeType,
+                    (string)$item['item'],
+                    $key,
+                    $mods,
+                    new ParsedPrice(null, null, null, 'bundle_total', null, null, $wholePrice->raw),
+                    0.9,
+                    'accepted',
+                    'catalog_match',
+                    $segment,
+                    $this->tokenizer->tokenize($segment),
+                    $profileData['profile'],
+                    $profileData['relevant'],
+                    $profileData['market_key'],
+                );
+            }
+            if ($bundleOffers !== []) return $bundleOffers;
         }
 
         // Phase 3L: if several concrete items share a segment but the text has
@@ -350,6 +377,75 @@ final class ParserEngine
         return $offers;
     }
 
+
+    /** Phase 3V: remove explicitly negated item families from parsing input. */
+    private function stripNegativeItemClauses(string $text): string
+    {
+        // Parenthetical exclusions are extremely common in Kamadan:
+        // "unid golds (no scythes, shields or spears) 1k each".
+        $text = preg_replace('/\(\s*(?:no|except|excluding|without)\b[^)]*\)/iu', ' ', $text) ?? $text;
+        // Also support short inline forms when they terminate at a strong separator.
+        $text = preg_replace('/\b(?:except|excluding|without)\s+[^|;]+(?=\s*(?:\||;|$))/iu', ' ', $text) ?? $text;
+        return trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+    }
+
+    /** @param list<string> $segments @return list<string> */
+    private function expandVariantClauses(array $segments): array
+    {
+        $out = [];
+        foreach ($segments as $segment) {
+            $matches = $this->itemMatcher->matchAll($segment);
+            $concrete = array_values(array_filter($matches, fn(array $m): bool => $this->taxonomy->isConcreteMatch($m)));
+            if (count($concrete) !== 1 || !str_contains($segment, ',')) {
+                $out[] = $segment;
+                continue;
+            }
+
+            $item = $concrete[0];
+            $tailStart = $item['start'] + $item['length'];
+            $tail = trim(mb_substr($segment, $tailStart), " \t\n\r\0\x0B:,-");
+            if (!preg_match('/\b(?:q|r|rq|req)\s*\d{1,2}\b/iu', $tail)) {
+                $out[] = $segment;
+                continue;
+            }
+            $parts = preg_split('/\s*,\s*(?=(?:q|r|rq|req)\s*\d{1,2}\b)/iu', $tail) ?: [];
+            if (count($parts) < 2) {
+                $out[] = $segment;
+                continue;
+            }
+            foreach ($parts as $part) {
+                $part = trim($part);
+                if ($part !== '') $out[] = (string)$item['item'].' '.$part;
+            }
+        }
+        return $out;
+    }
+
+    /** @param list<string> $segments @return list<string> */
+    private function inheritConcreteItemContext(array $segments): array
+    {
+        $out = [];
+        $lastItem = null;
+        foreach ($segments as $segment) {
+            $matches = $this->itemMatcher->matchAll($segment);
+            $concrete = array_values(array_filter($matches, fn(array $m): bool => $this->taxonomy->isConcreteMatch($m)));
+            if ($concrete !== []) {
+                $lastItem = (string)$concrete[0]['item'];
+                $out[] = $segment;
+                continue;
+            }
+
+            // A continuation clause normally starts with requirement/attribute or
+            // a bare price. Do not inherit into prose/services or obvious new nouns.
+            $continuation = (bool)preg_match('/^(?:q|r|rq|req)\s*\d{1,2}\b|^(?:fc|es|sr|df|dom|inspa?|inspiration|comm?|communing|motivation|tact?|tactics|str|strength|prot|heal|water|air|fire|earth)\b/iu', trim($segment));
+            if ($lastItem !== null && $continuation) {
+                $out[] = $lastItem.' '.trim($segment);
+            } else {
+                $out[] = $segment;
+            }
+        }
+        return $out;
+    }
 
     /**
      * Phase 3D: a price found elsewhere in a larger segment must not leak into

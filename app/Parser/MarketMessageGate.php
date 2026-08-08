@@ -66,6 +66,17 @@ final class MarketMessageGate
             }
         }
 
+        // Phase 3V: classify transport/running/tour services before item parsing.
+        // Keep this contextual so the inscription "Run for Your Life" is not lost.
+        if (
+            preg_match('/\bservices?\s*:/iu', $clean)
+            || preg_match('/\b(?:outpost|mission|campaign|crystal\s+desert|prophecies|factions?|nightfall|eotn|eye\s+of\s+the\s+north)\b[^|;]{0,80}\b(?:run|runs|tour|tours|rush|rushing)\b/iu', $clean)
+            || preg_match('/\b(?:run|runs|tour|tours|rush|rushing)\b[^|;]{0,80}\b(?:outpost|mission|campaign|kodash|lions?\s+arch|ascalon|docks?|factions?|nightfall|prophecies|eotn)\b/iu', $clean)
+            || preg_match('/\b(?:ferry|taxi)\b[^|;]{0,50}\b(?:to|from|docks?|outpost)\b/iu', $clean)
+        ) {
+            return ['accepted'=>false,'kind'=>'service','reason'=>'service_transport_or_tour'];
+        }
+
         if (preg_match('/\b(?:show me what you have|anything cool|open trade|give me my storage spaces back)\b/iu', $clean)) {
             return ['accepted'=>false,'kind'=>'noise','reason'=>'non_specific_request'];
         }
