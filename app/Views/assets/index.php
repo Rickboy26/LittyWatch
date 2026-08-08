@@ -41,36 +41,20 @@ $usedAssets=(int)($s['linked']??0);
 </section>
 <?php else:?>
 
-<?php if($indexed>0 && $unlinkedItems>0):?>
-<section class="surface asset-auto-map" data-inventory-auto-map>
+<?php if($indexed>0):?>
+<section class="surface asset-auto-map">
   <div class="asset-auto-head">
     <div>
-      <span class="kicker">AUTOMATISCHE HERKENNING</span>
-      <h2>Koppel de juiste inventory icons</h2>
-      <p>LittyWatch gebruikt de publieke inventory-afbeeldingen uit de open-source GW Market repository alleen als tijdelijke herkenningsbron. Je browser vergelijkt die met jouw 5277 lokale Gw.dat-icons. Alleen sterke matches worden opgeslagen; de spelerswebsite gebruikt daarna uitsluitend jouw lokale inventory icon.</p>
+      <span class="kicker">CATALOGUS · PHASE 3N4</span>
+      <h2>GW1-catalogus gekoppeld aan LittyWatch</h2>
+      <p>De geïmporteerde GW1-itemnamen uit de Knowledge Base worden nu rechtstreeks gebruikt door het iconbeheer. De oude Wiki/GW Market beeldherkenner is verwijderd: een itemnaam bevat namelijk geen betrouwbaar Gw.dat DAT-ID en LittyWatch gaat die koppeling niet gokken.</p>
     </div>
     <div class="asset-auto-actions">
-      <button class="btn" type="button" data-auto-map-start>Automatisch herkennen</button>
-      <button class="btn secondary" type="button" data-auto-map-stop hidden>Stoppen</button>
+      <a class="btn" href="/knowledge">GW1 catalogus beheren</a>
+      <button class="btn secondary" type="button" data-kb-cleanup>Catalogus opschonen</button>
     </div>
   </div>
-
-  <div class="asset-auto-progress" aria-hidden="true"><span data-auto-map-progress></span></div>
-  <div class="asset-auto-statusline">
-    <strong data-auto-map-status>Klaar om <?=$unlinkedItems?> marktitems te controleren.</strong>
-    <span data-auto-map-processed>0/<?=count($autoItems)?></span>
-  </div>
-  <p class="muted asset-auto-detail" data-auto-map-detail>Twijfelgevallen worden bewust niet automatisch gekoppeld en blijven beschikbaar voor handmatige review.</p>
-
-  <div class="asset-auto-results">
-    <div><span>Nieuwe matches</span><strong data-auto-map-matched>0</strong></div>
-    <div><span>Niet zeker genoeg</span><strong data-auto-map-unresolved>0</strong></div>
-    <div><span>Fouten</span><strong data-auto-map-failed>0</strong></div>
-  </div>
-</section>
-<?php elseif($indexed>0 && $marketItems>0):?>
-<section class="surface asset-auto-map asset-auto-complete">
-  <div><span class="kicker">INVENTORY ICONS</span><h2>Alle bekende marktitems hebben een icoon</h2><p>Nieuwe items die later door de parser worden ontdekt verschijnen hier vanzelf opnieuw als te koppelen item.</p></div>
+  <p class="muted" data-kb-cleanup-status>Exact dubbele aliases kunnen veilig worden verwijderd. Items met dezelfde zichtbare naam worden alleen gerapporteerd en niet automatisch samengevoegd.</p>
 </section>
 <?php endif;?>
 
@@ -140,5 +124,18 @@ $usedAssets=(int)($s['linked']??0);
 <?php endif;?>
 <?php endif;?>
 
-<script type="application/json" id="inventory-auto-items"><?=json_encode($autoItems,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?:'[]'?></script>
-<script src="/assets/js/inventory-icon-matcher.js?v=3n" defer></script>
+
+<script>
+document.querySelector('[data-kb-cleanup]')?.addEventListener('click',async function(){
+  const status=document.querySelector('[data-kb-cleanup-status]');
+  this.disabled=true;
+  if(status)status.textContent='Catalogus controleren en exacte dubbele aliases verwijderen…';
+  try{
+    const r=await fetch('/admin/assets-knowledge-cleanup',{method:'POST',headers:{'Accept':'application/json'}});
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw new Error(d.error||'Opschonen mislukt');
+    if(status)status.textContent=`Klaar · ${d.aliases_removed} dubbele aliases verwijderd · ${d.duplicate_names} dubbele zichtbare itemnamen gerapporteerd.`;
+  }catch(e){if(status)status.textContent='Fout: '+(e?.message||e);}
+  finally{this.disabled=false;}
+});
+</script>

@@ -220,6 +220,17 @@ final class AssetController
         return $out;
     }
 
+
+    public function cleanupKnowledge(Request $request): Response
+    {
+        try {
+            $result=$this->assets->knowledgeCleanup();
+            return Response::json(['ok'=>true]+$result+['summary'=>$this->assets->summary()]);
+        } catch (Throwable $e) {
+            return Response::json(['ok'=>false,'error'=>$e->getMessage()],400);
+        }
+    }
+
     public function update(Request $request): Response
     {
         $message=null;$error=null;

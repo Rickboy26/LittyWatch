@@ -342,6 +342,11 @@ SQL);
             if($query!==''&&stripos($key,$query)===false&&stripos($name,$query)===false)continue;
             $byKey[$key]??=$item;
         }
+        foreach($this->knowledgeItems() as$item){
+            $key=(string)$item['item_key'];$name=(string)$item['item'];
+            if($query!==''&&stripos($key,$query)===false&&stripos($name,$query)===false)continue;
+            $byKey[$key]??=$item;
+        }
         $rows=array_values($byKey);usort($rows,static fn(array$a,array$b):int=>strcasecmp($a['item'],$b['item']));
         return array_slice($rows,0,$max);
     }
@@ -452,6 +457,7 @@ SQL);
         }
         $needle=mb_strtolower(trim($name));
         foreach($this->catalogItems() as$item)if(mb_strtolower($item['item'])===$needle)return$item;
+        foreach($this->knowledgeItems() as$item)if(mb_strtolower($item['item'])===$needle)return$item;
         return null;
     }
     /** @return array<string,mixed>|null */
@@ -463,6 +469,7 @@ SQL);
             $stmt->execute([':k'=>$key]);$row=$stmt->fetch();if($row)return$row;
         }
         foreach($this->catalogItems() as$item)if($item['item_key']===$key)return$item;
+        foreach($this->knowledgeItems() as$item)if($item['item_key']===$key)return$item;
         return null;
     }
 
@@ -477,6 +484,33 @@ SQL);
             if($key!==''&&$name!=='')$cache[]=['item_key'=>$key,'item'=>$name];
         }
         return$cache;
+    }
+
+
+    /** @return array<int,array{item_key:string,item:string}> */
+    private function knowledgeItems(): array
+    {
+        if(!$this->tableExists('kb_items')) return [];
+        $rows=$this->pdo->query("SELECT key,name FROM kb_items WHERE active=1 AND TRIM(COALESCE(name,''))<>'' ORDER BY name COLLATE NOCASE")->fetchAll();
+        $out=[];
+        foreach($rows as$row){
+            $key=trim((string)($row['key']??''));$name=trim((string)($row['name']??''));
+            if($key!==''&&$name!=='')$out[]=['item_key'=>$key,'item'=>$name];
+        }
+        return$out;
+    }
+
+    /** @return array<string,int> */
+    public function knowledgeCleanup(): array
+    {
+        if(!$this->tableExists('kb_items')||!$this->tableExists('kb_aliases')) return ['duplicate_names'=>0,'duplicate_aliases'=>0,'aliases_removed'=>0];
+        $duplicateNames=(int)$this->pdo->query("SELECT COUNT(*) FROM (SELECT LOWER(TRIM(name)) n FROM kb_items WHERE active=1 GROUP BY LOWER(TRIM(name)) HAVING COUNT(*)>1)")->fetchColumn();
+        $duplicateAliases=(int)$this->pdo->query("SELECT COUNT(*) FROM (SELECT item_key,normalized_alias FROM kb_aliases GROUP BY item_key,normalized_alias HAVING COUNT(*)>1)")->fetchColumn();
+        // Exact duplicate aliases for the same item add no parser knowledge.
+        $before=(int)$this->pdo->query('SELECT COUNT(*) FROM kb_aliases')->fetchColumn();
+        $this->pdo->exec("DELETE FROM kb_aliases WHERE rowid NOT IN (SELECT MIN(rowid) FROM kb_aliases GROUP BY item_key,normalized_alias)");
+        $after=(int)$this->pdo->query('SELECT COUNT(*) FROM kb_aliases')->fetchColumn();
+        return ['duplicate_names'=>$duplicateNames,'duplicate_aliases'=>$duplicateAliases,'aliases_removed'=>max(0,$before-$after)];
     }
 
     private function applyManualOverrides(): void
