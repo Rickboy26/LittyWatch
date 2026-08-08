@@ -11,7 +11,7 @@ return static function(Router $router,Container $c):void{
  $router->get('/trends',fn($r)=>$c->get(TrendController::class)->index($r));$router->get('/intelligence',fn($r)=>$c->get(IntelligenceController::class)->index($r));
  $router->get('/watchlist',fn($r)=>new Response('',302,['Location'=>'/alerts']));$router->post('/watchlist',fn($r)=>$c->get(WatchlistController::class)->update($r));
  $router->get('/alerts',fn($r)=>$c->get(AlertController::class)->index($r));$router->post('/alerts',fn($r)=>$c->get(AlertController::class)->update($r));
- $router->get('/game-assets',fn($r)=>$c->get(AssetController::class)->index($r));$router->post('/game-assets',fn($r)=>$c->get(AssetController::class)->update($r));$router->post('/game-assets/auto-link',fn($r)=>$c->get(AssetController::class)->autoLink($r));$router->get('/system',fn($r)=>$c->get(SystemController::class)->index($r));
+ $router->get('/game-assets',fn($r)=>$c->get(AssetController::class)->index($r));$router->post('/game-assets',fn($r)=>$c->get(AssetController::class)->update($r));$router->post('/game-assets/auto-link',fn($r)=>$c->get(AssetController::class)->autoLink($r));$router->get('/game-assets/wiki-icon',fn($r)=>$c->get(AssetController::class)->wikiIcon($r));$router->get('/system',fn($r)=>$c->get(SystemController::class)->index($r));
  $router->get('/structured-offers',fn($r)=>$c->get(StructuredOfferController::class)->index($r));$router->get('/knowledge',fn($r)=>$c->get(KnowledgeController::class)->index($r));
  $router->get('/knowledge-pack',fn($r)=>$c->get(KnowledgePackController::class)->index($r));
  $router->post('/knowledge-pack/stage',fn($r)=>$c->get(KnowledgePackController::class)->stage($r));

@@ -20,7 +20,7 @@
   const processedNode = root.querySelector('[data-auto-map-processed]');
 
   const api = 'https://wiki.guildwars.com/api.php';
-  const fingerprintsUrl = '/assets/game-items/inventory-fingerprints.json?v=3m5';
+  const fingerprintsUrl = '/assets/game-items/inventory-fingerprints.json?v=3m6';
   const batchSize = 18;
   const saveBatchSize = 40;
   let stopRequested = false;
@@ -101,10 +101,28 @@
     return [hi >>> 0, lo >>> 0];
   }
 
-  async function imageFingerprint(url) {
-    const response = await fetch(url, {mode:'cors', cache:'force-cache'});
-    if (!response.ok) throw new Error(`Afbeelding HTTP ${response.status}`);
-    const blob = await response.blob();
+  async function imageFingerprint(candidate) {
+    const sourceTitle = String(candidate?.sourceTitle || '').trim();
+    const remoteUrl = String(candidate?.url || '').trim();
+    const urls = [];
+    if (sourceTitle) urls.push(`/game-assets/wiki-icon?file=${encodeURIComponent(sourceTitle)}`);
+    if (remoteUrl) urls.push(remoteUrl);
+    let blob = null;
+    let lastError = null;
+    let via = '';
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {mode:'cors', cache:'force-cache', headers:{'Accept':'image/png,image/*'}});
+        if (!response.ok) throw new Error(`Afbeelding HTTP ${response.status}`);
+        const type = String(response.headers.get('content-type') || '').toLowerCase();
+        const candidateBlob = await response.blob();
+        if (!type.includes('image') && candidateBlob.type && !candidateBlob.type.includes('image')) throw new Error('Geen afbeelding ontvangen.');
+        blob = candidateBlob;
+        via = url.startsWith('/game-assets/wiki-icon') ? 'proxy' : 'direct';
+        break;
+      } catch (error) { lastError = error; }
+    }
+    if (!blob) throw (lastError instanceof Error ? lastError : new Error('Wiki-afbeelding kon niet worden gelezen.'));
     let bitmap;
     if ('createImageBitmap' in window) {
       bitmap = await createImageBitmap(blob);
@@ -171,6 +189,7 @@
     const [alphaHi, alphaLo] = makeHash(alpha, 9, 8, valueAt);
 
     return {
+      via,
       lumaHi, lumaLo, alphaHi, alphaLo,
       r: alphaSum ? Math.round(weightedR / alphaSum) : 0,
       g: alphaSum ? Math.round(weightedG / alphaSum) : 0,
@@ -209,8 +228,8 @@
     const gap = secondDifferent ? secondDifferent.score - best.score : 99;
     // Exact/direct filename is already a strong semantic hint, so the visual
     // threshold can be strict without requiring a giant nearest-neighbour gap.
-    if (best.score > 14 || gap < 2.5) return null;
-    const confidence = Math.max(0.91, Math.min(0.995, 0.995 - best.score * 0.0055 + Math.min(gap, 12) * 0.0015));
+    if (best.score > 26 || gap < 1.2) return null;
+    const confidence = Math.max(0.905, Math.min(0.995, 0.995 - best.score * 0.0035 + Math.min(gap, 12) * 0.0018));
     return {dat:best.dat, confidence, score:best.score, gap};
   }
 
@@ -314,6 +333,7 @@
     if (detail) detail.textContent = 'Lokale fingerprintindex wordt geladen…';
 
     let processed = 0, matched = 0, unresolved = 0, failed = 0;
+    let wikiCandidates = 0, imageReads = 0, proxyReads = 0, directReads = 0, imageReadFailures = 0;
     const total = items.length;
     const pendingSave = [];
     setProgress(0, total, 0, 0, 0, 'Mapper starten…');
@@ -338,6 +358,7 @@
           continue;
         }
 
+        wikiCandidates += pages.length;
         const pagesByKey = new Map();
         for (const candidate of pages) {
           const key = String(candidate.item.item_key || '');
@@ -372,7 +393,9 @@
             for (const candidate of candidates) {
               if (!candidate.url) continue;
               try {
-                const fp = await imageFingerprint(candidate.url);
+                const fp = await imageFingerprint(candidate);
+                imageReads++;
+                if (fp.via === 'proxy') proxyReads++; else if (fp.via === 'direct') directReads++;
                 const visual = visualMatch(fp, local.rows);
                 if (visual) {
                   found = {
@@ -384,7 +407,8 @@
                   break;
                 }
               } catch (_) {
-                // CORS/image failure for one candidate must not stop the run.
+                imageReadFailures++;
+                // One unreadable Wiki image must not stop the complete run.
               }
             }
           }
@@ -426,7 +450,7 @@
         if (detail) detail.textContent = 'Alles wat al met hoge zekerheid was gevonden, is opgeslagen. Je kunt later verdergaan.';
       } else {
         if (status) status.textContent = 'Automatische herkenning afgerond.';
-        if (detail) detail.textContent = `${matched} nieuwe koppelingen gevonden. ${unresolved} items bleven bewust ongemoeid omdat de match niet zeker genoeg was.`;
+        if (detail) detail.textContent = `${matched} nieuwe koppelingen · ${wikiCandidates} Wiki-bestanden gevonden · ${imageReads} afbeeldingen gelezen (${proxyReads} via LittyWatch, ${directReads} direct) · ${imageReadFailures} leesfouten · ${unresolved} niet zeker genoeg.`;
         if (matched > 0) {
           const reload = document.createElement('button');
           reload.className = 'btn secondary';

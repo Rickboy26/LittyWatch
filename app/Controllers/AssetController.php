@@ -36,6 +36,62 @@ final class AssetController
         }
     }
 
+    public function wikiIcon(Request $request): Response
+    {
+        $file=trim($request->string('file'));
+        $file=preg_replace('/^File:/i','',$file) ?? $file;
+        if($file===''||strlen($file)>180||!preg_match('/^[^\\\/\x00-\x1F]+\.png$/iu',$file)){
+            return Response::json(['ok'=>false,'error'=>'Ongeldige Wiki-iconnaam.'],400);
+        }
+
+        $cacheDir=$this->root.'/storage/cache/wiki-inventory-icons';
+        if(!is_dir($cacheDir)) @mkdir($cacheDir,0775,true);
+        $cacheFile=$cacheDir.'/'.sha1(mb_strtolower($file)).'.png';
+        if(is_file($cacheFile)&&filesize($cacheFile)>32){
+            $body=(string)file_get_contents($cacheFile);
+            if(str_starts_with($body,"\x89PNG\r\n\x1a\n")){
+                return new Response($body,200,['Content-Type'=>'image/png','Cache-Control'=>'public, max-age=604800']);
+            }
+        }
+
+        $url='https://wiki.guildwars.com/wiki/Special:Redirect/file/'.rawurlencode($file);
+        $body='';$status=0;$contentType='';
+        if(function_exists('curl_init')){
+            $ch=curl_init($url);
+            if($ch!==false){
+                curl_setopt_array($ch,[
+                    CURLOPT_RETURNTRANSFER=>true,
+                    CURLOPT_FOLLOWLOCATION=>true,
+                    CURLOPT_MAXREDIRS=>5,
+                    CURLOPT_CONNECTTIMEOUT=>6,
+                    CURLOPT_TIMEOUT=>15,
+                    CURLOPT_USERAGENT=>'LittyWatch/5.2 inventory-icon mapper (+https://hollandseglory.nl)',
+                    CURLOPT_HTTPHEADER=>['Accept: image/png,image/*;q=0.9,*/*;q=0.1'],
+                    CURLOPT_SSL_VERIFYPEER=>true,
+                ]);
+                $raw=curl_exec($ch);
+                if(is_string($raw))$body=$raw;
+                $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
+                $contentType=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);
+                curl_close($ch);
+            }
+        }
+        if($body===''&&filter_var(ini_get('allow_url_fopen'),FILTER_VALIDATE_BOOLEAN)){
+            $ctx=stream_context_create(['http'=>[
+                'method'=>'GET','timeout'=>15,'follow_location'=>1,'max_redirects'=>5,
+                'header'=>"User-Agent: LittyWatch/5.2 inventory-icon mapper\r\nAccept: image/png,image/*;q=0.9,*/*;q=0.1\r\n",
+            ]]);
+            $raw=@file_get_contents($url,false,$ctx);
+            if(is_string($raw)){$body=$raw;$status=200;}
+        }
+
+        if($status>=400||$body===''||!str_starts_with($body,"\x89PNG\r\n\x1a\n")){
+            return Response::json(['ok'=>false,'error'=>'Wiki inventory icon kon niet via de server worden gelezen.','file'=>$file,'status'=>$status,'content_type'=>$contentType],502);
+        }
+        if(is_dir($cacheDir)&&is_writable($cacheDir)) @file_put_contents($cacheFile,$body,LOCK_EX);
+        return new Response($body,200,['Content-Type'=>'image/png','Cache-Control'=>'public, max-age=604800']);
+    }
+
     public function update(Request $request): Response
     {
         $message=null;$error=null;
