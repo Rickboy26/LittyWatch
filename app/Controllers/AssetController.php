@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace LittyWatch\Controllers;
+use LittyWatch\Market\StrictCatalogGate;
 
 use LittyWatch\Core\Request;
 use LittyWatch\Core\Response;
@@ -225,6 +226,15 @@ final class AssetController
 
 
 
+
+
+    public function enforceStrictCatalog(Request $request): Response
+    {
+        try {
+            $result=(new StrictCatalogGate(db()))->quarantineExisting();
+            return Response::json(['ok'=>true]+$result);
+        } catch(Throwable $e){return Response::json(['ok'=>false,'error'=>$e->getMessage()],400);}
+    }
 
     public function namedCoverage(Request $request): Response
     {

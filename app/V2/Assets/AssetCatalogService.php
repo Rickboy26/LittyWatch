@@ -627,7 +627,10 @@ SQL);
         $sql="SELECT k.key AS item_key,k.name AS item,k.category_key AS category
               FROM kb_items k
               LEFT JOIN item_named_assets a ON a.item_key=k.key
-              WHERE k.active=1 AND k.source='gw-market-catalog' AND a.item_key IS NULL";
+              WHERE k.active=1 AND k.source='gw-market-catalog' AND a.item_key IS NULL
+                AND lower(k.name) NOT LIKE '%replace%'
+                AND lower(k.name) NOT LIKE 'any rare %'
+                AND lower(trim(k.name)) NOT IN ('miniature','miniatures','weapon','weapons','upgrade','upgrades','tome','tomes','material','materials','consumable','consumables','item','items')";
         $params=[];
         if(trim($query)!==''){
             $sql.=" AND (LOWER(k.name) LIKE :q OR LOWER(k.key) LIKE :q)";

@@ -53,6 +53,7 @@ $usedAssets=(int)($s['linked']??0);
  </div><div class="asset-auto-actions">
   <button class="btn" type="button" data-direct-assets>Ontbrekende icons opnieuw proberen</button>
   <button class="btn secondary" type="button" data-show-missing>Ontbrekende items tonen</button>
+  <button class="btn secondary" type="button" data-strict-catalog>Niet-bestaande marktitems opschonen</button>
  </div></div>
  <div class="statgrid asset-coverage" data-asset-coverage>
   <div class="stat"><span>Catalogus</span><strong data-cov-total>…</strong></div>
@@ -137,3 +138,18 @@ $usedAssets=(int)($s['linked']??0);
 
 
 <script src="/assets/js/named-asset-admin.js?v=3r" defer></script>
+
+<script>
+document.querySelector('[data-strict-catalog]')?.addEventListener('click',async function(){
+ const status=document.querySelector('[data-direct-assets-status]');
+ this.disabled=true;
+ if(status)status.textContent='Bestaande marktdata tegen de echte itemcatalogus controleren…';
+ try{
+  const r=await fetch('/admin/strict-catalog-enforce',{method:'POST',headers:{Accept:'application/json'}});
+  const d=await r.json();
+  if(!r.ok||!d.ok)throw new Error(d.error||`HTTP ${r.status}`);
+  if(status)status.textContent=`Strict Catalog klaar · ${d.checked} actieve aanbiedingen gecontroleerd · ${d.quarantined} niet-bestaande/generieke aanbiedingen uit de spelersmarkt gehaald · ${d.normalized} namen naar catalogusvorm hersteld.`;
+ }catch(e){if(status)status.textContent='Fout: '+(e?.message||e);}
+ finally{this.disabled=false;}
+});
+</script>
