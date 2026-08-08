@@ -1,6 +1,6 @@
 {
-  "release": "V5.2 Phase 3W",
-  "phase": "3W",
-  "description": "Context-to-catalog intelligence: safe upgrade shorthand, controlled fuzzy/alias recovery and generic-item quarantine",
-  "version": "V5.2 Phase 3W"
+  "release": "V5.2 Phase 3X",
+  "phase": "3X",
+  "description": "Contextual offer segmentation: safe multi-item splitting, miniature state/family inheritance, weapon-mod family inheritance, and conservative all-parts catalog resolution",
+  "version": "v5.2-phase3x-contextual-offer-segmentation"
 }

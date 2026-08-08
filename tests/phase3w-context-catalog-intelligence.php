@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__).'/app/Support/Autoloader.php';
+\LittyWatch\Support\Autoloader::register(dirname(__DIR__).'/app');
 if(!extension_loaded('pdo_sqlite')){echo "Phase 3W context catalog intelligence: SKIP (pdo_sqlite missing)\n";exit(0);}
 
 use LittyWatch\Knowledge\Schema;

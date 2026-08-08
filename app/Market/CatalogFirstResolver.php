@@ -26,6 +26,30 @@ final class CatalogFirstResolver
     public function resolve(array $row,string $message): array
     {
         $item=CanonicalMarketIdentity::nameFor(trim((string)($row['item']??'')),trim((string)($row['item_key']??'')));
+
+        // Phase 3X: split explicit multi-item shorthand before canonical lookup.
+        // Expansion is accepted only when every candidate resolves safely.
+        $context=trim((string)($row['raw_segment']??''));
+        if($context==='')$context=$message;
+        $candidates=(new ContextualOfferListResolver())->candidates($item,$context);
+        if(count($candidates)>=2){
+            $expanded=[];
+            foreach($candidates as $candidate){
+                $copy=$row;$copy['item']=$candidate;$copy['item_key']='';$copy['market_key']='';$copy['raw_segment']=$candidate;
+                $resolved=$this->resolveSingle($copy,$message);
+                if($resolved===[]) {$expanded=[];break;}
+                foreach($resolved as $rr)$expanded[]=$rr;
+            }
+            if(count($expanded)>=2)return $expanded;
+        }
+
+        return $this->resolveSingle($row,$message);
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    private function resolveSingle(array $row,string $message): array
+    {
+        $item=CanonicalMarketIdentity::nameFor(trim((string)($row['item']??'')),trim((string)($row['item_key']??'')));
         $row['item']=$item;
         $lower=mb_strtolower($item.' '.$message);
 
