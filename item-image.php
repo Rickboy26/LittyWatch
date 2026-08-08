@@ -95,6 +95,31 @@ try {
             $itemKey = $st->fetchColumn() ?: null;
         }
 
+        $hasLinks = (bool)$pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_icon_links' LIMIT 1")->fetchColumn();
+        if ($hasLinks) {
+            $linkSql = "SELECT ia.web_path,ia.relative_path,ia.source_filename,ia.dat_file_id
+                        FROM item_icon_links l
+                        JOIN item_assets ia ON ia.id=l.asset_id
+                        WHERE lower(trim(l.item_name))=lower(trim(:item))";
+            $linkParams = [':item' => $item];
+            if (is_string($itemKey) && $itemKey !== '') {
+                $linkSql .= " OR l.item_key=:item_key";
+                $linkParams[':item_key'] = $itemKey;
+            }
+            $linkSql .= " ORDER BY COALESCE(l.confidence,0) DESC,l.updated_at DESC LIMIT 4";
+            $linkSt = $pdo->prepare($linkSql);
+            $linkSt->execute($linkParams);
+            foreach ($linkSt->fetchAll() as $asset) {
+                $path = $normalizeLocalPath(isset($asset['web_path']) ? (string)$asset['web_path'] : null)
+                    ?? $normalizeLocalPath(isset($asset['relative_path']) ? '/' . ltrim((string)$asset['relative_path'], '/') : null);
+                if ($path !== null) $serve($path);
+                $filename = trim((string)($asset['source_filename'] ?? ''));
+                if ($filename !== '' && ($path = $findByFilename($filename)) !== null) $serve($path);
+                $datId = (int)($asset['dat_file_id'] ?? 0);
+                if ($datId > 0 && ($path = $findByDatId($datId)) !== null) $serve($path);
+            }
+        }
+
         $sql = "SELECT web_path,relative_path,source_filename,dat_file_id,linked_item_key,linked_item_name,source_name
                 FROM item_assets
                 WHERE lower(trim(COALESCE(linked_item_name,'')))=lower(trim(:item))

@@ -11,13 +11,13 @@ final class ExchangeRateService
         if (is_file($path)) {
             $legacy = require $path;
             if (is_array($legacy)) {
-                return $this->normalizeLegacy($legacy);
+                return $this->normalizeLegacy(isset($legacy['rates']) && is_array($legacy['rates']) ? $legacy['rates'] : $legacy);
             }
         }
 
         return [
-            ['left' => '100k', 'right' => '5 Ecto', 'icon' => 'gold'],
-            ['left' => '25 Ecto', 'right' => '1 Arm', 'icon' => 'ecto'],
+            ['left' => '100k', 'right' => '6 Ecto', 'icon' => 'gold'],
+            ['left' => '26 Ecto', 'right' => '1 Arm', 'icon' => 'ecto'],
             ['left' => '1 Ecto', 'right' => '0,8 Zkey', 'icon' => 'zkey'],
             ['left' => '1 Ecto', 'right' => '2 Obby Shards', 'icon' => 'obby'],
         ];
@@ -44,8 +44,8 @@ final class ExchangeRateService
     private function ratesFallback(): array
     {
         return [
-            ['left' => '100k', 'right' => '5 Ecto', 'icon' => 'gold'],
-            ['left' => '25 Ecto', 'right' => '1 Arm', 'icon' => 'ecto'],
+            ['left' => '100k', 'right' => '6 Ecto', 'icon' => 'gold'],
+            ['left' => '26 Ecto', 'right' => '1 Arm', 'icon' => 'ecto'],
         ];
     }
 

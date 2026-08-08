@@ -62,6 +62,21 @@ SQL);
         //  local Gw.dat asset catalog.
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS item_assets (id INTEGER PRIMARY KEY AUTOINCREMENT, import_id INTEGER NOT NULL, dat_file_id INTEGER, source_filename TEXT NOT NULL, relative_path TEXT NOT NULL, web_path TEXT NOT NULL, sha256 TEXT NOT NULL UNIQUE, bytes INTEGER, width INTEGER, height INTEGER, source_model_id INTEGER, source_name TEXT, source_type TEXT, source_rarity TEXT, linked_item_key TEXT, linked_item_name TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_assets_link ON item_assets(linked_item_key)');
+        $this->pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS item_icon_links (
+    item_key TEXT PRIMARY KEY,
+    item_name TEXT NOT NULL,
+    asset_id INTEGER NOT NULL,
+    dat_file_id INTEGER,
+    match_source TEXT NOT NULL DEFAULT 'manual',
+    confidence REAL,
+    source_title TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(asset_id) REFERENCES item_assets(id) ON DELETE CASCADE
+)
+SQL);
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_icon_links_asset ON item_icon_links(asset_id)');
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -101,8 +116,9 @@ SELECT
     im.wiki_title, im.description, im.category, im.campaign, im.rarity,
     im.weapon_type, im.stackable, im.image_url,
     COALESCE(
-        NULLIF(im.local_image, ''),
-        (SELECT ia.web_path FROM item_assets ia WHERE ia.linked_item_key = catalog.item_key ORDER BY ia.updated_at DESC, ia.id DESC LIMIT 1)
+        (SELECT ia.web_path FROM item_icon_links il JOIN item_assets ia ON ia.id=il.asset_id WHERE il.item_key = catalog.item_key ORDER BY COALESCE(il.confidence,0) DESC, il.updated_at DESC LIMIT 1),
+        (SELECT ia.web_path FROM item_assets ia WHERE ia.linked_item_key = catalog.item_key ORDER BY ia.updated_at DESC, ia.id DESC LIMIT 1),
+        NULLIF(im.local_image, '')
     ) AS local_image,
     im.source_url, im.source_transport, im.source_updated_at
 FROM catalog
@@ -147,8 +163,9 @@ SELECT
     im.wiki_title, im.description, im.category, im.campaign, im.rarity,
     im.weapon_type, im.stackable, im.image_url,
     COALESCE(
-        NULLIF(im.local_image, ''),
-        (SELECT ia.web_path FROM item_assets ia WHERE ia.linked_item_key = so.item_key ORDER BY ia.updated_at DESC, ia.id DESC LIMIT 1)
+        (SELECT ia.web_path FROM item_icon_links il JOIN item_assets ia ON ia.id=il.asset_id WHERE il.item_key = so.item_key ORDER BY COALESCE(il.confidence,0) DESC, il.updated_at DESC LIMIT 1),
+        (SELECT ia.web_path FROM item_assets ia WHERE ia.linked_item_key = so.item_key ORDER BY ia.updated_at DESC, ia.id DESC LIMIT 1),
+        NULLIF(im.local_image, '')
     ) AS local_image,
     im.source_url, im.source_transport, im.source_updated_at
 FROM structured_offers so
@@ -265,6 +282,8 @@ SQL);
             'cached_images' => (int)$this->pdo->query(<<<'SQL'
 SELECT COUNT(*) FROM (
     SELECT item_key FROM item_metadata WHERE local_image IS NOT NULL AND local_image <> ''
+    UNION
+    SELECT item_key FROM item_icon_links WHERE item_key IS NOT NULL AND item_key <> ''
     UNION
     SELECT linked_item_key FROM item_assets WHERE linked_item_key IS NOT NULL AND linked_item_key <> ''
 )

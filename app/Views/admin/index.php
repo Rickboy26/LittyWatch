@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 $dq = $dataQuality['summary'] ?? [];
-$assets = $assetSummary ?? ['imports'=>0,'assets'=>0,'linked'=>0,'unlinked'=>0,'files'=>0];
+$assets = $assetSummary ?? ['imports'=>0,'assets'=>0,'linked'=>0,'unlinked'=>0,'files'=>0,'linked_items'=>0,'market_items'=>0,'unlinked_items'=>0];
 ?>
 
 <section class="page-intro">
@@ -22,9 +22,10 @@ $assets = $assetSummary ?? ['imports'=>0,'assets'=>0,'linked'=>0,'unlinked'=>0,'
     <div class="asset-health-stats">
         <span>Bestanden<strong><?= (int)($assets['files'] ?? 0) ?></strong></span>
         <span>Geïndexeerd<strong><?= (int)($assets['assets'] ?? 0) ?></strong></span>
-        <span>Gekoppeld<strong><?= (int)($assets['linked'] ?? 0) ?></strong></span>
+        <span>Marketitems met icoon<strong><?= (int)($assets['linked_items'] ?? 0) ?></strong></span>
+        <span>Zonder icoon<strong><?= (int)($assets['unlinked_items'] ?? 0) ?></strong></span>
     </div>
-    <a class="btn" href="/admin/assets-scan">Inventory icons indexeren</a>
+    <a class="btn" href="/game-assets">Icons beheren</a>
 </section>
 
 <div class="admin-control-grid">
@@ -59,7 +60,7 @@ $assets = $assetSummary ?? ['imports'=>0,'assets'=>0,'linked'=>0,'unlinked'=>0,'
         <div class="tool-list">
             <a href="/knowledge-pack"><strong>Knowledge Pack</strong><span>Wiki-categorieën, staging, aliases en itemkennis.</span></a>
             <a href="/admin/knowledge-seed"><strong>Knowledge Base seeden</strong><span>Lokale itemprofielen opnieuw installeren.</span></a>
-            <a href="/game-assets"><strong>Inventory icon-koppelingen</strong><span>DAT file IDs aan marktitems koppelen.</span></a>
+            <a href="/game-assets"><strong>Inventory icons</strong><span>Automatisch herkennen, DAT file IDs controleren en uitzonderingen corrigeren.</span></a>
             <a href="/system"><strong>Systeemstatus</strong><span>Runtime, database en technische status.</span></a>
         </div>
     </section>

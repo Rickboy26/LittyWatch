@@ -56,6 +56,24 @@ SQL);
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_assets_dat_file ON item_assets(dat_file_id)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_assets_link ON item_assets(linked_item_key)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_assets_name ON item_assets(linked_item_name)');
+        $this->pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS item_icon_links (
+    item_key TEXT PRIMARY KEY,
+    item_name TEXT NOT NULL,
+    asset_id INTEGER NOT NULL,
+    dat_file_id INTEGER,
+    match_source TEXT NOT NULL DEFAULT 'manual',
+    confidence REAL,
+    source_title TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(asset_id) REFERENCES item_assets(id) ON DELETE CASCADE
+)
+SQL);
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_icon_links_asset ON item_icon_links(asset_id)');
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_icon_links_dat ON item_icon_links(dat_file_id)');
+        // Migrate the older one-link-per-asset model into the item-centric link table.
+        $this->pdo->exec("INSERT OR IGNORE INTO item_icon_links(item_key,item_name,asset_id,dat_file_id,match_source,confidence,created_at,updated_at) SELECT linked_item_key,COALESCE(NULLIF(linked_item_name,''),linked_item_key),id,dat_file_id,'legacy',1.0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM item_assets WHERE linked_item_key IS NOT NULL AND linked_item_key<>''");
     }
 
     /** @return array<string,mixed> */
@@ -178,6 +196,7 @@ SQL);
                 ]);
                 if ($insert->rowCount()>0) $imported++; else $skipped++;
             }
+            $this->pdo->exec("INSERT OR IGNORE INTO item_icon_links(item_key,item_name,asset_id,dat_file_id,match_source,confidence,created_at,updated_at) SELECT linked_item_key,COALESCE(NULLIF(linked_item_name,''),linked_item_key),id,dat_file_id,'manifest',1.0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM item_assets WHERE linked_item_key IS NOT NULL AND linked_item_key<>''");
             $finish=$this->pdo->prepare("UPDATE asset_imports SET imported_icons=:i,skipped_icons=:s,status='completed',message=:m WHERE id=:id");
             $finish->execute([':i'=>$imported,':s'=>$skipped,':m'=>$imported.' iconen geïmporteerd; '.$skipped.' overgeslagen.',':id'=>$importId]);
             $this->pdo->commit();
@@ -193,26 +212,65 @@ SQL);
         $this->install();
         $item=$this->findMarketItemByKey($itemKey) ?? $this->findMarketItemByName($itemKey);
         if ($item===null) throw new RuntimeException('Het gekozen marktitem bestaat niet. Zoek op de exacte itemnaam of market item key.');
-        $stmt=$this->pdo->prepare("UPDATE item_assets SET linked_item_key=:k,linked_item_name=:n,updated_at=CURRENT_TIMESTAMP WHERE id=:id");
-        $stmt->execute([':k'=>$item['item_key'],':n'=>$item['item'],':id'=>$assetId]);
-        if ($stmt->rowCount()===0) throw new RuntimeException('Het icoon bestaat niet of was al identiek gekoppeld.');
+        $asset=$this->assetById($assetId);
+        if($asset===null) throw new RuntimeException('Het gekozen inventory icoon bestaat niet.');
+        $this->upsertItemLink($item,$asset,'manual',1.0,null);
+        // Keep the legacy columns useful for older pages/builds, but do not
+        // require an asset to belong to only one item; shared GW icons exist.
+        if(trim((string)($asset['linked_item_key']??''))===''){
+            $stmt=$this->pdo->prepare("UPDATE item_assets SET linked_item_key=:k,linked_item_name=:n,updated_at=CURRENT_TIMESTAMP WHERE id=:id");
+            $stmt->execute([':k'=>$item['item_key'],':n'=>$item['item'],':id'=>$assetId]);
+        }
     }
 
     public function unlink(int $assetId): void
     {
+        $this->install();
+        $this->pdo->prepare('DELETE FROM item_icon_links WHERE asset_id=:id')->execute([':id'=>$assetId]);
         $stmt=$this->pdo->prepare("UPDATE item_assets SET linked_item_key=NULL,linked_item_name=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=:id");
         $stmt->execute([':id'=>$assetId]);
+    }
+
+    /** @param array<int,array<string,mixed>> $matches @return array<string,int> */
+    public function bulkAutoLink(array $matches): array
+    {
+        $this->install();
+        $accepted=0;$skipped=0;$missing=0;
+        $started=!$this->pdo->inTransaction();if($started)$this->pdo->beginTransaction();
+        try{
+            foreach(array_slice($matches,0,200) as$match){
+                if(!is_array($match)){ $skipped++; continue; }
+                $key=trim((string)($match['item_key']??''));$dat=(int)($match['dat_file_id']??0);
+                $confidence=(float)($match['confidence']??0);
+                $title=trim((string)($match['source_title']??''));
+                // Server-side guardrail: automatic mappings must be high confidence.
+                if($key===''||$dat<=0||$confidence<0.90){$skipped++;continue;}
+                $item=$this->findMarketItemByKey($key);$asset=$this->assetByDatId($dat);
+                if($item===null||$asset===null){$missing++;continue;}
+                $this->upsertItemLink($item,$asset,'gww_visual_match',min(1.0,$confidence),$title!==''?$title:null);
+                $accepted++;
+            }
+            if($started)$this->pdo->commit();
+        }catch(Throwable$e){if($started&&$this->pdo->inTransaction())$this->pdo->rollBack();throw$e;}
+        return ['accepted'=>$accepted,'skipped'=>$skipped,'missing'=>$missing];
     }
 
     /** @return array<string,int> */
     public function summary(): array
     {
         $this->install();
+        $assets=(int)$this->pdo->query('SELECT COUNT(*) FROM item_assets')->fetchColumn();
+        $usedAssets=(int)$this->pdo->query('SELECT COUNT(DISTINCT asset_id) FROM item_icon_links')->fetchColumn();
+        $linkedItems=(int)$this->pdo->query('SELECT COUNT(*) FROM item_icon_links')->fetchColumn();
+        $marketItems=count($this->marketItems('',3000));
         return [
             'imports'=>(int)$this->pdo->query('SELECT COUNT(*) FROM asset_imports')->fetchColumn(),
-            'assets'=>(int)$this->pdo->query('SELECT COUNT(*) FROM item_assets')->fetchColumn(),
-            'linked'=>(int)$this->pdo->query("SELECT COUNT(*) FROM item_assets WHERE linked_item_key IS NOT NULL AND linked_item_key<>''")->fetchColumn(),
-            'unlinked'=>(int)$this->pdo->query("SELECT COUNT(*) FROM item_assets WHERE linked_item_key IS NULL OR linked_item_key=''")->fetchColumn(),
+            'assets'=>$assets,
+            'linked'=>$usedAssets,
+            'unlinked'=>max(0,$assets-$usedAssets),
+            'linked_items'=>$linkedItems,
+            'market_items'=>$marketItems,
+            'unlinked_items'=>max(0,$marketItems-$linkedItems),
             'files'=>$this->bundledIconCount(),
         ];
     }
@@ -236,10 +294,10 @@ SQL);
     public function assets(string $query='',string $filter='all',int $limit=120,int $offset=0): array
     {
         $this->install(); $where=[]; $params=[];
-        if ($filter==='linked') $where[]="linked_item_key IS NOT NULL AND linked_item_key<>''";
-        elseif ($filter==='unlinked') $where[]="(linked_item_key IS NULL OR linked_item_key='')";
-        if ($query!=='') { $where[]='(source_filename LIKE :q OR CAST(dat_file_id AS TEXT) LIKE :q OR linked_item_name LIKE :q OR linked_item_key LIKE :q)'; $params[':q']='%'.$query.'%'; }
-        $sql='SELECT * FROM item_assets'.($where?' WHERE '.implode(' AND ',$where):'').' ORDER BY CASE WHEN linked_item_key IS NULL OR linked_item_key=\'\' THEN 0 ELSE 1 END,dat_file_id,id LIMIT :limit OFFSET :offset';
+        if ($filter==='linked') $where[]="EXISTS(SELECT 1 FROM item_icon_links l WHERE l.asset_id=item_assets.id)";
+        elseif ($filter==='unlinked') $where[]="NOT EXISTS(SELECT 1 FROM item_icon_links l WHERE l.asset_id=item_assets.id)";
+        if ($query!=='') { $where[]='(source_filename LIKE :q OR CAST(dat_file_id AS TEXT) LIKE :q OR linked_item_name LIKE :q OR linked_item_key LIKE :q OR EXISTS(SELECT 1 FROM item_icon_links lq WHERE lq.asset_id=item_assets.id AND (lq.item_name LIKE :q OR lq.item_key LIKE :q)))'; $params[':q']='%'.$query.'%'; }
+        $sql="SELECT item_assets.*,(SELECT COUNT(*) FROM item_icon_links lc WHERE lc.asset_id=item_assets.id) AS link_count,(SELECT GROUP_CONCAT(item_name, ' · ') FROM item_icon_links ln WHERE ln.asset_id=item_assets.id) AS link_names FROM item_assets".($where?' WHERE '.implode(' AND ',$where):'')." ORDER BY CASE WHEN EXISTS(SELECT 1 FROM item_icon_links lo WHERE lo.asset_id=item_assets.id) THEN 1 ELSE 0 END,dat_file_id,id LIMIT :limit OFFSET :offset";
         $stmt=$this->pdo->prepare($sql); foreach($params as $k=>$v)$stmt->bindValue($k,$v,PDO::PARAM_STR);
         $stmt->bindValue(':limit',max(1,min(500,$limit)),PDO::PARAM_INT); $stmt->bindValue(':offset',max(0,$offset),PDO::PARAM_INT); $stmt->execute(); return $stmt->fetchAll();
     }
@@ -264,6 +322,24 @@ SQL);
         }
         $rows=array_values($byKey);usort($rows,static fn(array$a,array$b):int=>strcasecmp($a['item'],$b['item']));
         return array_slice($rows,0,$max);
+    }
+
+    /** @return array<int,array{item_key:string,item:string,wiki_title:string}> */
+    public function unlinkedMarketItems(int $limit=3000): array
+    {
+        $this->install();
+        $linked=[];foreach($this->pdo->query('SELECT item_key FROM item_icon_links')->fetchAll() as$row)$linked[(string)$row['item_key']]=true;
+        $wikiMap=[];$config=$this->root.'/config/item-images.php';if(is_file($config)){ $loaded=require$config;if(is_array($loaded))$wikiMap=$loaded; }
+        $metadata=[];
+        if($this->tableExists('item_metadata')){
+            foreach($this->pdo->query("SELECT item_key,wiki_title FROM item_metadata WHERE TRIM(COALESCE(wiki_title,''))<>''")->fetchAll() as$row)$metadata[(string)$row['item_key']]=(string)$row['wiki_title'];
+        }
+        $out=[];
+        foreach($this->marketItems('',max(1,min(3000,$limit))) as$item){
+            $key=(string)$item['item_key'];if(isset($linked[$key]))continue;$name=(string)$item['item'];
+            $out[]=['item_key'=>$key,'item'=>$name,'wiki_title'=>trim((string)($metadata[$key]??$wikiMap[$name]??$name))];
+        }
+        return$out;
     }
 
     /**
@@ -323,7 +399,7 @@ SQL);
         $summary=$this->summary();
         $finish=$this->pdo->prepare("UPDATE asset_imports SET declared_icons=:d,imported_icons=:i,skipped_icons=0,status='completed',message=:m WHERE id=:id");
         $finish->execute([':d'=>count($files),':i'=>$new+$updated,':m'=>count($files).' inventory icons gevonden; '.$new.' nieuw, '.$updated.' bijgewerkt.',':id'=>$importId]);
-        return ['scanned'=>count($files),'new'=>$new,'updated'=>$updated,'linked'=>$summary['linked'],'unlinked'=>$summary['unlinked'],'path'=>$base];
+        return ['scanned'=>count($files),'new'=>$new,'updated'=>$updated,'market_items'=>$summary['market_items']??0,'linked_items'=>$summary['linked_items']??0,'unlinked_items'=>$summary['unlinked_items']??0,'used_icon_files'=>$summary['linked'],'unused_icon_files'=>$summary['unlinked'],'path'=>$base];
     }
 
     /** @return array<int,string> */
@@ -385,12 +461,36 @@ SQL);
     {
         $file=$this->root.'/config/item-icons.php';if(!is_file($file))return;
         $map=require$file;if(!is_array($map)||$map===[])return;
-        $update=$this->pdo->prepare("UPDATE item_assets SET linked_item_key=:k,linked_item_name=:n,updated_at=CURRENT_TIMESTAMP WHERE dat_file_id=:d AND (linked_item_key IS NULL OR linked_item_key='')");
         foreach($map as$name=>$datId){
-            $id=(int)$datId;if($id<=0)continue;$item=$this->findMarketItemByName((string)$name);if($item===null)continue;
-            $update->execute([':k'=>$item['item_key'],':n'=>$item['item'],':d'=>$id]);
+            $id=(int)$datId;if($id<=0)continue;$item=$this->findMarketItemByName((string)$name);$asset=$this->assetByDatId($id);if($item===null||$asset===null)continue;
+            $this->upsertItemLink($item,$asset,'curated',1.0,null);
+            if(trim((string)($asset['linked_item_key']??''))==='')$this->pdo->prepare("UPDATE item_assets SET linked_item_key=:k,linked_item_name=:n,updated_at=CURRENT_TIMESTAMP WHERE id=:id")->execute([':k'=>$item['item_key'],':n'=>$item['item'],':id'=>$asset['id']]);
         }
     }
+
+    /** @return array<string,mixed>|null */
+    private function assetById(int $id): ?array
+    {
+        $stmt=$this->pdo->prepare('SELECT * FROM item_assets WHERE id=:id LIMIT 1');$stmt->execute([':id'=>$id]);$row=$stmt->fetch();return$row?:null;
+    }
+
+    /** @return array<string,mixed>|null */
+    private function assetByDatId(int $datId): ?array
+    {
+        $stmt=$this->pdo->prepare('SELECT * FROM item_assets WHERE dat_file_id=:d ORDER BY id DESC LIMIT 1');$stmt->execute([':d'=>$datId]);$row=$stmt->fetch();return$row?:null;
+    }
+
+    /** @param array<string,mixed> $item @param array<string,mixed> $asset */
+    private function upsertItemLink(array $item,array $asset,string $source,float $confidence,?string $sourceTitle): void
+    {
+        // Prevent an old one-link-per-asset record from becoming a stale
+        // fallback after an item is remapped to a better inventory icon.
+        $clear=$this->pdo->prepare("UPDATE item_assets SET linked_item_key=NULL,linked_item_name=NULL,updated_at=CURRENT_TIMESTAMP WHERE id<>:asset_id AND linked_item_key=:item_key");
+        $clear->execute([':asset_id'=>(int)$asset['id'],':item_key'=>(string)$item['item_key']]);
+        $stmt=$this->pdo->prepare("INSERT INTO item_icon_links(item_key,item_name,asset_id,dat_file_id,match_source,confidence,source_title,created_at,updated_at) VALUES(:k,:n,:a,:d,:s,:c,:t,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON CONFLICT(item_key) DO UPDATE SET item_name=excluded.item_name,asset_id=excluded.asset_id,dat_file_id=excluded.dat_file_id,match_source=excluded.match_source,confidence=excluded.confidence,source_title=excluded.source_title,updated_at=CURRENT_TIMESTAMP");
+        $stmt->execute([':k'=>(string)$item['item_key'],':n'=>(string)$item['item'],':a'=>(int)$asset['id'],':d'=>(int)($asset['dat_file_id']??0),':s'=>$source,':c'=>$confidence,':t'=>$sourceTitle]);
+    }
+
     private function tableExists(string $table): bool { $stmt=$this->pdo->prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:n LIMIT 1"); $stmt->execute([':n'=>$table]); return (bool)$stmt->fetchColumn(); }
     private function nullableString(mixed $value): ?string { $v=trim((string)($value??'')); return $v!==''?$v:null; }
 }

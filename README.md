@@ -24,3 +24,6 @@ Zie `README-PHASE3M3.md` voor dashboard polish, correcte exchange-rate normalisa
 
 ## Phase 3M4
 De build bevat nu 5277 lokale Gw.dat inventory icons, een DAT-ID koppelbeheerder en de opgeschoonde spelersinterface. Zie `README-PHASE3M4.md`.
+
+## Phase 3M5
+Automatische high-confidence item → Gw.dat inventory-icon herkenning, itemcentrische iconstatistieken en lokale icons met voorrang op Wiki-cache. Zie `README-PHASE3M5.md`.

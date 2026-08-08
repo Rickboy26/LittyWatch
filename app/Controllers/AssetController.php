@@ -22,6 +22,20 @@ final class AssetController
         return $this->page($request);
     }
 
+    public function autoLink(Request $request): Response
+    {
+        try {
+            $raw=$request->string('payload');
+            if($raw==='') throw new \RuntimeException('Geen automatische koppelingen ontvangen.');
+            $matches=json_decode($raw,true,512,JSON_THROW_ON_ERROR);
+            if(!is_array($matches)) throw new \RuntimeException('Ongeldige mapper payload.');
+            $result=$this->assets->bulkAutoLink($matches);
+            return Response::json(['ok'=>true]+$result+['summary'=>$this->assets->summary()]);
+        } catch (Throwable $e) {
+            return Response::json(['ok'=>false,'error'=>$e->getMessage()],400);
+        }
+    }
+
     public function update(Request $request): Response
     {
         $message=null;$error=null;
@@ -57,7 +71,8 @@ final class AssetController
             'summary'=>$summary,
             'directory'=>$directory,
             'assets'=>$rows,
-            'items'=>$this->assets->marketItems('',1500),
+            'items'=>$this->assets->marketItems('',3000),
+            'autoItems'=>$this->assets->unlinkedMarketItems(3000),
             'q'=>$q,'filter'=>$filter,'page'=>$page,'limit'=>$limit,
             'message'=>$message,'error'=>$error,
         ]));
