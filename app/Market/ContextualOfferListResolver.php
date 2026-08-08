@@ -95,7 +95,7 @@ final class ContextualOfferListResolver
 
         foreach($parts as $i=>$part){
             if(!preg_match('/\bmini(?:ature)?\b/iu',$part)){
-                $clean=preg_replace('/\b(?:unded|undedicated|un[- ]?ded|ded|dedicated)\b/iu',' ',$part)??$part;
+                $clean=preg_replace('/\b(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)\b/iu',' ',$part)??$part;
                 $clean=trim(preg_replace('/\s+/u',' ',$clean)??$clean);
                 if($i>0 && $family!=='' && !str_starts_with(mb_strtolower($clean),mb_strtolower(trim($family))))$clean=$family.$clean;
                 $parts[$i]='Miniature '.$clean.$state;
