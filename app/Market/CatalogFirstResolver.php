@@ -27,20 +27,25 @@ final class CatalogFirstResolver
     {
         $item=CanonicalMarketIdentity::nameFor(trim((string)($row['item']??'')),trim((string)($row['item_key']??'')));
 
-        // Phase 3X: split explicit multi-item shorthand before canonical lookup.
-        // Expansion is accepted only when every candidate resolves safely.
-        $context=trim((string)($row['raw_segment']??''));
-        if($context==='')$context=$message;
-        $candidates=(new ContextualOfferListResolver())->candidates($item,$context);
+        // Phase 3Z: candidate pipeline before catalogue resolution. Unlike the
+        // Phase 3X all-or-nothing splitter, each meaningful candidate is handled
+        // independently: safe matches are recovered, unresolved candidates stay
+        // review-visible, and syntactic fragments are discarded.
+        $candidates=(new ContextAwareCandidatePipeline($this->pdo))->expand($row,$message);
         if(count($candidates)>=2){
             $expanded=[];
             foreach($candidates as $candidate){
-                $copy=$row;$copy['item']=$candidate;$copy['item_key']='';$copy['market_key']='';$copy['raw_segment']=$candidate;
+                $copy=$row;
+                $copy['item']=$candidate['item'];$copy['item_key']='';$copy['market_key']='';
+                $copy['raw_segment']=$candidate['raw_segment'];
                 $resolved=$this->resolveSingle($copy,$message);
-                if($resolved===[]) {$expanded=[];break;}
-                foreach($resolved as $rr)$expanded[]=$rr;
+                if($resolved!==[]){foreach($resolved as $rr)$expanded[]=$rr;continue;}
+                $noise=(new NoiseFragmentGate())->inspect((string)$copy['item'],(string)$copy['raw_segment']);
+                if($noise['drop'])continue;
+                $copy['quality_status']='review';$copy['quality_reason']='catalog_first_unresolved';
+                $expanded[]=$copy;
             }
-            if(count($expanded)>=2)return $expanded;
+            if(count($expanded)>=1)return $expanded;
         }
 
         return $this->resolveSingle($row,$message);
@@ -68,12 +73,14 @@ final class CatalogFirstResolver
         $controlled=(new ControlledCatalogResolver($this->pdo))->resolve($item,(string)($row['item_key']??''),$context);
         if($controlled!==null){
             $row['item']=$controlled['name'];$row['item_key']=$controlled['key'];$row['market_key']=$controlled['key'];
+            $row=$this->promoteRecoveredCatalogMatch($row);
             return [$row];
         }
 
         $exact=$this->catalogueExact($item,(string)($row['item_key']??''));
         if($exact===null)return [];
         $row['item']=$exact['name'];$row['item_key']=$exact['key'];$row['market_key']=$exact['key'];
+        $row=$this->promoteRecoveredCatalogMatch($row);
         return [$row];
     }
 
@@ -88,6 +95,7 @@ final class CatalogFirstResolver
             $exact=$this->catalogueExact($name,'');
             if($exact===null)continue;
             $copy=$row;$copy['item']=$exact['name'];$copy['item_key']=$exact['key'];$copy['market_key']=$exact['key'];
+            $copy=$this->promoteRecoveredCatalogMatch($copy);
             // capture nearby quantity: "5 mes", "mes x5", "3 monk"
             if(preg_match('/(?:\b(\d+)\s*(?:x\s*)?'.preg_quote($token,'/').'\b|\b'.preg_quote($token,'/').'\s*(?:x\s*)?(\d+)\b)/u',$m,$q)){
                 $copy['quantity']=(int)($q[1]!==''?$q[1]:$q[2]);
@@ -129,6 +137,7 @@ final class CatalogFirstResolver
 
         $row['item']=$exact['name'];$row['item_key']=$exact['key'];$row['market_key']=$exact['key'];
         $row['variant']=$state;
+        $row=$this->promoteRecoveredCatalogMatch($row);
         return [$row];
     }
 
@@ -154,6 +163,18 @@ final class CatalogFirstResolver
         if(preg_match('/\b(?:uded|unded|undedi|undedicated|un[- ]?ded)\b/u',$t))return 'unded';
         if(preg_match('/\b(?:ded|dedicated)\b/u',$t))return 'ded';
         return null;
+    }
+
+    /** @param array<string,mixed> $row @return array<string,mixed> */
+    private function promoteRecoveredCatalogMatch(array $row): array
+    {
+        $reason=(string)($row['quality_reason']??'');
+        if(in_array($reason,['no_catalog_item','catalog_first_unresolved'],true)){
+            $row['quality_status']='accepted';
+            $row['quality_reason']='catalog_match';
+            $row['confidence']=max(0.90,(float)($row['confidence']??0));
+        }
+        return $row;
     }
 
     private function isGenericEliteTome(string $item): bool

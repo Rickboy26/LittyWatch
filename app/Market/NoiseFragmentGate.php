@@ -24,6 +24,7 @@ final class NoiseFragmentGate
         if (in_array($n, [
             'left','for','elite','elites','normal','arm','all','set','collection',
             'for full collection','trade to see','open trade','obo','pm','sweat',
+            'ran','nec','alc','sta','few mods','weapon mods',
         ], true)) {
             return ['drop'=>true,'reason'=>'noise_orphan_trade_fragment'];
         }
@@ -41,6 +42,11 @@ final class NoiseFragmentGate
         if (preg_match('/^(?:r|b|g)\s*\d+(?:[.,]\d+)?[aekg]?$/u', $n)
             || preg_match('/^(?:rocks?)\s+r\s+b\s*\d+/u', $n)) {
             return ['drop'=>true,'reason'=>'noise_price_context_fragment'];
+        }
+
+        if (preg_match('/^(?:for\s+)?\d+(?:[.,]\d+)?\s*(?:a|e|k|plat|platinum)(?:\s*\(x?\d+\))?$/u', $n)
+            || preg_match('/^\d+(?:[.,]\d+)?\s*(?:a|e|k)\s+x?\d+$/u', $n)) {
+            return ['drop'=>true,'reason'=>'noise_price_only_fragment'];
         }
 
         // Quantity-only material left after punctuation splitting, e.g. "(x6)".
