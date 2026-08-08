@@ -1,6 +1,6 @@
 {
-  "release": "V5.2 Phase 3V",
-  "phase": "3V",
-  "description": "Context-aware parser intelligence: negation, service classification, variant inheritance and canonical package members",
-  "version": "V5.2 Phase 3V"
+  "release": "V5.2 Phase 3W",
+  "phase": "3W",
+  "description": "Context-to-catalog intelligence: safe upgrade shorthand, controlled fuzzy/alias recovery and generic-item quarantine",
+  "version": "V5.2 Phase 3W"
 }

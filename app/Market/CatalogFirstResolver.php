@@ -39,6 +39,14 @@ final class CatalogFirstResolver
         $mini=$this->resolveMiniature($row,$message);
         if($mini!==null)return $mini;
 
+        $context=trim((string)($row['raw_segment']??''));
+        if($context==='')$context=$message;
+        $controlled=(new ControlledCatalogResolver($this->pdo))->resolve($item,(string)($row['item_key']??''),$context);
+        if($controlled!==null){
+            $row['item']=$controlled['name'];$row['item_key']=$controlled['key'];$row['market_key']=$controlled['key'];
+            return [$row];
+        }
+
         $exact=$this->catalogueExact($item,(string)($row['item_key']??''));
         if($exact===null)return [];
         $row['item']=$exact['name'];$row['item_key']=$exact['key'];$row['market_key']=$exact['key'];

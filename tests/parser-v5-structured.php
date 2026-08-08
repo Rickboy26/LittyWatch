@@ -51,7 +51,7 @@ foreach ($expectExcluded as $message) {
 $cases = [
     'WTB Q8 Flatbow' => ['item'=>'Flatbow','trade'=>'buy','requirement'=>'q8'],
     'WTB PLATINUM WAND REQ CHANNELING' => ['item'=>'Platinum Wand','trade'=>'buy','requirement'=>'any','attribute'=>'channeling magic'],
-    'WTS RQ9 SILVERWING BOW INSC' => ['item'=>'Silverwing Bow','trade'=>'sell','requirement'=>'q9','inscribable'=>true],
+    'WTS RQ9 SILVERWING BOW INSC' => ['item'=>'Silverwing Recurve Bow','trade'=>'sell','requirement'=>'q9','inscribable'=>true],
     "WTS: Madruks Prophecy" => ['item'=>"Madruk's Prophecy",'trade'=>'sell'],
     'WTB FOCUS CORE OF APTITUDE' => ['item'=>'Focus Core of Aptitude','trade'=>'buy'],
     'WTB Staff Wrapping Of Enchantin' => ['item'=>'Staff Wrapping of Enchanting','trade'=>'buy'],
