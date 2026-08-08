@@ -64,7 +64,7 @@ final class StrictCatalogGate
         $n=mb_strtolower(trim($name));
         if($n==='')return true;
         if(str_contains($n,'replace'))return true;
-        if(preg_match('/^(?:miniature|miniatures|weapon|weapons|upgrade|upgrades|tome|tomes|material|materials|consumable|consumables|unique|uniques|item|items)$/u',$n))return true;
+        if(preg_match('/^(?:miniature|miniatures|weapon|weapons|upgrade|upgrades|tome|tomes|material|materials|consumable|consumables|unique|uniques|item|items|elite tome|elite tomes)$/u',$n))return true;
         if(preg_match('/^any\s+(?:rare\s+)?(?:flatbow|hornbow|longbow|recurvebow|shortbow|bow|weapon|shield|staff|wand|focus)s?$/u',$n))return true;
         if(preg_match('/^(?:rare|random|any)\s+(?:item|items|weapon|weapons|miniature|miniatures)$/u',$n))return true;
         return false;

@@ -8,13 +8,18 @@ final class StructuredOfferWriter {
   if($replace)$this->pdo->prepare('DELETE FROM structured_offers WHERE message_id=?')->execute([$messageId]);
   $sql="INSERT OR IGNORE INTO structured_offers(message_id,trade_type,item,item_key,market_key,normalized_market_key,requirement,attribute_key,attribute_name,is_oldschool,is_inscribable,mods_json,relevant_json,profile_json,quantity,price_amount,price_currency,price_ecto,unit_price_ecto,price_basis,confidence,quality_status,quality_reason,raw_segment,parser_version,parsed_at,lifecycle_status,lifecycle_updated_at,exchange_item,exchange_item_key,exchange_give_quantity,exchange_receive_quantity) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
   $ins=$this->pdo->prepare($sql);$n=0;$itemKeys=[];
-  foreach($this->parser->parse($message) as $offer){$r=$this->map($offer);
-  if($r['quality_status']==='accepted'){
-   $gate=(new StrictCatalogGate($this->pdo))->inspect((string)$r['item'],(string)$r['item_key']);
-   if(!$gate['allowed']){$r['quality_status']='review';$r['quality_reason']=$gate['reason'];}
-   else{$r['item']=$gate['canonical_name'];$r['item_key']=$gate['canonical_key'];$r['market_key']=$gate['canonical_key'];}
+  foreach($this->parser->parse($message) as $offer){$mapped=$this->map($offer);
+  $resolved=(new CatalogFirstResolver($this->pdo))->resolve($mapped,$message);
+  if($resolved===[]){
+    $mapped['quality_status']='review';$mapped['quality_reason']='catalog_first_unresolved';$resolved=[$mapped];
   }
-  $itemKeys[]=$r['item_key'];$ins->execute([$messageId,$r['trade_type'],$r['item'],$r['item_key'],$r['market_key'],$r['normalized_market_key'],$r['requirement'],$r['attribute_key'],$r['attribute_name'],$r['is_oldschool'],$r['is_inscribable'],$r['mods_json'],$r['relevant_json'],$r['profile_json'],$r['quantity'],$r['price_amount'],$r['price_currency'],$r['price_ecto'],$r['unit_price_ecto'],$r['price_basis'],$r['confidence'],$r['quality_status'],$r['quality_reason'],$r['raw_segment'],'v5.2-phase3s-strict-catalog',date(DATE_ATOM),$r['quality_status']==='accepted'?'active':'rejected',date(DATE_ATOM),$r['exchange_item'],$r['exchange_item_key'],$r['exchange_give_quantity'],$r['exchange_receive_quantity']]);$n+=$ins->rowCount();}
+  foreach($resolved as $r){
+   if($r['quality_status']==='accepted'){
+    $gate=(new StrictCatalogGate($this->pdo))->inspect((string)$r['item'],(string)$r['item_key']);
+    if(!$gate['allowed']){$r['quality_status']='review';$r['quality_reason']=$gate['reason'];}
+    else{$r['item']=$gate['canonical_name'];$r['item_key']=$gate['canonical_key'];$r['market_key']=$gate['canonical_key'];}
+   }
+   $itemKeys[]=$r['item_key'];$ins->execute([$messageId,$r['trade_type'],$r['item'],$r['item_key'],$r['market_key'],$r['normalized_market_key'],$r['requirement'],$r['attribute_key'],$r['attribute_name'],$r['is_oldschool'],$r['is_inscribable'],$r['mods_json'],$r['relevant_json'],$r['profile_json'],$r['quantity'],$r['price_amount'],$r['price_currency'],$r['price_ecto'],$r['unit_price_ecto'],$r['price_basis'],$r['confidence'],$r['quality_status'],$r['quality_reason'],$r['raw_segment'],'v5.2-phase3t-catalog-first',date(DATE_ATOM),$r['quality_status']==='accepted'?'active':'rejected',date(DATE_ATOM),$r['exchange_item'],$r['exchange_item_key'],$r['exchange_give_quantity'],$r['exchange_receive_quantity']]);$n+=$ins->rowCount();}}
   if($this->lifecycle!==null){$this->lifecycle->rebuild($messageId);(new MarketQualityService($this->pdo))->rebuildForItemKeys($itemKeys);}
   return $n;
  }
