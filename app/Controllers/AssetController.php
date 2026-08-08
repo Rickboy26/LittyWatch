@@ -221,6 +221,25 @@ final class AssetController
     }
 
 
+
+    public function importGwcaIds(Request $request): Response
+    {
+        try {
+            $rows=json_decode($request->string('rows'),true,512,JSON_THROW_ON_ERROR);
+            if(!is_array($rows))throw new \RuntimeException('Ongeldige GWCA data.');
+            return Response::json(['ok'=>true]+$this->assets->importGameModelIds($rows)+['game_ids'=>$this->assets->gameIdSummary()]);
+        } catch(Throwable $e){return Response::json(['ok'=>false,'error'=>$e->getMessage()],400);}
+    }
+
+    public function importRuntimeIds(Request $request): Response
+    {
+        try {
+            $rows=json_decode($request->string('rows'),true,512,JSON_THROW_ON_ERROR);
+            if(!is_array($rows))throw new \RuntimeException('Ongeldige runtime export.');
+            return Response::json(['ok'=>true]+$this->assets->importRuntimeFileIds($rows)+['game_ids'=>$this->assets->gameIdSummary()]);
+        } catch(Throwable $e){return Response::json(['ok'=>false,'error'=>$e->getMessage()],400);}
+    }
+
     public function cleanupKnowledge(Request $request): Response
     {
         try {

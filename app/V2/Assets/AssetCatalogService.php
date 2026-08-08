@@ -84,13 +84,28 @@ CREATE TABLE IF NOT EXISTS item_icon_links (
 SQL);
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_icon_links_asset ON item_icon_links(asset_id)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_icon_links_dat ON item_icon_links(dat_file_id)');
+
+        $this->pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS item_game_ids (
+    item_key TEXT PRIMARY KEY,
+    item_name TEXT NOT NULL,
+    model_id INTEGER,
+    model_file_id INTEGER,
+    source TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 1.0,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+SQL);
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_game_ids_model ON item_game_ids(model_id)');
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_game_ids_file ON item_game_ids(model_file_id)');
+
         // Migrate the older one-link-per-asset model into the item-centric link table.
         $this->pdo->exec("INSERT OR IGNORE INTO item_icon_links(item_key,item_name,asset_id,dat_file_id,match_source,confidence,created_at,updated_at) SELECT linked_item_key,COALESCE(NULLIF(linked_item_name,''),linked_item_key),id,dat_file_id,'legacy',1.0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM item_assets WHERE linked_item_key IS NOT NULL AND linked_item_key<>''");
     }
 
     private function schemaReady(): bool
     {
-        foreach (['asset_imports','item_assets','item_icon_links'] as $table) {
+        foreach (['asset_imports','item_assets','item_icon_links','item_game_ids'] as $table) {
             $stmt=$this->pdo->prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:name LIMIT 1");
             $stmt->execute([':name'=>$table]);
             if (!$stmt->fetchColumn()) return false;
@@ -498,6 +513,85 @@ SQL);
             if($key!==''&&$name!=='')$out[]=['item_key'=>$key,'item'=>$name];
         }
         return$out;
+    }
+
+
+    /**
+     * Import trusted GWCA item model IDs. model_id is NOT the same thing as
+     * model_file_id; keeping both prevents the exact mistake that made the
+     * previous icon attempts unreliable.
+     * @param array<int,array{name:string,model_id:int}> $rows
+     * @return array<string,int>
+     */
+    public function importGameModelIds(array $rows): array
+    {
+        $this->install();
+        $matched=0;$unmatched=0;
+        $stmt=$this->pdo->prepare("INSERT INTO item_game_ids(item_key,item_name,model_id,source,confidence,updated_at) VALUES(:k,:n,:m,'gwca-itemids',1.0,CURRENT_TIMESTAMP) ON CONFLICT(item_key) DO UPDATE SET item_name=excluded.item_name,model_id=excluded.model_id,source=excluded.source,confidence=excluded.confidence,updated_at=CURRENT_TIMESTAMP");
+        $started=!$this->pdo->inTransaction();if($started)$this->pdo->beginTransaction();
+        try{
+            foreach($rows as$row){
+                $name=trim((string)($row['name']??''));$model=(int)($row['model_id']??0);
+                if($name===''||$model<=0){$unmatched++;continue;}
+                $item=$this->findMarketItemByName($name);
+                if($item===null){
+                    // GWCA constant identifiers omit spaces/punctuation. Compare
+                    // a compact normalized form as a conservative fallback.
+                    $needle=$this->compactName($name);
+                    foreach($this->marketItems('',3000) as$candidate){
+                        if($this->compactName((string)$candidate['item'])===$needle){$item=$candidate;break;}
+                    }
+                }
+                if($item===null){$unmatched++;continue;}
+                $stmt->execute([':k'=>$item['item_key'],':n'=>$item['item'],':m'=>$model]);$matched++;
+            }
+            if($started)$this->pdo->commit();
+        }catch(Throwable$e){if($started&&$this->pdo->inTransaction())$this->pdo->rollBack();throw$e;}
+        return ['matched'=>$matched,'unmatched'=>$unmatched];
+    }
+
+    /**
+     * Apply model_file_id values captured from a real GW client/GWCA export.
+     * When model_file_id equals one of the local DAT icon IDs we can link with
+     * certainty; otherwise it remains useful game metadata without guessing.
+     * @param array<int,array<string,mixed>> $rows
+     * @return array<string,int>
+     */
+    public function importRuntimeFileIds(array $rows): array
+    {
+        $this->install();$updated=0;$iconLinks=0;$missing=0;
+        $up=$this->pdo->prepare("INSERT INTO item_game_ids(item_key,item_name,model_id,model_file_id,source,confidence,updated_at) VALUES(:k,:n,:m,:f,'gwca-runtime',1.0,CURRENT_TIMESTAMP) ON CONFLICT(item_key) DO UPDATE SET item_name=excluded.item_name,model_id=COALESCE(excluded.model_id,item_game_ids.model_id),model_file_id=excluded.model_file_id,source=excluded.source,confidence=1.0,updated_at=CURRENT_TIMESTAMP");
+        $started=!$this->pdo->inTransaction();if($started)$this->pdo->beginTransaction();
+        try{
+            foreach(array_slice($rows,0,10000) as$row){
+                if(!is_array($row))continue;
+                $name=trim((string)($row['name']??$row['item_name']??''));$file=(int)($row['model_file_id']??$row['file_id']??0);$model=(int)($row['model_id']??0);
+                if($name===''||$file<=0){$missing++;continue;}
+                $item=$this->findMarketItemByName($name);if($item===null){$missing++;continue;}
+                $up->execute([':k'=>$item['item_key'],':n'=>$item['item'],':m'=>$model>0?$model:null,':f'=>$file]);$updated++;
+                $asset=$this->assetByDatId($file);
+                if($asset!==null){$this->upsertItemLink($item,$asset,'gwca-runtime-file-id',1.0,'model_file_id='.$file);$iconLinks++;}
+            }
+            if($started)$this->pdo->commit();
+        }catch(Throwable$e){if($started&&$this->pdo->inTransaction())$this->pdo->rollBack();throw$e;}
+        return ['updated'=>$updated,'icon_links'=>$iconLinks,'missing'=>$missing];
+    }
+
+    /** @return array<string,int> */
+    public function gameIdSummary(): array
+    {
+        $this->install();
+        return [
+            'model_ids'=>(int)$this->pdo->query('SELECT COUNT(*) FROM item_game_ids WHERE model_id IS NOT NULL')->fetchColumn(),
+            'model_file_ids'=>(int)$this->pdo->query('SELECT COUNT(*) FROM item_game_ids WHERE model_file_id IS NOT NULL')->fetchColumn(),
+            'runtime_icon_links'=>(int)$this->pdo->query("SELECT COUNT(*) FROM item_icon_links WHERE match_source='gwca-runtime-file-id'")->fetchColumn(),
+        ];
+    }
+
+    private function compactName(string $value): string
+    {
+        $value=mb_strtolower($value);
+        return preg_replace('/[^a-z0-9]+/u','',$value)??'';
     }
 
     /** @return array<string,int> */

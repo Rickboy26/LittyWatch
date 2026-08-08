@@ -1,0 +1,178 @@
+[
+  {
+    "name": "Bone",
+    "model_id": 921
+  },
+  {
+    "name": "Bolt of Cloth",
+    "model_id": 925
+  },
+  {
+    "name": "Pile of Glittering Dust",
+    "model_id": 929
+  },
+  {
+    "name": "Feather",
+    "model_id": 933
+  },
+  {
+    "name": "Plant Fiber",
+    "model_id": 934
+  },
+  {
+    "name": "Tanned Hide Square",
+    "model_id": 940
+  },
+  {
+    "name": "Wood Plank",
+    "model_id": 946
+  },
+  {
+    "name": "Iron Ingot",
+    "model_id": 948
+  },
+  {
+    "name": "Scale",
+    "model_id": 953
+  },
+  {
+    "name": "Chitin Fragment",
+    "model_id": 954
+  },
+  {
+    "name": "Granite Slab",
+    "model_id": 955
+  },
+  {
+    "name": "Amber Chunk",
+    "model_id": 6532
+  },
+  {
+    "name": "Bolt of Damask",
+    "model_id": 927
+  },
+  {
+    "name": "Bolt of Linen",
+    "model_id": 926
+  },
+  {
+    "name": "Bolt of Silk",
+    "model_id": 928
+  },
+  {
+    "name": "Deldrimor Steel Ingot",
+    "model_id": 950
+  },
+  {
+    "name": "Diamond",
+    "model_id": 935
+  },
+  {
+    "name": "Elonian Leather Square",
+    "model_id": 943
+  },
+  {
+    "name": "Fur Square",
+    "model_id": 941
+  },
+  {
+    "name": "Glob of Ectoplasm",
+    "model_id": 930
+  },
+  {
+    "name": "Jadeite Shard",
+    "model_id": 6533
+  },
+  {
+    "name": "Leather Square",
+    "model_id": 942
+  },
+  {
+    "name": "Lump of Charcoal",
+    "model_id": 922
+  },
+  {
+    "name": "Monstrous Claw",
+    "model_id": 923
+  },
+  {
+    "name": "Monstrous Eye",
+    "model_id": 931
+  },
+  {
+    "name": "Monstrous Fang",
+    "model_id": 932
+  },
+  {
+    "name": "Obsidian Shard",
+    "model_id": 945
+  },
+  {
+    "name": "Onyx Gemstone",
+    "model_id": 936
+  },
+  {
+    "name": "Roll of Parchment",
+    "model_id": 951
+  },
+  {
+    "name": "Roll of Vellum",
+    "model_id": 952
+  },
+  {
+    "name": "Ruby",
+    "model_id": 937
+  },
+  {
+    "name": "Sapphire",
+    "model_id": 938
+  },
+  {
+    "name": "Spiritwood Plank",
+    "model_id": 956
+  },
+  {
+    "name": "Steel Ingot",
+    "model_id": 949
+  },
+  {
+    "name": "Tempered Glass Vial",
+    "model_id": 939
+  },
+  {
+    "name": "Vial of Ink",
+    "model_id": 944
+  },
+  {
+    "name": "Armbrace of Truth",
+    "model_id": 21127
+  },
+  {
+    "name": "Eternal Blade",
+    "model_id": 1045
+  },
+  {
+    "name": "Obsidian Edge",
+    "model_id": 1900
+  },
+  {
+    "name": "Voltaic Spear",
+    "model_id": 2071
+  },
+  {
+    "name": "Crystalline Sword",
+    "model_id": 399
+  },
+  {
+    "name": "Miniature Dhuum",
+    "model_id": 32822
+  },
+  {
+    "name": "Gold Coin",
+    "model_id": 2510
+  },
+  {
+    "name": "Zaishen Key",
+    "model_id": 28517
+  }
+]
