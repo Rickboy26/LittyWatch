@@ -82,14 +82,14 @@ final class ContextualOfferListResolver
     /** @param list<string> $parts @return list<string> */
     private function inheritMiniatureContext(array $parts,string $source): array
     {
-        if(!preg_match('/\b(?:mini(?:ature)?s?|unded|undedicated|un[- ]?ded|ded|dedicated)\b/iu',$source)) return $parts;
+        if(!preg_match('/\b(?:mini(?:ature)?s?|uded|unded|undedicated|un[- ]?ded|ded|dedicated)\b/iu',$source)) return $parts;
         $state='';
-        if(preg_match('/\b(?:unded|undedicated|un[- ]?ded)\b/iu',$source))$state=' unded';
+        if(preg_match('/\b(?:uded|unded|undedicated|un[- ]?ded)\b/iu',$source))$state=' unded';
         elseif(preg_match('/\b(?:ded|dedicated)\b/iu',$source))$state=' ded';
 
         // "Uded Celestial Sheep and Rat" => carry "Celestial" into Rat.
         $family='';
-        $first=preg_replace('/\b(?:mini(?:ature)?s?|unded|undedicated|un[- ]?ded|ded|dedicated)\b/iu',' ',$parts[0])??$parts[0];
+        $first=preg_replace('/\b(?:mini(?:ature)?s?|uded|unded|undedicated|un[- ]?ded|ded|dedicated)\b/iu',' ',$parts[0])??$parts[0];
         $tokens=preg_split('/\s+/u',trim($first))?:[];
         if(count($tokens)>=2 && in_array(mb_strtolower($tokens[0]),['celestial'],true))$family=$tokens[0].' ';
 

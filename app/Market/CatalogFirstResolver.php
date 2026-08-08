@@ -114,6 +114,13 @@ final class CatalogFirstResolver
         $state=$this->miniState($message.' '.$item);
         if($state===null)return []; // no ded/unded = review, never player market
 
+        // Variant tokens are metadata, never part of the catalogue identity.
+        // Phase 3X list segmentation may carry them per candidate (e.g.
+        // "Miniature Celestial Rat unded"), so strip them before lookup.
+        $candidate=preg_replace('/^(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)\s+/iu','',$candidate)??$candidate;
+        $candidate=preg_replace('/\s+(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)$/iu','',$candidate)??$candidate;
+        $candidate=trim($candidate);
+
         if(!str_starts_with(mb_strtolower($candidate),'miniature '))$candidate='Miniature '.$candidate;
         $exact=$this->catalogueExact($candidate,(string)($row['item_key']??''));
         if($exact===null){
@@ -130,7 +137,7 @@ final class CatalogFirstResolver
     private function miniState(string $text): ?string
     {
         $t=mb_strtolower($text);
-        if(preg_match('/\b(?:unded|undedi|undedicated|un[- ]?ded)\b/u',$t))return 'unded';
+        if(preg_match('/\b(?:uded|unded|undedi|undedicated|un[- ]?ded)\b/u',$t))return 'unded';
         if(preg_match('/\b(?:ded|dedicated)\b/u',$t))return 'ded';
         return null;
     }
