@@ -132,7 +132,7 @@ $container->singleton(ParserBatchReviewService::class, fn(Container $c) => new P
             Schema::install($c->get('pdo'));
             return new KnowledgeBase($c->get('pdo'));
         });
-        $container->singleton(KnowledgeControllerData::class, fn(Container $c) => new KnowledgeControllerData($c->get(KnowledgeBase::class)));
+        $container->singleton(KnowledgeControllerData::class, fn(Container $c) => new KnowledgeControllerData($c->get(KnowledgeBase::class), db()));
         $container->singleton(KnowledgeController::class, fn(Container $c) => new KnowledgeController($c->get(KnowledgeControllerData::class), $c->get(View::class)));
         $container->singleton(KnowledgePackController::class, fn(Container $c) => new KnowledgePackController(
             $c->get(KnowledgePackService::class),
