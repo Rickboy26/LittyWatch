@@ -20,11 +20,38 @@
   const processedNode = root.querySelector('[data-auto-map-processed]');
 
   const api = 'https://wiki.guildwars.com/api.php';
-  const fingerprintsUrl = '/assets/game-items/inventory-fingerprints.json?v=3m6';
+  const fingerprintsUrl = '/assets/game-items/inventory-fingerprints.json?v=3m7';
   const batchSize = 18;
   const saveBatchSize = 40;
   let stopRequested = false;
   let running = false;
+  const dnsCache = new Map();
+
+  async function resolveHost(host) {
+    host = String(host || '').trim().toLowerCase();
+    if (!host) return '';
+    if (dnsCache.has(host)) return dnsCache.get(host);
+    const providers = [
+      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=A`,
+      `https://dns.google/resolve?name=${encodeURIComponent(host)}&type=A`,
+    ];
+    for (const url of providers) {
+      try {
+        const response = await fetch(url, {headers:{'Accept':'application/dns-json'}, cache:'no-store', mode:'cors'});
+        if (!response.ok) continue;
+        const data = await response.json();
+        const answers = Array.isArray(data?.Answer) ? data.Answer : [];
+        const hit = answers.find(row => Number(row?.type) === 1 && /^\d{1,3}(?:\.\d{1,3}){3}$/.test(String(row?.data || '')));
+        if (hit) {
+          const ip = String(hit.data);
+          dnsCache.set(host, ip);
+          return ip;
+        }
+      } catch (_) {}
+    }
+    dnsCache.set(host, '');
+    return '';
+  }
 
   const normalizeTitle = value => String(value || '')
     .replace(/_/g, ' ')
@@ -105,7 +132,18 @@
     const sourceTitle = String(candidate?.sourceTitle || '').trim();
     const remoteUrl = String(candidate?.url || '').trim();
     const urls = [];
-    if (sourceTitle) urls.push(`/game-assets/wiki-icon?file=${encodeURIComponent(sourceTitle)}`);
+    if (sourceTitle) {
+      let ip = '';
+      let remoteHost = '';
+      if (remoteUrl) {
+        try { remoteHost = new URL(remoteUrl).hostname; } catch (_) {}
+      }
+      if (remoteHost) ip = await resolveHost(remoteHost);
+      const q = new URLSearchParams({file:sourceTitle});
+      if (remoteUrl) q.set('url', remoteUrl);
+      if (ip) q.set('ip', ip);
+      urls.push(`/game-assets/wiki-icon?${q.toString()}`);
+    }
     if (remoteUrl) urls.push(remoteUrl);
     let blob = null;
     let lastError = null;
@@ -118,7 +156,10 @@
         const candidateBlob = await response.blob();
         if (!type.includes('image') && candidateBlob.type && !candidateBlob.type.includes('image')) throw new Error('Geen afbeelding ontvangen.');
         blob = candidateBlob;
-        via = url.startsWith('/game-assets/wiki-icon') ? 'proxy' : 'direct';
+        if (url.startsWith('/game-assets/wiki-icon')) {
+          const source = String(response.headers.get('x-littywatch-icon-source') || 'proxy');
+          via = source === 'resolved-ip' ? 'proxy-resolved' : 'proxy';
+        } else via = 'direct';
         break;
       } catch (error) { lastError = error; }
     }
@@ -333,7 +374,7 @@
     if (detail) detail.textContent = 'Lokale fingerprintindex wordt geladen…';
 
     let processed = 0, matched = 0, unresolved = 0, failed = 0;
-    let wikiCandidates = 0, imageReads = 0, proxyReads = 0, directReads = 0, imageReadFailures = 0;
+    let wikiCandidates = 0, imageReads = 0, proxyReads = 0, resolvedProxyReads = 0, directReads = 0, imageReadFailures = 0;
     const total = items.length;
     const pendingSave = [];
     setProgress(0, total, 0, 0, 0, 'Mapper starten…');
@@ -395,7 +436,9 @@
               try {
                 const fp = await imageFingerprint(candidate);
                 imageReads++;
-                if (fp.via === 'proxy') proxyReads++; else if (fp.via === 'direct') directReads++;
+                if (fp.via === 'proxy-resolved') { proxyReads++; resolvedProxyReads++; }
+                else if (fp.via === 'proxy') proxyReads++;
+                else if (fp.via === 'direct') directReads++;
                 const visual = visualMatch(fp, local.rows);
                 if (visual) {
                   found = {
@@ -450,7 +493,7 @@
         if (detail) detail.textContent = 'Alles wat al met hoge zekerheid was gevonden, is opgeslagen. Je kunt later verdergaan.';
       } else {
         if (status) status.textContent = 'Automatische herkenning afgerond.';
-        if (detail) detail.textContent = `${matched} nieuwe koppelingen · ${wikiCandidates} Wiki-bestanden gevonden · ${imageReads} afbeeldingen gelezen (${proxyReads} via LittyWatch, ${directReads} direct) · ${imageReadFailures} leesfouten · ${unresolved} niet zeker genoeg.`;
+        if (detail) detail.textContent = `${matched} nieuwe koppelingen · ${wikiCandidates} Wiki-bestanden gevonden · ${imageReads} afbeeldingen gelezen (${proxyReads} via LittyWatch, waarvan ${resolvedProxyReads} via DNS-bypass; ${directReads} direct) · ${imageReadFailures} leesfouten · ${unresolved} niet zeker genoeg.`;
         if (matched > 0) {
           const reload = document.createElement('button');
           reload.className = 'btn secondary';

@@ -141,4 +141,4 @@ $usedAssets=(int)($s['linked']??0);
 <?php endif;?>
 
 <script type="application/json" id="inventory-auto-items"><?=json_encode($autoItems,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?:'[]'?></script>
-<script src="/assets/js/inventory-icon-matcher.js?v=3m6" defer></script>
+<script src="/assets/js/inventory-icon-matcher.js?v=3m7" defer></script>

@@ -40,6 +40,9 @@ final class AssetController
     {
         $file=trim($request->string('file'));
         $file=preg_replace('/^File:/i','',$file) ?? $file;
+        $remote=trim($request->string('url'));
+        $resolvedIp=trim($request->string('ip'));
+
         if($file===''||strlen($file)>180||!preg_match('/^[^\\\/\x00-\x1F]+\.png$/iu',$file)){
             return Response::json(['ok'=>false,'error'=>'Ongeldige Wiki-iconnaam.'],400);
         }
@@ -50,46 +53,67 @@ final class AssetController
         if(is_file($cacheFile)&&filesize($cacheFile)>32){
             $body=(string)file_get_contents($cacheFile);
             if(str_starts_with($body,"\x89PNG\r\n\x1a\n")){
-                return new Response($body,200,['Content-Type'=>'image/png','Cache-Control'=>'public, max-age=604800']);
+                return new Response($body,200,['Content-Type'=>'image/png','Cache-Control'=>'public, max-age=604800','X-LittyWatch-Icon-Source'=>'cache']);
             }
         }
 
         $url='https://wiki.guildwars.com/wiki/Special:Redirect/file/'.rawurlencode($file);
-        $body='';$status=0;$contentType='';
+        if($remote!==''){
+            $parts=@parse_url($remote);
+            $host=strtolower((string)($parts['host']??''));
+            $scheme=strtolower((string)($parts['scheme']??''));
+            $path=(string)($parts['path']??'');
+            $allowedHost=$host==='wiki.guildwars.com'||str_ends_with($host,'.guildwars.com');
+            if($scheme==='https'&&$allowedHost&&$path!=='') $url=$remote;
+        }
+
+        if($resolvedIp!==''&&!filter_var($resolvedIp,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4|FILTER_FLAG_IPV6)) $resolvedIp='';
+        $parts=@parse_url($url);
+        $targetHost=strtolower((string)($parts['host']??'wiki.guildwars.com'));
+        $body='';$status=0;$contentType='';$curlError='';
         if(function_exists('curl_init')){
             $ch=curl_init($url);
             if($ch!==false){
-                curl_setopt_array($ch,[
+                $opts=[
                     CURLOPT_RETURNTRANSFER=>true,
-                    CURLOPT_FOLLOWLOCATION=>true,
-                    CURLOPT_MAXREDIRS=>5,
-                    CURLOPT_CONNECTTIMEOUT=>6,
-                    CURLOPT_TIMEOUT=>15,
+                    CURLOPT_FOLLOWLOCATION=>false,
+                    CURLOPT_CONNECTTIMEOUT=>8,
+                    CURLOPT_TIMEOUT=>18,
                     CURLOPT_USERAGENT=>'LittyWatch/5.2 inventory-icon mapper (+https://hollandseglory.nl)',
                     CURLOPT_HTTPHEADER=>['Accept: image/png,image/*;q=0.9,*/*;q=0.1'],
                     CURLOPT_SSL_VERIFYPEER=>true,
-                ]);
+                    CURLOPT_SSL_VERIFYHOST=>2,
+                ];
+                if($resolvedIp!=='') $opts[CURLOPT_RESOLVE]=[$targetHost.':443:'.$resolvedIp];
+                curl_setopt_array($ch,$opts);
                 $raw=curl_exec($ch);
                 if(is_string($raw))$body=$raw;
                 $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
                 $contentType=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);
+                $curlError=(string)curl_error($ch);
                 curl_close($ch);
             }
         }
-        if($body===''&&filter_var(ini_get('allow_url_fopen'),FILTER_VALIDATE_BOOLEAN)){
-            $ctx=stream_context_create(['http'=>[
-                'method'=>'GET','timeout'=>15,'follow_location'=>1,'max_redirects'=>5,
-                'header'=>"User-Agent: LittyWatch/5.2 inventory-icon mapper\r\nAccept: image/png,image/*;q=0.9,*/*;q=0.1\r\n",
-            ]]);
-            $raw=@file_get_contents($url,false,$ctx);
-            if(is_string($raw)){$body=$raw;$status=200;}
+
+        if($status>=300&&$status<400&&$body===''){
+            // libcurl may return an empty body on redirects. Direct imageinfo URLs
+            // supplied by the browser should avoid this path entirely.
         }
 
         if($status>=400||$body===''||!str_starts_with($body,"\x89PNG\r\n\x1a\n")){
-            return Response::json(['ok'=>false,'error'=>'Wiki inventory icon kon niet via de server worden gelezen.','file'=>$file,'status'=>$status,'content_type'=>$contentType],502);
+            return Response::json([
+                'ok'=>false,
+                'error'=>'Wiki inventory icon kon niet via de server worden gelezen.',
+                'file'=>$file,
+                'status'=>$status,
+                'content_type'=>$contentType,
+                'host'=>$targetHost,
+                'resolved_ip'=>$resolvedIp,
+                'curl_error'=>$curlError,
+            ],502);
         }
         if(is_dir($cacheDir)&&is_writable($cacheDir)) @file_put_contents($cacheFile,$body,LOCK_EX);
-        return new Response($body,200,['Content-Type'=>'image/png','Cache-Control'=>'public, max-age=604800']);
+        return new Response($body,200,['Content-Type'=>'image/png','Cache-Control'=>'public, max-age=604800','X-LittyWatch-Icon-Source'=>$resolvedIp!==''?'resolved-ip':'server-dns']);
     }
 
     public function update(Request $request): Response
