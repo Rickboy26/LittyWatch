@@ -13,6 +13,9 @@
     <a href="/structured-offers"><strong>Structured Offers</strong><span>Vergelijk legacy met Parser v2.</span></a>
     <a href="/admin/parser-lab"><strong>Parser Lab</strong><span>Test losse Kamadan-berichten.</span></a>
     <a href="/knowledge"><strong>Knowledge Base</strong><span>Bekijk itemprofielen en attributes.</span></a>
+    <a href="/knowledge-pack"><strong>Knowledge Pack</strong><span>Beheer wiki-categorieën, staging en parserkennis.</span></a>
+    <a href="/game-assets"><strong>Game assets</strong><span>Controleer gekoppelde Guild Wars-assets en afbeeldingen.</span></a>
+    <a href="/system"><strong>Systeemstatus</strong><span>Bekijk technische status en runtime-informatie.</span></a>
   </div></section>
 </div>
 

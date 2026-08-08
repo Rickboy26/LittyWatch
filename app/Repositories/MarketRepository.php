@@ -429,4 +429,75 @@ final class MarketRepository
         return compact('score','label','coverage','traders','flagged','unpriced','offers','trusted');
     }
 
+
+    /** @return array<string,float> */
+    public function dashboardAveragePrices(array $items): array
+    {
+        $items=array_values(array_unique(array_filter(array_map('strval',$items))));
+        if(!$items)return[];
+        $placeholders=[];$params=[];
+        foreach($items as$i=>$item){$ph=':item'.$i;$placeholders[]=$ph;$params[$ph]=$item;}
+        $sql="SELECT lower(o.item) AS item_group,ROUND(AVG(o.unit_price_ecto),2) AS avg_price
+              FROM structured_offers o JOIN messages m ON m.id=o.message_id
+              WHERE lower(o.item) IN (".implode(',',array_map(static fn($ph)=>'lower('.$ph.')',$placeholders)).")
+                AND o.quality_status='accepted' AND COALESCE(o.lifecycle_status,'active')='active'
+                AND ".$this->trustedPriceExpr('o')."
+              GROUP BY lower(o.item)";
+        $st=$this->pdo->prepare($sql);$st->execute($params);$out=[];
+        foreach($st->fetchAll() as$row)$out[(string)$row['item_group']]=(float)$row['avg_price'];
+        return$out;
+    }
+
+    /** @return array{gainer:?array<string,mixed>,loser:?array<string,mixed>} */
+    public function dailyMovers(): array
+    {
+        $sql="SELECT o.item,o.unit_price_ecto,m.posted_at
+              FROM structured_offers o JOIN messages m ON m.id=o.message_id
+              WHERE o.quality_status='accepted' AND COALESCE(o.lifecycle_status,'active')='active'
+                AND ".$this->trustedPriceExpr('o')."
+                AND datetime(m.posted_at)>=datetime('now','-48 hours')
+                AND o.item<>'' AND o.item NOT LIKE 'Bundle:%'";
+        $groups=[];
+        foreach($this->pdo->query($sql)->fetchAll() as$row){
+            $item=(string)$row['item'];$key=mb_strtolower($item);$ts=strtotime((string)$row['posted_at'])?:0;
+            $bucket=$ts>=time()-86400?'now':'previous';
+            $groups[$key]['item']=$item;$groups[$key][$bucket][]=(float)$row['unit_price_ecto'];
+        }
+        $median=static function(array $v):?float{if(!$v)return null;sort($v,SORT_NUMERIC);$n=count($v);$m=intdiv($n,2);return$n%2?$v[$m]:($v[$m-1]+$v[$m])/2;};
+        $moves=[];
+        foreach($groups as$g){
+            if(count($g['now']??[])<2||count($g['previous']??[])<2)continue;
+            $cur=$median($g['now']);$prev=$median($g['previous']);if(!$cur||!$prev||$prev<=0)continue;
+            $pct=(($cur-$prev)/$prev)*100;
+            $moves[]=['item'=>$g['item'],'percent'=>$pct,'current'=>$cur,'previous'=>$prev,'samples'=>count($g['now'])];
+        }
+        usort($moves,static fn($a,$b)=>$b['percent']<=>$a['percent']);
+        $gainer=null;$loser=null;foreach($moves as$move){if($gainer===null&&$move['percent']>0)$gainer=$move;if($move['percent']<0)$loser=$move;}
+        return['gainer'=>$gainer,'loser'=>$loser];
+    }
+
+    /** @return array<string,float> */
+    public function marketExchangeQuotes(): array
+    {
+        $targets=[
+            'platinum_ecto'=>['item'=>'Glob of Ectoplasm','currency'=>'k'],
+            'ecto_arm'=>['item'=>'Armbrace of Truth','currency'=>'e'],
+            'ecto_zkey'=>['item'=>'Zaishen Key','currency'=>'e'],
+            'ecto_obby'=>['item'=>'Obsidian Shard','currency'=>'e'],
+        ];
+        $median=static function(array $v):?float{if(!$v)return null;sort($v,SORT_NUMERIC);$n=count($v);$m=intdiv($n,2);return$n%2?$v[$m]:($v[$m-1]+$v[$m])/2;};
+        $out=[];
+        foreach($targets as$key=>$t){
+            $st=$this->pdo->prepare("SELECT o.price_amount FROM structured_offers o JOIN messages m ON m.id=o.message_id
+                WHERE lower(o.item)=lower(:item) AND o.trade_type IN ('buy','sell') AND o.quality_status='accepted'
+                  AND COALESCE(o.lifecycle_status,'active')='active' AND COALESCE(o.price_quality_status,'trusted')='trusted'
+                  AND o.price_currency=:currency AND o.price_amount IS NOT NULL AND o.price_amount>0
+                  AND datetime(m.posted_at)>=datetime('now','-7 days') ORDER BY datetime(m.posted_at) DESC LIMIT 100");
+            $st->execute([':item'=>$t['item'],':currency'=>$t['currency']]);
+            $values=array_map('floatval',$st->fetchAll(\PDO::FETCH_COLUMN));
+            if(count($values)>=2){$m=$median($values);if($m!==null)$out[$key]=$m;}
+        }
+        return$out;
+    }
+
 }
