@@ -64,6 +64,21 @@ final class ControlledCatalogResolver
             }
         }
 
+        // Phase 4A pass 1: deterministic known-entity recovery. These are
+        // spelling/market-shorthand rewrites only; the rewritten phrase must
+        // still exist uniquely in the active catalogue before it is accepted.
+        $known=$this->recoverKnownEntity($item,$context);
+        if($known!==null)return $known + ['reason'=>'known_entity_recovery','score'=>1.0];
+
+        // Phase 4A pass 2: when the parser only produced a generic weapon family,
+        // inspect the same clause for an embedded concrete catalogue name/alias.
+        // The longest unique family-compatible match wins. This lets "Eshield"
+        // recover Eternal Shield without ever guessing from just "Shield".
+        if($this->looksGenericWeapon($item)){
+            $weapon=$this->embeddedConcreteWeapon($item,$context);
+            if($weapon!==null)return $weapon + ['reason'=>'weapon_context_embedded_alias','score'=>1.0];
+        }
+
         // Upgrade shorthand gets a category-restricted semantic search. This is
         // deliberately done before general fuzzy matching so "vamp spear" can
         // never become an arbitrary spear skin.
@@ -102,6 +117,106 @@ final class ControlledCatalogResolver
             if ($n!=='' && !isset($out[$n])) $out[$n]=trim($phrase);
         }
         return array_values($out);
+    }
+
+
+    /** @return array{key:string,name:string}|null */
+    private function recoverKnownEntity(string $item,string $context): ?array
+    {
+        $values=[];
+        foreach([$item,$this->stripTradeNoise($context)] as $raw){
+            $raw=trim($raw);
+            if($raw==='')continue;
+            $clean=preg_replace('/\s*\/\s*\d+(?:[.,]\d+)?\s*(?:a|e|k)\s*$/iu','',$raw)??$raw;
+            $clean=preg_replace('/\s+\d+(?:[.,]\d+)?\s*(?:a|e|k)\s*(?:\/\s*ea|ea|each)?\s*$/iu','',$clean)??$clean;
+            $clean=trim($clean," \t\n\r\0\x0B,;|/-");
+            $values[]=$clean;
+
+            // Common trader vocabulary. Every expansion remains catalogue-proof:
+            // no row is returned unless the target is a unique exact name/alias.
+            $n=KnowledgeBase::normalize($clean);
+            $map=[
+                'gold zc'=>'Gold Zaishen Coin','gold z coin'=>'Gold Zaishen Coin','gold z coins'=>'Gold Zaishen Coin',
+                'golden z coin'=>'Gold Zaishen Coin','golden z coins'=>'Gold Zaishen Coin',
+                'zaishen stones'=>'Zaishen Summoning Stone','zaishen stone'=>'Zaishen Summoning Stone',
+                'powerstones'=>'Powerstone of Courage','powerstone'=>'Powerstone of Courage',
+                'stygian gemstones'=>'Stygian Gem','stygian gemstone'=>'Stygian Gem','stygian gemstones'=>'Stygian Gem',
+                'tanned hide'=>'Tanned Hide Square','tanned hides'=>'Tanned Hide Square',
+                'scales'=>'Scale','celerity'=>'Essence of Celerity',
+                'ghozers key'=>"Ghozer's Key",'ghozer s key'=>"Ghozer's Key",'ghozer key'=>"Ghozer's Key",
+                'shiro potion'=>"Shiro's Tonic",'el frosty'=>'Everlasting Frosty Tonic',
+            ];
+            if(isset($map[$n]))$values[]=$map[$n];
+
+            // Safe singular/plural recovery, again only accepted by exact/alias.
+            if(preg_match('/^(.{4,})s$/u',$clean,$m))$values[]=$m[1];
+            if(preg_match('/^(.+?)\s+gemstones?$/iu',$clean,$m))$values[]=$m[1].' Gem';
+            if(preg_match('/^(.+?)\s+potion$/iu',$clean,$m)){
+                $values[]=$m[1].' Tonic';
+                $values[]='Everlasting '.$m[1].' Tonic';
+            }
+        }
+        $seen=[];
+        foreach($values as $value){
+            $norm=KnowledgeBase::normalize($value);if($norm===''||isset($seen[$norm]))continue;$seen[$norm]=true;
+            $r=$this->uniqueExactOrAlias($value);
+            if($r!==null&&!$this->looksGeneric($r['name']))return $r;
+        }
+        return null;
+    }
+
+    /** @return array{key:string,name:string}|null */
+    private function embeddedConcreteWeapon(string $generic,string $context): ?array
+    {
+        $ctx=KnowledgeBase::normalize($this->stripTradeNoise($context));
+        if($ctx==='')return null;
+        $family=$this->weaponFamily($generic);
+        if($family===null)return null;
+
+        $rows=$this->pdo->query("SELECT i.key,i.name,i.category_key,a.alias FROM kb_items i LEFT JOIN kb_aliases a ON a.item_key=i.key WHERE i.active=1")->fetchAll();
+        /** @var array<string,array{key:string,name:string,len:int}> $hits */
+        $hits=[];
+        foreach($rows as $row){
+            $key=(string)$row['key'];$name=CanonicalMarketIdentity::nameFor((string)$row['name'],$key);
+            if($this->looksGeneric($name)||CanonicalMarketIdentity::isWikiDisambiguator($name))continue;
+            if(!$this->weaponFamilyCompatible($family,$name,(string)($row['category_key']??'')))continue;
+            foreach([(string)$row['name'],(string)($row['alias']??'')] as $label){
+                $needle=KnowledgeBase::normalize($label);
+                if(strlen($needle)<4||$this->looksGeneric($needle))continue;
+                // Normalized boundaries prevent "bow" from matching "rainbow".
+                if(!preg_match('/(?:^|\s)'.preg_quote($needle,'/').'(?:$|\s)/u',$ctx))continue;
+                $len=mb_strlen($needle);
+                if(!isset($hits[$key])||$len>$hits[$key]['len'])$hits[$key]=['key'=>$key,'name'=>$name,'len'=>$len];
+            }
+        }
+        if(!$hits)return null;
+        usort($hits,static fn(array $a,array $b):int=>$b['len']<=>$a['len']);
+        $winner=$hits[0];
+        // Equal-length hits for different items are ambiguous and stay review.
+        if(isset($hits[1])&&$hits[1]['len']===$winner['len'])return null;
+        return ['key'=>$winner['key'],'name'=>$winner['name']];
+    }
+
+    private function looksGenericWeapon(string $name): bool
+    {
+        return $this->weaponFamily($name)!==null && in_array(KnowledgeBase::normalize($name),self::GENERIC_NAMES,true);
+    }
+
+    private function weaponFamily(string $name): ?string
+    {
+        $n=KnowledgeBase::normalize($name);
+        if(in_array($n,['axe','sword','hammer','scythe','spear','staff','wand','shield','focus','focus item','dagger','daggers'],true))return $n==='dagger'?'daggers':($n==='focus item'?'focus':$n);
+        if(in_array($n,['bow','flatbow','hornbow','longbow','recurve bow','recurvebow','shortbow'],true))return 'bow';
+        return null;
+    }
+
+    private function weaponFamilyCompatible(string $family,string $name,string $category): bool
+    {
+        $n=KnowledgeBase::normalize($name);$c=KnowledgeBase::normalize($category);
+        if($family==='bow')return str_contains($n,'bow')||str_contains($c,'bow');
+        if($family==='focus')return str_contains($c,'focus')||str_contains($c,'offhand')||preg_match('/\b(?:focus|artifact|chalice|idol|icon)\b/u',$n)===1;
+        if($family==='daggers')return str_contains($n,'dagger')||str_contains($c,'dagger');
+        return str_contains($n,$family)||str_contains($c,$family);
     }
 
     private function stripTradeNoise(string $value): string
