@@ -6,22 +6,32 @@ namespace LittyWatch\Controllers;
 use LittyWatch\Core\Request;
 use LittyWatch\Core\Response;
 use LittyWatch\Core\View;
-use LittyWatch\Services\ItemImageService;
 use LittyWatch\Repositories\MarketRepository;
 use LittyWatch\Repositories\DatasetRepository;
+use LittyWatch\V2\Assets\AssetCatalogService;
+use Throwable;
 
 final class AdminController
 {
-    public function __construct(private readonly View $view, private readonly ItemImageService $images, private readonly MarketRepository $market, private readonly DatasetRepository $dataset) {}
+    public function __construct(
+        private readonly View $view,
+        private readonly MarketRepository $market,
+        private readonly DatasetRepository $dataset,
+        private readonly AssetCatalogService $assets,
+    ) {}
 
     public function index(Request $request): Response
     {
+        try { $assetSummary = $this->assets->summary(); }
+        catch (Throwable) { $assetSummary = ['imports'=>0,'assets'=>0,'linked'=>0,'unlinked'=>0]; }
+
         return Response::html($this->view->render('admin/index', [
             'title' => 'Beheer · LittyWatch',
-            'imageItems' => $this->images->all(),
             'dataQuality' => $this->market->dataQualityOverview(),
+            'assetSummary' => $assetSummary,
         ]));
     }
+
     public function dataset(Request $request): Response
     {
         return Response::html($this->view->render('admin/dataset', [
@@ -66,5 +76,4 @@ final class AdminController
             'cases' => $this->market->dataQualityCases($category,$query,$type,$limit),
         ]));
     }
-
 }

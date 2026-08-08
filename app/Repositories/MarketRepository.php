@@ -49,6 +49,26 @@ final class MarketRepository
         return $statement->fetchAll();
     }
 
+    /**
+     * Public dashboard feed: only canonical, accepted and currently active offers.
+     * Review/rejected/stale rows stay available to admin tooling but never leak
+     * into the player-facing newest-offers table.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function latestDashboardOffers(int $limit = 40): array
+    {
+        // Keep this query separate from latestOffers(): the latter is also used
+        // by diagnostics where review/stale rows are intentionally visible.
+        $sql = 'SELECT o.*,'.$this->variantExpr('o').' AS details,m.player,m.message,m.posted_at '
+             . 'FROM structured_offers o JOIN messages m ON m.id=o.message_id '
+             . "WHERE o.quality_status='accepted' "
+             . "AND COALESCE(o.lifecycle_status,'active')='active' "
+             . "AND TRIM(COALESCE(o.item,''))<>'' "
+             . 'ORDER BY datetime(m.posted_at) DESC,o.id DESC LIMIT '.max(1, min(100, $limit));
+        return $this->sanitizeDisplayedPrices($this->pdo->query($sql)->fetchAll());
+    }
+
     /** @return list<array<string,mixed>> */
     public function itemDirectory(string $query = '', int $limit = 250): array
     {
@@ -437,67 +457,142 @@ final class MarketRepository
         if(!$items)return[];
         $placeholders=[];$params=[];
         foreach($items as$i=>$item){$ph=':item'.$i;$placeholders[]=$ph;$params[$ph]=$item;}
-        $sql="SELECT lower(o.item) AS item_group,ROUND(AVG(o.unit_price_ecto),2) AS avg_price
+        $sql="SELECT lower(o.item) AS item_group,o.unit_price_ecto
               FROM structured_offers o JOIN messages m ON m.id=o.message_id
               WHERE lower(o.item) IN (".implode(',',array_map(static fn($ph)=>'lower('.$ph.')',$placeholders)).")
                 AND o.quality_status='accepted' AND COALESCE(o.lifecycle_status,'active')='active'
                 AND ".$this->trustedPriceExpr('o')."
-              GROUP BY lower(o.item)";
-        $st=$this->pdo->prepare($sql);$st->execute($params);$out=[];
-        foreach($st->fetchAll() as$row)$out[(string)$row['item_group']]=(float)$row['avg_price'];
-        return$out;
+                AND datetime(m.posted_at)>=datetime('now','-14 days')
+              ORDER BY datetime(m.posted_at) DESC";
+        $st=$this->pdo->prepare($sql);$st->execute($params);$groups=[];
+        foreach($st->fetchAll() as$row){$v=(float)$row['unit_price_ecto'];if($v>0)$groups[(string)$row['item_group']][]=$v;}
+        $out=[];foreach($groups as$key=>$values){$m=$this->median($values);if($m!==null)$out[$key]=round($m,2);}return$out;
     }
 
     /** @return array{gainer:?array<string,mixed>,loser:?array<string,mixed>} */
     public function dailyMovers(): array
     {
-        $sql="SELECT o.item,o.unit_price_ecto,m.posted_at
+        // Use normalized market variants and trader-level medians. This prevents
+        // a q9/q13 mix or one spammy trader from producing a fake +900% mover.
+        $market=$this->columnExists('structured_offers','normalized_market_key')
+            ? "COALESCE(NULLIF(o.normalized_market_key,''),o.market_key,o.item_key)"
+            : "COALESCE(NULLIF(o.market_key,''),o.item_key)";
+        $sql="SELECT o.item,$market AS market_key,o.unit_price_ecto,m.player,m.posted_at
               FROM structured_offers o JOIN messages m ON m.id=o.message_id
               WHERE o.quality_status='accepted' AND COALESCE(o.lifecycle_status,'active')='active'
                 AND ".$this->trustedPriceExpr('o')."
                 AND datetime(m.posted_at)>=datetime('now','-48 hours')
                 AND o.item<>'' AND o.item NOT LIKE 'Bundle:%'";
-        $groups=[];
+        $groups=[];$cut=time()-86400;
         foreach($this->pdo->query($sql)->fetchAll() as$row){
-            $item=(string)$row['item'];$key=mb_strtolower($item);$ts=strtotime((string)$row['posted_at'])?:0;
-            $bucket=$ts>=time()-86400?'now':'previous';
-            $groups[$key]['item']=$item;$groups[$key][$bucket][]=(float)$row['unit_price_ecto'];
+            $price=(float)$row['unit_price_ecto'];if($price<=0)continue;
+            $key=(string)($row['market_key']?:mb_strtolower((string)$row['item']));
+            $bucket=(strtotime((string)$row['posted_at'])?:0)>=$cut?'now':'previous';
+            $trader=mb_strtolower(trim((string)$row['player']))?:'_unknown';
+            $groups[$key]['item']=(string)$row['item'];
+            $groups[$key]['market_key']=$key;
+            $groups[$key][$bucket][$trader][]=$price;
         }
-        $median=static function(array $v):?float{if(!$v)return null;sort($v,SORT_NUMERIC);$n=count($v);$m=intdiv($n,2);return$n%2?$v[$m]:($v[$m-1]+$v[$m])/2;};
         $moves=[];
         foreach($groups as$g){
-            if(count($g['now']??[])<2||count($g['previous']??[])<2)continue;
-            $cur=$median($g['now']);$prev=$median($g['previous']);if(!$cur||!$prev||$prev<=0)continue;
+            $now=$this->traderMedians($g['now']??[]);$previous=$this->traderMedians($g['previous']??[]);
+            // Two independent traders in both windows is the minimum useful
+            // signal. If the dataset is thinner, showing no mover is safer.
+            if(count($now)<2||count($previous)<2)continue;
+            $cur=$this->median($now);$prev=$this->median($previous);
+            if($cur===null||$prev===null||$prev<=0)continue;
             $pct=(($cur-$prev)/$prev)*100;
-            $moves[]=['item'=>$g['item'],'percent'=>$pct,'current'=>$cur,'previous'=>$prev,'samples'=>count($g['now'])];
+            // Ignore tiny noise and pathological jumps that slipped past the
+            // price-quality layer. They remain visible on item detail pages.
+            if(abs($pct)<1.0||abs($pct)>300.0)continue;
+            $moves[]=['item'=>$g['item'],'market_key'=>$g['market_key'],'percent'=>$pct,'current'=>$cur,'previous'=>$prev,'traders_now'=>count($now),'traders_previous'=>count($previous)];
         }
         usort($moves,static fn($a,$b)=>$b['percent']<=>$a['percent']);
-        $gainer=null;$loser=null;foreach($moves as$move){if($gainer===null&&$move['percent']>0)$gainer=$move;if($move['percent']<0)$loser=$move;}
+        $gainer=null;$loser=null;
+        foreach($moves as$move){if($gainer===null&&$move['percent']>0)$gainer=$move;if($move['percent']<0)$loser=$move;}
         return['gainer'=>$gainer,'loser'=>$loser];
     }
 
-    /** @return array<string,float> */
+    /**
+     * Normalized live exchange quotes from accepted Kamadan observations.
+     * Values are already expressed in the direction used by the dashboard:
+     *  - platinum_ecto: ectos per 100k
+     *  - ecto_arm: ectos per armbrace
+     *  - ecto_zkey: zkeys per ecto
+     *  - ecto_obby: obsidian shards per ecto
+     *
+     * @return array<string,array{value:float,samples:int,updated_at:?string}>
+     */
     public function marketExchangeQuotes(): array
     {
         $targets=[
-            'platinum_ecto'=>['item'=>'Glob of Ectoplasm','currency'=>'k'],
-            'ecto_arm'=>['item'=>'Armbrace of Truth','currency'=>'e'],
-            'ecto_zkey'=>['item'=>'Zaishen Key','currency'=>'e'],
-            'ecto_obby'=>['item'=>'Obsidian Shard','currency'=>'e'],
+            'platinum_ecto'=>['item'=>'Glob of Ectoplasm','currency'=>'k','mode'=>'per100k','min'=>2.0,'max'=>15.0],
+            'ecto_arm'=>['item'=>'Armbrace of Truth','currency'=>'e','mode'=>'per_item','min'=>10.0,'max'=>80.0],
+            'ecto_zkey'=>['item'=>'Zaishen Key','currency'=>'e','mode'=>'items_per_ecto','min'=>0.15,'max'=>6.0],
+            'ecto_obby'=>['item'=>'Obsidian Shard','currency'=>'e','mode'=>'items_per_ecto','min'=>0.15,'max'=>20.0],
         ];
-        $median=static function(array $v):?float{if(!$v)return null;sort($v,SORT_NUMERIC);$n=count($v);$m=intdiv($n,2);return$n%2?$v[$m]:($v[$m-1]+$v[$m])/2;};
         $out=[];
         foreach($targets as$key=>$t){
-            $st=$this->pdo->prepare("SELECT o.price_amount FROM structured_offers o JOIN messages m ON m.id=o.message_id
+            $st=$this->pdo->prepare("SELECT o.price_amount,o.quantity,o.price_basis,m.posted_at,m.player
+                FROM structured_offers o JOIN messages m ON m.id=o.message_id
                 WHERE lower(o.item)=lower(:item) AND o.trade_type IN ('buy','sell') AND o.quality_status='accepted'
                   AND COALESCE(o.lifecycle_status,'active')='active' AND COALESCE(o.price_quality_status,'trusted')='trusted'
                   AND o.price_currency=:currency AND o.price_amount IS NOT NULL AND o.price_amount>0
-                  AND datetime(m.posted_at)>=datetime('now','-7 days') ORDER BY datetime(m.posted_at) DESC LIMIT 100");
+                  AND datetime(m.posted_at)>=datetime('now','-7 days')
+                ORDER BY datetime(m.posted_at) DESC LIMIT 250");
             $st->execute([':item'=>$t['item'],':currency'=>$t['currency']]);
-            $values=array_map('floatval',$st->fetchAll(\PDO::FETCH_COLUMN));
-            if(count($values)>=2){$m=$median($values);if($m!==null)$out[$key]=$m;}
+            $byTrader=[];$latest=null;
+            foreach($st->fetchAll() as$row){
+                $amount=(float)$row['price_amount'];$quantity=isset($row['quantity'])&&$row['quantity']!==null?(float)$row['quantity']:null;
+                $basis=(string)($row['price_basis']??'');
+                $perItem=$this->moneyPerItem($amount,$quantity,$basis);
+                if($perItem===null||$perItem<=0)continue;
+                $value=match($t['mode']){
+                    'per100k'=>100.0/$perItem,
+                    'items_per_ecto'=>1.0/$perItem,
+                    default=>$perItem,
+                };
+                if(!is_finite($value)||$value<(float)$t['min']||$value>(float)$t['max'])continue;
+                $trader=mb_strtolower(trim((string)$row['player']))?:'_unknown';
+                $byTrader[$trader][]=$value;
+                $posted=(string)$row['posted_at'];if($latest===null||strtotime($posted)>strtotime($latest))$latest=$posted;
+            }
+            // Collapse repeat spam by the same trader before taking the market median.
+            $values=$this->traderMedians($byTrader);
+            if(count($values)>=2){$m=$this->median($values);if($m!==null)$out[$key]=['value'=>$m,'samples'=>count($values),'updated_at'=>$latest];}
         }
         return$out;
+    }
+
+    /** @param list<float|int> $values */
+    private function median(array $values): ?float
+    {
+        if($values===[])return null;$values=array_values(array_map('floatval',$values));sort($values,SORT_NUMERIC);$n=count($values);$m=intdiv($n,2);
+        return$n%2?$values[$m]:($values[$m-1]+$values[$m])/2;
+    }
+
+    /** @param array<string,list<float|int>> $groups @return list<float> */
+    private function traderMedians(array $groups): array
+    {
+        $out=[];foreach($groups as$values){$m=$this->median($values);if($m!==null)$out[]=$m;}return$out;
+    }
+
+    private function moneyPerItem(float $amount, ?float $quantity, string $basis): ?float
+    {
+        if($amount<=0)return null;
+        if($quantity!==null&&$quantity>0&&in_array($basis,['ratio','exchange','total','stack_total','set'],true))return$amount/$quantity;
+        if(in_array($basis,['each','each_inferred','unqualified'],true))return$amount;
+        // Some historic accepted rows have a useful explicit quantity but an
+        // older basis label. Only use it when the quantity clearly exceeds one.
+        if($quantity!==null&&$quantity>1&&in_array($basis,['unknown','uncertain'],true))return$amount/$quantity;
+        return null;
+    }
+
+    private function columnExists(string $table,string $column): bool
+    {
+        $safe=preg_replace('/[^a-zA-Z0-9_]/','',$table);if($safe==='')return false;
+        foreach($this->pdo->query('PRAGMA table_info('.$safe.')')->fetchAll() as$row)if((string)($row['name']??'')===$column)return true;
+        return false;
     }
 
 }

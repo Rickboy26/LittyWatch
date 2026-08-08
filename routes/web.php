@@ -22,6 +22,6 @@ return static function(Router $router,Container $c):void{
  $router->get('/admin/data-quality',fn($r)=>$c->get(AdminController::class)->dataQuality($r));
  $router->get('/admin/dataset',fn($r)=>$c->get(AdminController::class)->dataset($r));
  $router->get('/admin/dataset/export',fn($r)=>$c->get(AdminController::class)->datasetExport($r));
- foreach(['collect'=>'collect','reparse'=>'reparse','market-maintenance'=>'marketMaintenance','knowledge-seed'=>'seedKnowledge','intelligence-refresh'=>'intelligence','snapshot'=>'snapshot','parser-lab'=>'parserLab'] as$path=>$method){$router->get('/admin/'.$path,fn($r)=>$c->get(MaintenanceController::class)->$method($r));}
+ foreach(['collect'=>'collect','reparse'=>'reparse','market-maintenance'=>'marketMaintenance','knowledge-seed'=>'seedKnowledge','intelligence-refresh'=>'intelligence','snapshot'=>'snapshot','assets-scan'=>'scanAssets','parser-lab'=>'parserLab'] as$path=>$method){$router->get('/admin/'.$path,fn($r)=>$c->get(MaintenanceController::class)->$method($r));}
  $router->post('/admin/parser-lab',fn($r)=>$c->get(MaintenanceController::class)->parserLab($r));
 };

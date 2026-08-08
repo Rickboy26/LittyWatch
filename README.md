@@ -17,3 +17,6 @@ Vervang de volledige repository-inhoud door deze versie. Bewaar vooraf `data/mar
 ## Belangrijk
 
 Dit is een frontend- en applicatiestructuur-rewrite bovenop de bestaande datalaag. Geen destructieve databasemigraties.
+
+## Phase 3M3
+Zie `README-PHASE3M3.md` voor dashboard polish, correcte exchange-rate normalisatie en lokale GW1 inventory icons.

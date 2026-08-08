@@ -2,25 +2,25 @@
 declare(strict_types=1);
 
 /**
- * LittyWatch exchange rates.
+ * Conservative display fallbacks only.
  *
- * Pas alleen de waarden hieronder aan wanneer de Kamadan-markt verandert.
- * De website toont de verhoudingen zoals Guild Wars-traders ze gebruiken;
- * deze configuratie verandert geen opgeslagen aanbiedingen.
+ * The dashboard replaces these values with normalized, trusted Kamadan quotes
+ * as soon as at least two independent traders are available in the last 7 days.
+ * They are intentionally kept in familiar Guild Wars trading directions.
  */
 return [
-    'updated_at' => '2026-08-06 07:45',
-    'source' => 'Handmatig ingesteld',
+    'updated_at' => '2026-08-08',
+    'source' => 'Veilige fallback',
     'rates' => [
         'gold_to_ecto' => [
             'left_amount' => 100,
             'left_unit' => 'k',
-            'right_amount' => 5,
+            'right_amount' => 6,
             'right_unit' => 'Ecto',
             'label' => 'Platinum ↔ Ecto',
         ],
         'ecto_to_armbrace' => [
-            'left_amount' => 25,
+            'left_amount' => 26,
             'left_unit' => 'Ecto',
             'right_amount' => 1,
             'right_unit' => 'Arm',

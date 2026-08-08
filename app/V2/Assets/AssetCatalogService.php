@@ -78,15 +78,32 @@ SQL);
         try {
             $entries = $this->zipEntries($zip);
             $manifestEntry = $entries['manifest.json'] ?? null;
-            if ($manifestEntry === null) throw new RuntimeException('manifest.json ontbreekt in het assetpakket.');
-            $raw = $zip->getFromIndex($manifestEntry['index']);
-            if (!is_string($raw)) throw new RuntimeException('manifest.json kon niet worden gelezen.');
-            $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw) ?? $raw;
-            $manifest = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-            if (($manifest['format'] ?? null) !== 'littywatch-gw1-assets') throw new RuntimeException('Dit is geen geldig LittyWatch GW1-assetpakket.');
-            $items = $manifest['items'] ?? null;
-            if (!is_array($items)) throw new RuntimeException('De itemlijst ontbreekt in manifest.json.');
-            if (count($items) > 15000) throw new RuntimeException('Het manifest bevat onverwacht veel assets.');
+            if ($manifestEntry !== null) {
+                $raw = $zip->getFromIndex($manifestEntry['index']);
+                if (!is_string($raw)) throw new RuntimeException('manifest.json kon niet worden gelezen.');
+                $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw) ?? $raw;
+                $manifest = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+                if (($manifest['format'] ?? null) !== 'littywatch-gw1-assets') throw new RuntimeException('Dit is geen geldig LittyWatch GW1-assetpakket.');
+                $items = $manifest['items'] ?? null;
+                if (!is_array($items)) throw new RuntimeException('De itemlijst ontbreekt in manifest.json.');
+            } else {
+                // Phase 3M3: a plain ZIP containing item_icon_12345.png files is
+                // also valid. Names can be linked later; the DAT file id is kept.
+                $items = [];
+                foreach ($entries as $path => $entry) {
+                    $filename = basename($path);
+                    if (!preg_match('/item[_-]?icon[_-]?(\d+)\.(png|jpe?g|webp|gif)$/i', $filename)) continue;
+                    $items[] = ['file'=>$path,'source_filename'=>$filename];
+                }
+                if ($items === []) throw new RuntimeException('Geen manifest.json en geen item_icon_*.png bestanden gevonden.');
+                $manifest = [
+                    'format' => 'littywatch-gw1-assets-loose',
+                    'extractor_version' => 'plain-icon-zip',
+                    'source' => [],
+                    'items' => $items,
+                ];
+            }
+            if (count($items) > 20000) throw new RuntimeException('Het pakket bevat onverwacht veel assets.');
 
             $folder = substr($batchKey, 0, 16);
             $relativeBase = 'assets/game-items/'.$folder;
@@ -119,7 +136,7 @@ SQL);
             foreach ($items as $item) {
                 if (!is_array($item)) { $skipped++; continue; }
                 $manifestPath = $this->normalizeZipPath((string)($item['file'] ?? ''));
-                if ($manifestPath === '' || !str_starts_with($manifestPath,'icons/')) { $skipped++; continue; }
+                if ($manifestPath === '' || str_contains($manifestPath,'../')) { $skipped++; continue; }
                 $entry = $entries[$manifestPath] ?? null;
                 if ($entry === null) { $skipped++; continue; }
                 $ext = strtolower(pathinfo($manifestPath, PATHINFO_EXTENSION));
@@ -139,7 +156,7 @@ SQL);
                     $target=$absoluteBase.'/'.$safe; $relative=$relativeBase.'/'.$safe;
                 }
                 if (!is_file($target) && file_put_contents($target,$contents,LOCK_EX) === false) throw new RuntimeException('Icoon kon niet worden opgeslagen: '.$safe);
-                $datFileId = preg_match('/itemIcon_(\d+)/i',$sourceFilename,$m) ? (int)$m[1] : null;
+                $datFileId = preg_match('/item[_-]?icon[_-]?(\d+)/i',$sourceFilename,$m) ? (int)$m[1] : null;
                 $sourceName = $this->nullableString($item['name'] ?? null);
                 $linkedKey=null; $linkedName=null;
                 if ($sourceName !== null && ($market=$this->findMarketItemByName($sourceName)) !== null) {
@@ -219,6 +236,58 @@ SQL);
         if ($query!=='') { $where.=' AND (item LIKE :q OR item_key LIKE :q)'; $params[':q']='%'.$query.'%'; }
         $stmt=$this->pdo->prepare("SELECT MIN(item_key) item_key,item FROM structured_offers WHERE $where GROUP BY item ORDER BY item COLLATE NOCASE LIMIT :limit");
         foreach($params as $k=>$v)$stmt->bindValue($k,$v,PDO::PARAM_STR); $stmt->bindValue(':limit',max(1,min(3000,$limit)),PDO::PARAM_INT); $stmt->execute(); return $stmt->fetchAll();
+    }
+
+    /**
+     * Scan already-present inventory icons (item_icon_12345.png) and reconcile
+     * them with existing item_assets rows. Existing name links are preserved.
+     * This is ideal when the icon folder is deployed together with the website.
+     *
+     * @return array{scanned:int,new:int,updated:int,linked:int,unlinked:int,path:string}
+     */
+    public function scanLocalIcons(): array
+    {
+        $this->install();
+        $base=$this->root.'/assets/game-items';
+        if(!is_dir($base)&&!mkdir($base,0775,true)&&!is_dir($base))throw new RuntimeException('assets/game-items kon niet worden aangemaakt.');
+
+        $batch='local-inventory-scan';
+        $stmt=$this->pdo->prepare("INSERT INTO asset_imports (batch_key,source_name,extractor_version,declared_icons,imported_icons,skipped_icons,status,message) VALUES (:b,'Lokale inventory icons','phase3m3-scan',0,0,0,'processing','') ON CONFLICT(batch_key) DO UPDATE SET status='processing',message='',created_at=CURRENT_TIMESTAMP");
+        $stmt->execute([':b'=>$batch]);
+        $get=$this->pdo->prepare('SELECT id FROM asset_imports WHERE batch_key=:b LIMIT 1');$get->execute([':b'=>$batch]);$importId=(int)$get->fetchColumn();
+
+        $files=[];
+        $iterator=new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($base,\FilesystemIterator::SKIP_DOTS));
+        foreach($iterator as$file){
+            if(!$file instanceof \SplFileInfo||!$file->isFile())continue;
+            $name=$file->getFilename();
+            if(!preg_match('/item[_-]?icon[_-]?(\d+)\.(png|jpe?g|webp|gif)$/i',$name,$m))continue;
+            $files[]=['path'=>$file->getPathname(),'name'=>$name,'id'=>(int)$m[1]];
+        }
+
+        $byHash=$this->pdo->prepare('SELECT * FROM item_assets WHERE sha256=:h LIMIT 1');
+        $byDat=$this->pdo->prepare('SELECT * FROM item_assets WHERE dat_file_id=:d ORDER BY CASE WHEN linked_item_key IS NULL OR linked_item_key=\'\' THEN 1 ELSE 0 END,id DESC LIMIT 1');
+        $update=$this->pdo->prepare('UPDATE item_assets SET import_id=:import_id,dat_file_id=:dat_file_id,source_filename=:source_filename,relative_path=:relative_path,web_path=:web_path,sha256=:sha256,bytes=:bytes,width=:width,height=:height,updated_at=CURRENT_TIMESTAMP WHERE id=:id');
+        $insert=$this->pdo->prepare('INSERT OR IGNORE INTO item_assets (import_id,dat_file_id,source_filename,relative_path,web_path,sha256,bytes,width,height,created_at,updated_at) VALUES (:import_id,:dat_file_id,:source_filename,:relative_path,:web_path,:sha256,:bytes,:width,:height,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+        $new=0;$updated=0;
+        foreach($files as$f){
+            $hash=hash_file('sha256',$f['path']);if(!is_string($hash)||$hash==='')continue;
+            $relative=ltrim(str_replace('\\','/',substr($f['path'],strlen($this->root))),'/');
+            $dimensions=@getimagesize($f['path']);$width=is_array($dimensions)?(int)($dimensions[0]??0):null;$height=is_array($dimensions)?(int)($dimensions[1]??0):null;
+            $byHash->execute([':h'=>$hash]);$row=$byHash->fetch();
+            if(!$row){$byDat->execute([':d'=>$f['id']]);$row=$byDat->fetch();}
+            $params=[':import_id'=>$importId,':dat_file_id'=>$f['id'],':source_filename'=>$f['name'],':relative_path'=>$relative,':web_path'=>'/'.$relative,':sha256'=>$hash,':bytes'=>(int)filesize($f['path']),':width'=>$width,':height'=>$height];
+            if($row){
+                $params[':id']=(int)$row['id'];
+                try{$update->execute($params);$updated++;}catch(Throwable){/* duplicate hash: another row already owns it */}
+            }else{
+                $insert->execute($params);if($insert->rowCount()>0)$new++;
+            }
+        }
+        $summary=$this->summary();
+        $finish=$this->pdo->prepare("UPDATE asset_imports SET declared_icons=:d,imported_icons=:i,skipped_icons=0,status='completed',message=:m WHERE id=:id");
+        $finish->execute([':d'=>count($files),':i'=>$new+$updated,':m'=>count($files).' inventory icons gevonden; '.$new.' nieuw, '.$updated.' bijgewerkt.',':id'=>$importId]);
+        return ['scanned'=>count($files),'new'=>$new,'updated'=>$updated,'linked'=>$summary['linked'],'unlinked'=>$summary['unlinked'],'path'=>$base];
     }
 
     /** @return array<int,string> */

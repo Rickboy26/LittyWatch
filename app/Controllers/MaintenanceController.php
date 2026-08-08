@@ -115,6 +115,12 @@ final class MaintenanceController
         return $this->resultPage('Market maintenance voltooid', $result, '/markets');
     }
 
+    public function scanAssets(Request $request): Response
+    {
+        $result = (new AssetCatalogService($this->pdo, $this->root))->scanLocalIcons();
+        return $this->resultPage('Inventory icons geïndexeerd', $result, '/admin');
+    }
+
     public function seedKnowledge(Request $request): Response
     {
         $stats = (new Seeder(
