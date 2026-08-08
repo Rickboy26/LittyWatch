@@ -19,39 +19,12 @@
   const failedNode = root.querySelector('[data-auto-map-failed]');
   const processedNode = root.querySelector('[data-auto-map-processed]');
 
-  const api = 'https://wiki.guildwars.com/api.php';
-  const fingerprintsUrl = '/assets/game-items/inventory-fingerprints.json?v=3m7';
-  const batchSize = 18;
+  const gwMarketRaw = 'https://raw.githubusercontent.com/Eta92/GW-Market/main/assets/items';
+  const fingerprintsUrl = '/assets/game-items/inventory-fingerprints.json?v=3n';
+  const batchSize = 12;
   const saveBatchSize = 40;
   let stopRequested = false;
   let running = false;
-  const dnsCache = new Map();
-
-  async function resolveHost(host) {
-    host = String(host || '').trim().toLowerCase();
-    if (!host) return '';
-    if (dnsCache.has(host)) return dnsCache.get(host);
-    const providers = [
-      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=A`,
-      `https://dns.google/resolve?name=${encodeURIComponent(host)}&type=A`,
-    ];
-    for (const url of providers) {
-      try {
-        const response = await fetch(url, {headers:{'Accept':'application/dns-json'}, cache:'no-store', mode:'cors'});
-        if (!response.ok) continue;
-        const data = await response.json();
-        const answers = Array.isArray(data?.Answer) ? data.Answer : [];
-        const hit = answers.find(row => Number(row?.type) === 1 && /^\d{1,3}(?:\.\d{1,3}){3}$/.test(String(row?.data || '')));
-        if (hit) {
-          const ip = String(hit.data);
-          dnsCache.set(host, ip);
-          return ip;
-        }
-      } catch (_) {}
-    }
-    dnsCache.set(host, '');
-    return '';
-  }
 
   const normalizeTitle = value => String(value || '')
     .replace(/_/g, ' ')
@@ -129,123 +102,50 @@
   }
 
   async function imageFingerprint(candidate) {
-    const sourceTitle = String(candidate?.sourceTitle || '').trim();
     const remoteUrl = String(candidate?.url || '').trim();
-    const urls = [];
-    if (sourceTitle) {
-      let ip = '';
-      let remoteHost = '';
-      if (remoteUrl) {
-        try { remoteHost = new URL(remoteUrl).hostname; } catch (_) {}
-      }
-      if (remoteHost) ip = await resolveHost(remoteHost);
-      const q = new URLSearchParams({file:sourceTitle});
-      if (remoteUrl) q.set('url', remoteUrl);
-      if (ip) q.set('ip', ip);
-      urls.push(`/game-assets/wiki-icon?${q.toString()}`);
-    }
-    if (remoteUrl) urls.push(remoteUrl);
-    let blob = null;
-    let lastError = null;
-    let via = '';
-    for (const url of urls) {
-      try {
-        const response = await fetch(url, {mode:'cors', cache:'no-store', headers:{'Accept':'image/png,image/*,application/json'}});
-        if (!response.ok) {
-          let detail = '';
-          try {
-            const text = await response.text();
-            const data = JSON.parse(text);
-            const attempts = Array.isArray(data?.attempts) ? data.attempts : [];
-            detail = attempts.map(a => `${a.method || '?'} status=${a.status ?? '-'} errno=${a.errno ?? '-'} bytes=${a.bytes ?? '-'} error=${a.error || ''}`).join(' / ');
-          } catch (_) {}
-          throw new Error(`Afbeelding HTTP ${response.status}${detail ? ` · ${detail}` : ''}`);
-        }
-        const type = String(response.headers.get('content-type') || '').toLowerCase();
-        const candidateBlob = await response.blob();
-        if (!type.includes('image') && candidateBlob.type && !candidateBlob.type.includes('image')) throw new Error('Geen afbeelding ontvangen.');
-        blob = candidateBlob;
-        if (url.startsWith('/game-assets/wiki-icon')) {
-          const source = String(response.headers.get('x-littywatch-icon-source') || 'proxy');
-          via = source === 'resolved-ip' ? 'proxy-resolved' : 'proxy';
-        } else via = 'direct';
-        break;
-      } catch (error) { lastError = error; }
-    }
-    if (!blob) throw (lastError instanceof Error ? lastError : new Error('Wiki-afbeelding kon niet worden gelezen.'));
+    if (!remoteUrl) throw new Error('Geen referentie-afbeelding.');
+    const response = await fetch(remoteUrl, {mode:'cors',cache:'force-cache',headers:{'Accept':'image/png,image/*'}});
+    if (!response.ok) throw new Error(`GW Market afbeelding HTTP ${response.status}`);
+    const blob = await response.blob();
+    if (!blob.size) throw new Error('Lege referentie-afbeelding.');
+
     let bitmap;
-    if ('createImageBitmap' in window) {
-      bitmap = await createImageBitmap(blob);
-    } else {
-      bitmap = await new Promise((resolve, reject) => {
-        const objectUrl = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = () => { URL.revokeObjectURL(objectUrl); resolve(img); };
-        img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Afbeelding kon niet worden gelezen.')); };
-        img.src = objectUrl;
-      });
+    if ('createImageBitmap' in window) bitmap = await createImageBitmap(blob);
+    else bitmap = await new Promise((resolve,reject)=>{
+      const objectUrl=URL.createObjectURL(blob), img=new Image();
+      img.onload=()=>{URL.revokeObjectURL(objectUrl);resolve(img);};
+      img.onerror=()=>{URL.revokeObjectURL(objectUrl);reject(new Error('Afbeelding kon niet worden gelezen.'));};
+      img.src=objectUrl;
+    });
+
+    const source=document.createElement('canvas');
+    source.width=bitmap.width; source.height=bitmap.height;
+    const sctx=source.getContext('2d',{willReadFrequently:true});
+    sctx.clearRect(0,0,source.width,source.height); sctx.drawImage(bitmap,0,0);
+    const pixels=sctx.getImageData(0,0,source.width,source.height).data;
+    if(typeof bitmap.close==='function')bitmap.close();
+
+    let minX=source.width,minY=source.height,maxX=-1,maxY=-1;
+    let weightedR=0,weightedG=0,weightedB=0,alphaSum=0;
+    for(let y=0;y<source.height;y++)for(let x=0;x<source.width;x++){
+      const i=(y*source.width+x)*4,a=pixels[i+3];
+      if(a>16){if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;}
+      if(a>0){weightedR+=pixels[i]*a;weightedG+=pixels[i+1]*a;weightedB+=pixels[i+2]*a;alphaSum+=a;}
     }
-
-    const source = document.createElement('canvas');
-    source.width = bitmap.width;
-    source.height = bitmap.height;
-    const sctx = source.getContext('2d', {willReadFrequently:true});
-    sctx.clearRect(0, 0, source.width, source.height);
-    sctx.drawImage(bitmap, 0, 0);
-    const pixels = sctx.getImageData(0, 0, source.width, source.height).data;
-    if (typeof bitmap.close === 'function') bitmap.close();
-
-    let minX = source.width, minY = source.height, maxX = -1, maxY = -1;
-    let weightedR = 0, weightedG = 0, weightedB = 0, alphaSum = 0;
-    for (let y = 0; y < source.height; y++) {
-      for (let x = 0; x < source.width; x++) {
-        const i = (y * source.width + x) * 4;
-        const a = pixels[i + 3];
-        if (a > 16) {
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
-        }
-        if (a > 0) {
-          weightedR += pixels[i] * a;
-          weightedG += pixels[i + 1] * a;
-          weightedB += pixels[i + 2] * a;
-          alphaSum += a;
-        }
+    if(maxX<minX||maxY<minY)throw new Error('Leeg icoon.');
+    const cropW=maxX-minX+1,cropH=maxY-minY+1,luma=[],alpha=[];
+    for(let gy=0;gy<8;gy++){
+      const sy=minY+Math.min(cropH-1,Math.floor((gy+.5)*cropH/8));
+      for(let gx=0;gx<9;gx++){
+        const sx=minX+Math.min(cropW-1,Math.floor((gx+.5)*cropW/9)),i=(sy*source.width+sx)*4,a=pixels[i+3];
+        luma.push((pixels[i]*.299+pixels[i+1]*.587+pixels[i+2]*.114)*(a/255)); alpha.push(a);
       }
     }
-    if (maxX < minX || maxY < minY) throw new Error('Leeg icoon.');
-
-    const cropW = maxX - minX + 1;
-    const cropH = maxY - minY + 1;
-    const luma = [];
-    const alpha = [];
-    // Deterministic nearest-neighbour sampling. This deliberately avoids
-    // browser/PIL interpolation differences in the local fingerprint index.
-    for (let gy = 0; gy < 8; gy++) {
-      const sy = minY + Math.min(cropH - 1, Math.floor((gy + 0.5) * cropH / 8));
-      for (let gx = 0; gx < 9; gx++) {
-        const sx = minX + Math.min(cropW - 1, Math.floor((gx + 0.5) * cropW / 9));
-        const i = (sy * source.width + sx) * 4;
-        const a = pixels[i + 3];
-        const lum = (pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114) * (a / 255);
-        luma.push(lum);
-        alpha.push(a);
-      }
-    }
-    const valueAt = (values, x, y, width) => values[y * width + x];
-    const [lumaHi, lumaLo] = makeHash(luma, 9, 8, valueAt);
-    const [alphaHi, alphaLo] = makeHash(alpha, 9, 8, valueAt);
-
-    return {
-      via,
-      lumaHi, lumaLo, alphaHi, alphaLo,
-      r: alphaSum ? Math.round(weightedR / alphaSum) : 0,
-      g: alphaSum ? Math.round(weightedG / alphaSum) : 0,
-      b: alphaSum ? Math.round(weightedB / alphaSum) : 0,
-      ratio: cropH > 0 ? cropW / cropH : 1,
-    };
+    const valueAt=(values,x,y,width)=>values[y*width+x];
+    const [lumaHi,lumaLo]=makeHash(luma,9,8,valueAt),[alphaHi,alphaLo]=makeHash(alpha,9,8,valueAt);
+    return {via:'gwmarket',lumaHi,lumaLo,alphaHi,alphaLo,
+      r:alphaSum?Math.round(weightedR/alphaSum):0,g:alphaSum?Math.round(weightedG/alphaSum):0,b:alphaSum?Math.round(weightedB/alphaSum):0,
+      ratio:cropH>0?cropW/cropH:1};
   }
 
   function visualMatch(fp, localRows) {
@@ -295,62 +195,47 @@
     return {rows, sha1};
   }
 
-  function candidatesForItem(item) {
-    const base = String(item.wiki_title || item.item || '').trim().replace(/^File:/i, '').replace(/\.png$/i, '');
-    if (!base) return [];
-    const titles = [`File:${base}.png`, `File:${base} icon.png`];
-    return [...new Set(titles)];
+  function gwMarketFilename(item) {
+    let name=String(item.wiki_title||item.item||'').trim().replace(/^File:/i,'').replace(/\.png$/i,'');
+    return name ? name.replace(/ /g,'_')+'.png' : '';
   }
 
-  async function queryWikiFileBatch(batch) {
-    const candidateMap = new Map();
-    const titles = [];
-    for (const item of batch) {
-      for (const title of candidatesForItem(item)) {
-        const key = normalizeTitle(title);
-        if (!candidateMap.has(key)) {
-          candidateMap.set(key, item);
-          titles.push(title);
-        }
-      }
+  function categoryCandidates(item) {
+    const n=String(item.item||'').toLowerCase(), out=[];
+    const push=v=>{if(!out.includes(v))out.push(v);};
+    if(/ecto|zaishen key|armbrace|platin|black dye/.test(n))push('currency');
+    if(/miniature|mini\b/.test(n))push('miniature');
+    if(/rune|insignia/.test(n))push('rune');
+    if(/tome/.test(n))push('tome');
+    if(/inscription|grip|pommel|hilt|haft|handle|string|staff head|wrapping|focus core|shield handle/.test(n))push('upgrade');
+    if(/wood|cloth|scale|ingot|dust|granite|bone|hide|leather|fiber|plank|gemstone|amber|jade|ectoplasm|obsidian/.test(n))push('material');
+    if(/alcohol|ale|beer|cupcake|sweet|rock candy|conset|essence|grail|armor of salvation|summoning stone|tonic/.test(n))push('consumable');
+    if(/sword|axe|bow|dagger|spear|scythe|hammer|maul|staff|wand|rod|focus|shield|scepter|blade|recurve|flatbow|longbow|shortbow/.test(n)){push('weapon');push('unique');}
+    ['special','unique','weapon','consumable','material','miniature','rune','tome','upgrade','currency'].forEach(push);
+    return out;
+  }
+
+  async function findGwMarketCandidate(item) {
+    const filename=gwMarketFilename(item);
+    if(!filename)return null;
+    for(const category of categoryCandidates(item)){
+      const url=`${gwMarketRaw}/${category}/${encodeURIComponent(filename).replace(/%2F/gi,'/')}`;
+      try{
+        const response=await fetch(url,{method:'GET',mode:'cors',cache:'force-cache',headers:{'Accept':'image/png,image/*'}});
+        if(!response.ok)continue;
+        const blob=await response.blob();
+        if(!blob.size||!String(blob.type||'').includes('image'))continue;
+        return {item,sourceTitle:`GW-Market/${category}/${filename}`,url:URL.createObjectURL(blob),revoke:true};
+      }catch(_){}
     }
-    if (!titles.length) return [];
+    return null;
+  }
 
-    const url = new URL(api);
-    url.searchParams.set('action', 'query');
-    url.searchParams.set('prop', 'imageinfo');
-    url.searchParams.set('iiprop', 'url|sha1|size');
-    url.searchParams.set('iiurlwidth', '64');
-    url.searchParams.set('redirects', '1');
-    url.searchParams.set('format', 'json');
-    url.searchParams.set('formatversion', '2');
-    url.searchParams.set('origin', '*');
-    url.searchParams.set('titles', titles.join('|'));
-
-    const data = await fetchJson(url, 'Guild Wars Wiki');
-    const redirects = new Map();
-    for (const redir of data?.query?.redirects || []) {
-      redirects.set(normalizeTitle(redir.to), normalizeTitle(redir.from));
-    }
-
-    const found = [];
-    for (const page of data?.query?.pages || []) {
-      if (!page || page.missing || !Array.isArray(page.imageinfo) || !page.imageinfo[0]) continue;
-      const pageKey = normalizeTitle(page.title);
-      const sourceKey = redirects.get(pageKey) || pageKey;
-      const item = candidateMap.get(sourceKey) || candidateMap.get(pageKey);
-      if (!item) continue;
-      const info = page.imageinfo[0];
-      const width = Number(info.width || info.thumbwidth || 0);
-      const height = Number(info.height || info.thumbheight || 0);
-      // Inventory icons are small square assets. Reject page artwork/photos.
-      if (width && height && (width > 160 || height > 160 || width < 24 || height < 24)) continue;
-      found.push({
-        item,
-        sourceTitle:String(page.title || ''),
-        sha1:String(info.sha1 || ''),
-        url:String(info.thumburl || info.url || ''),
-      });
+  async function queryGwMarketBatch(batch) {
+    const found=[];
+    for(let i=0;i<batch.length;i+=4){
+      const rows=await Promise.all(batch.slice(i,i+4).map(findGwMarketCandidate));
+      for(const row of rows)if(row)found.push(row);
     }
     return found;
   }
@@ -383,7 +268,7 @@
     if (detail) detail.textContent = 'Lokale fingerprintindex wordt geladen…';
 
     let processed = 0, matched = 0, unresolved = 0, failed = 0;
-    let wikiCandidates = 0, imageReads = 0, proxyReads = 0, resolvedProxyReads = 0, directReads = 0, imageReadFailures = 0;
+    let sourceCandidates = 0, imageReads = 0, imageReadFailures = 0;
     const readErrorSamples = [];
     const total = items.length;
     const pendingSave = [];
@@ -397,19 +282,19 @@
       for (let offset = 0; offset < items.length; offset += batchSize) {
         if (stopRequested) break;
         const batch = items.slice(offset, offset + batchSize);
-        if (detail) detail.textContent = `Wiki bestandsnamen controleren · ${Math.min(offset + batch.length, total)} van ${total}`;
+        if (detail) detail.textContent = `GW Market inventory assets controleren · ${Math.min(offset + batch.length, total)} van ${total}`;
         let pages;
         try {
-          pages = await queryWikiFileBatch(batch);
+          pages = await queryGwMarketBatch(batch);
         } catch (error) {
           failed += batch.length;
           processed += batch.length;
-          setProgress(processed, total, matched, unresolved, failed, `Wiki-batch overgeslagen: ${error?.message || 'onbekende fout'}`);
+          setProgress(processed, total, matched, unresolved, failed, `GW Market-batch overgeslagen: ${error?.message || 'onbekende fout'}`);
           await sleep(400);
           continue;
         }
 
-        wikiCandidates += pages.length;
+        sourceCandidates += pages.length;
         const pagesByKey = new Map();
         for (const candidate of pages) {
           const key = String(candidate.item.item_key || '');
@@ -423,22 +308,7 @@
           const candidates = pagesByKey.get(key) || [];
           let found = null;
 
-          // Fast path: exact binary SHA1. No Wiki image needs to be downloaded.
-          for (const candidate of candidates) {
-            const hex = sha1Base36ToHex(candidate.sha1);
-            const ids = hex ? local.sha1.get(hex) : null;
-            if (ids && ids.length) {
-              found = {
-                item_key:key,
-                dat_file_id:ids[0],
-                confidence:0.999,
-                source_title:candidate.sourceTitle,
-              };
-              break;
-            }
-          }
-
-          // Safe visual fallback: only a direct File:<item>.png candidate and a
+          // Visuele match tegen de lokale Gw.dat bibliotheek: only a direct File:<item>.png candidate and a
           // strict local fingerprint match can be stored automatically.
           if (!found) {
             for (const candidate of candidates) {
@@ -446,9 +316,6 @@
               try {
                 const fp = await imageFingerprint(candidate);
                 imageReads++;
-                if (fp.via === 'proxy-resolved') { proxyReads++; resolvedProxyReads++; }
-                else if (fp.via === 'proxy') proxyReads++;
-                else if (fp.via === 'direct') directReads++;
                 const visual = visualMatch(fp, local.rows);
                 if (visual) {
                   found = {
@@ -463,9 +330,11 @@
                 imageReadFailures++;
                 if (readErrorSamples.length < 3) {
                   const message = String(error?.message || error || 'onbekende leesfout');
-                  readErrorSamples.push(`${candidate.sourceTitle || 'Wiki-icon'}: ${message}`);
+                  readErrorSamples.push(`${candidate.sourceTitle || 'GW Market-icon'}: ${message}`);
                 }
-                // One unreadable Wiki image must not stop the complete run.
+                // One unreadable reference image must not stop the complete run.
+              } finally {
+                if(candidate.revoke&&candidate.url)URL.revokeObjectURL(candidate.url);
               }
             }
           }
@@ -509,7 +378,7 @@
         if (status) status.textContent = 'Automatische herkenning afgerond.';
         if (detail) {
           const samples = readErrorSamples.length ? ` Eerste leesfout: ${readErrorSamples[0]}` : '';
-          detail.textContent = `${matched} nieuwe koppelingen · ${wikiCandidates} Wiki-bestanden gevonden · ${imageReads} afbeeldingen gelezen (${proxyReads} via LittyWatch, waarvan ${resolvedProxyReads} via DNS-bypass; ${directReads} direct) · ${imageReadFailures} leesfouten · ${unresolved} niet zeker genoeg.${samples}`;
+          detail.textContent = `${matched} nieuwe koppelingen · ${sourceCandidates} GW Market inventory assets gevonden · ${imageReads} afbeeldingen vergeleken · ${imageReadFailures} leesfouten · ${unresolved} niet zeker genoeg.${samples}`;
         }
         if (matched > 0) {
           const reload = document.createElement('button');

@@ -47,7 +47,7 @@ $usedAssets=(int)($s['linked']??0);
     <div>
       <span class="kicker">AUTOMATISCHE HERKENNING</span>
       <h2>Koppel de juiste inventory icons</h2>
-      <p>LittyWatch gebruikt de Guild Wars Wiki alleen als tijdelijke herkenningsbron. De Wiki-icon wordt via LittyWatch zelf ingelezen zodat de browser de pixels betrouwbaar kan vergelijken met jouw lokale Gw.dat-icons. Alleen sterke matches worden opgeslagen; de spelerswebsite blijft daarna uitsluitend het lokale inventory icon gebruiken.</p>
+      <p>LittyWatch gebruikt de publieke inventory-afbeeldingen uit de open-source GW Market repository alleen als tijdelijke herkenningsbron. Je browser vergelijkt die met jouw 5277 lokale Gw.dat-icons. Alleen sterke matches worden opgeslagen; de spelerswebsite gebruikt daarna uitsluitend jouw lokale inventory icon.</p>
     </div>
     <div class="asset-auto-actions">
       <button class="btn" type="button" data-auto-map-start>Automatisch herkennen</button>
@@ -141,4 +141,4 @@ $usedAssets=(int)($s['linked']??0);
 <?php endif;?>
 
 <script type="application/json" id="inventory-auto-items"><?=json_encode($autoItems,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?:'[]'?></script>
-<script src="/assets/js/inventory-icon-matcher.js?v=3m8" defer></script>
+<script src="/assets/js/inventory-icon-matcher.js?v=3n" defer></script>
