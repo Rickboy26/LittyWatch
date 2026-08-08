@@ -11,10 +11,22 @@ use ZipArchive;
 
 final class AssetCatalogService
 {
+    private bool $installed = false;
+
     public function __construct(private readonly PDO $pdo, private readonly string $root) {}
 
     public function install(): void
     {
+        if ($this->installed) return;
+        $this->installed = true;
+
+        // Phase 3M9: this service is used on a busy SQLite database while the
+        // continuous Kamadan collector may be writing. Older builds executed
+        // CREATE INDEX + the legacy migration on every summary/list call, which
+        // unnecessarily requested write locks. Existing M5+ databases already
+        // have the complete schema, so keep normal page loads strictly read-only.
+        if ($this->schemaReady()) return;
+
         $this->pdo->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS asset_imports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,6 +86,16 @@ SQL);
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_icon_links_dat ON item_icon_links(dat_file_id)');
         // Migrate the older one-link-per-asset model into the item-centric link table.
         $this->pdo->exec("INSERT OR IGNORE INTO item_icon_links(item_key,item_name,asset_id,dat_file_id,match_source,confidence,created_at,updated_at) SELECT linked_item_key,COALESCE(NULLIF(linked_item_name,''),linked_item_key),id,dat_file_id,'legacy',1.0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM item_assets WHERE linked_item_key IS NOT NULL AND linked_item_key<>''");
+    }
+
+    private function schemaReady(): bool
+    {
+        foreach (['asset_imports','item_assets','item_icon_links'] as $table) {
+            $stmt=$this->pdo->prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:name LIMIT 1");
+            $stmt->execute([':name'=>$table]);
+            if (!$stmt->fetchColumn()) return false;
+        }
+        return true;
     }
 
     /** @return array<string,mixed> */

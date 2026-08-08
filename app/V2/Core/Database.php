@@ -32,7 +32,11 @@ final class Database
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
         self::$pdo->exec('PRAGMA foreign_keys = ON');
-        self::$pdo->exec('PRAGMA busy_timeout = 5000');
+        self::$pdo->exec('PRAGMA busy_timeout = 30000');
+        // WAL lets the collector write while dashboard/admin readers stay responsive.
+        // journal_mode itself can briefly be busy during deploy, so never fail a request on it.
+        try { self::$pdo->exec('PRAGMA journal_mode = WAL'); } catch (\Throwable) {}
+        try { self::$pdo->exec('PRAGMA synchronous = NORMAL'); } catch (\Throwable) {}
         return self::$pdo;
     }
 }
