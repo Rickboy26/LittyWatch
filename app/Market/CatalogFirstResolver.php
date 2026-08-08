@@ -33,19 +33,19 @@ final class CatalogFirstResolver
         // review-visible, and syntactic fragments are discarded.
         $candidates=(new ContextAwareCandidatePipeline($this->pdo))->expand($row,$message);
         if(count($candidates)>=2){
-            $expanded=[];
+            $expanded=[];$failed=false;
             foreach($candidates as $candidate){
                 $copy=$row;
                 $copy['item']=$candidate['item'];$copy['item_key']='';$copy['market_key']='';
                 $copy['raw_segment']=$candidate['raw_segment'];
                 $resolved=$this->resolveSingle($copy,$message);
-                if($resolved!==[]){foreach($resolved as $rr)$expanded[]=$rr;continue;}
-                $noise=(new NoiseFragmentGate())->inspect((string)$copy['item'],(string)$copy['raw_segment']);
-                if($noise['drop'])continue;
-                $copy['quality_status']='review';$copy['quality_reason']='catalog_first_unresolved';
-                $expanded[]=$copy;
+                if($resolved===[]){$failed=true;break;}
+                foreach($resolved as $rr)$expanded[]=$rr;
             }
-            if(count($expanded)>=1)return $expanded;
+            // Phase 3Z.1: list expansion is transactional. Never replace one
+            // original offer by a mixture of matches and newly-created review
+            // fragments. Any failed candidate falls back to the original row.
+            if(!$failed && count($expanded)>=2)return $expanded;
         }
 
         return $this->resolveSingle($row,$message);

@@ -57,16 +57,68 @@ final class ContextAwareCandidatePipeline
             if($n==='' || isset($out[$n]))continue;
             $out[$n]=['item'=>$part,'raw_segment'=>$part];
         }
-        return count($out)>=2?array_values($out):[];
+        $values=array_values($out);
+        if(count($values)<2)return [];
+
+        // Phase 3Z.1 safety rail: never manufacture review rows from punctuation.
+        // A list expansion is allowed only when every surviving candidate already
+        // has concrete catalogue evidence (exact name, unique alias, or exact
+        // miniature name after dedication cleanup). If one part is ambiguous,
+        // keep the original parser row intact.
+        foreach($values as $candidate){
+            if(!$this->hasCatalogueEvidence($candidate['item']))return [];
+        }
+        return $values;
     }
 
     private function sourceFor(string $item,string $raw,string $message): string
     {
         $normalized=KnowledgeBase::normalize($item);
-        if(in_array($normalized,self::GENERIC_UMBRELLAS,true) && $raw!=='')return $this->stripTradeNoise($raw);
+
+        // Prefer the parser's item candidate. It is already the narrowest piece
+        // of text and avoids turning prices/attributes elsewhere in raw_segment
+        // into fake items.
         if($this->looksLikeList($item))return $item;
-        if($raw!=='' && $this->looksLikeList($raw))return $this->stripTradeNoise($raw);
+
+        // Raw-segment expansion is reserved for semantic umbrella labels where
+        // the parser explicitly told us that the actual identities live in the
+        // surrounding text. Weapon-family umbrellas are deliberately excluded:
+        // their raw text commonly contains req/mod/price punctuation.
+        if($raw!=='' && in_array($normalized,[
+            'minis','miniatures','tomes','elite tome','normal tome'
+        ],true) && $this->looksLikeList($raw)){
+            return $this->stripTradeNoise($raw);
+        }
         return '';
+    }
+
+    private function hasCatalogueEvidence(string $item): bool
+    {
+        $candidate=trim($item);
+        if($candidate==='')return false;
+
+        // Dedication is a market variant, not part of the catalogue name.
+        $candidate=preg_replace('/\s+(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)$/iu','',$candidate)??$candidate;
+        $candidate=trim($candidate);
+
+        $st=$this->pdo->prepare("SELECT COUNT(DISTINCT key) FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(:n))");
+        $st->execute([':n'=>$candidate]);
+        if((int)$st->fetchColumn()===1)return true;
+
+        $norm=KnowledgeBase::normalize($candidate);
+        if($norm==='')return false;
+        $st=$this->pdo->prepare("SELECT COUNT(DISTINCT i.key) FROM kb_aliases a JOIN kb_items i ON i.key=a.item_key WHERE i.active=1 AND a.normalized_alias=:a");
+        $st->execute([':a'=>$norm]);
+        if((int)$st->fetchColumn()===1)return true;
+
+        // Bare miniature candidates may have been context-expanded with the
+        // canonical prefix already, but keep this fallback for safety.
+        if(!str_starts_with(mb_strtolower($candidate),'miniature ')){
+            $st=$this->pdo->prepare("SELECT COUNT(DISTINCT key) FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(:n))");
+            $st->execute([':n'=>'Miniature '.$candidate]);
+            if((int)$st->fetchColumn()===1)return true;
+        }
+        return false;
     }
 
     private function looksLikeList(string $value): bool

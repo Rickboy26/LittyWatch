@@ -39,6 +39,17 @@ $row=['item'=>'iron and dust','item_key'=>'','raw_segment'=>'WTB iron and dust']
 $c=$pipeline->expand($row,$row['raw_segment']);$got=array_column($c,'item');
 if($got!==['iron','dust'])$fail[]=['material_candidates'=>$got];
 
+
+// Phase 3Z.1 regression: never explode generic weapon raw text into candidates.
+$row=['item'=>'Axe','item_key'=>'','raw_segment'=>'WTB q10 eternl bow, stack or 2=1e'];
+$c=$pipeline->expand($row,$row['raw_segment']);
+if($c!==[])$fail[]=['generic_weapon_raw_must_not_expand'=>$c];
+
+// Phase 3Z.1 regression: list expansion is catalogue-proof/all-or-nothing.
+$row=['item'=>'iron and totally unknown fragment','item_key'=>'','raw_segment'=>'WTB iron and totally unknown fragment'];
+$c=$pipeline->expand($row,$row['raw_segment']);
+if($c!==[])$fail[]=['ambiguous_list_must_not_expand'=>$c];
+
 $resolver=new CatalogFirstResolver($db);
 $row=['item'=>'iron and dust','item_key'=>'','market_key'=>'','raw_segment'=>'WTB iron and dust','quality_status'=>'review','quality_reason'=>'no_catalog_item','confidence'=>0.35];
 $r=$resolver->resolve($row,'WTB iron and dust');
