@@ -224,14 +224,6 @@ final class AssetController
 
 
 
-    public function namedImportCatalog(Request $request): Response
-    {
-        try {
-            $pdo=db();
-            $rows=$pdo->query("SELECT name,item_type AS category FROM kb_items WHERE active=1 AND source='gw-market-catalog' ORDER BY name COLLATE NOCASE")->fetchAll();
-            return Response::json(['ok'=>true,'items'=>$rows]);
-        } catch(Throwable $e){return Response::json(['ok'=>false,'error'=>$e->getMessage()],400);}
-    }
 
     public function importNamedAsset(Request $request): Response
     {

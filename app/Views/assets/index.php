@@ -61,29 +61,15 @@ $usedAssets=(int)($s['linked']??0);
 
 <section class="surface asset-auto-map">
  <div class="asset-auto-head"><div>
-  <span class="kicker">GWCA · PHASE 3O</span>
-  <h2>Echte Guild Wars item-ID's</h2>
-  <p>GWCA bevestigt dat Guild Wars twee verschillende waarden gebruikt: <code>model_id</code> voor het item en <code>model_file_id</code> voor het bijbehorende gamebestand. LittyWatch bewaart die nu apart en koppelt alleen een lokaal DAT-icoon wanneer een echte <code>model_file_id</code> beschikbaar is.</p>
- </div><div class="asset-auto-actions">
-  <button class="btn" type="button" data-gwca-import>GWCA model-ID's importeren</button>
-  <label class="btn secondary">GWCA runtime export laden<input type="file" accept=".json,application/json" data-runtime-file hidden></label>
- </div></div>
- <p class="muted" data-gameid-status>Begin met de publieke GWCA model-ID's. Een runtime-export met naam + model_file_id kan daarna zonder beeldherkenning exact aan jouw lokale itemIcon_&lt;DAT-ID&gt;.png koppelen.</p>
-</section>
-<script src="/assets/js/gwca-id-import.js?v=3o" defer></script>
-
-
-<section class="surface asset-auto-map">
- <div class="asset-auto-head"><div>
-  <span class="kicker">DIRECTE ITEM-ASSETS · PHASE 3P</span>
+  <span class="kicker">DIRECTE GW1 ITEM-ASSETS · PHASE 3Q</span>
   <h2>Inventory icons rechtstreeks aan itemnamen koppelen</h2>
-  <p>Gebruikt de reeds geïmporteerde GW1-catalogusnamen om de bijbehorende publieke inventory-assets éénmalig lokaal op te slaan. Daarna serveert LittyWatch alleen zijn eigen lokale kopie; er is geen Wiki-, GWCA-, DAT-ID- of live GW Market-koppeling nodig.</p>
+  <p>Leest de publieke GW1-itemcatalogus en de bijbehorende benoemde inventory-assets rechtstreeks uit dezelfde bron. Itemnaam en plaatje horen daar al bij elkaar. LittyWatch slaat het plaatje éénmalig lokaal op en gebruikt daarna alleen de lokale kopie.</p>
  </div><div class="asset-auto-actions">
   <button class="btn" type="button" data-direct-assets>Inventory icons importeren</button>
  </div></div>
  <p class="muted" data-direct-assets-status>Nog niet gestart. Bestaande lokale Gw.dat-icons en handmatige koppelingen blijven gewoon behouden als tweede bron.</p>
 </section>
-<script src="/assets/js/gwmarket-direct-assets.js?v=3p" defer></script>
+<script src="/assets/js/gwmarket-direct-assets.js?v=3q" defer></script>
 
 <section class="surface asset-browser-tools">
   <div class="asset-browser-copy">
