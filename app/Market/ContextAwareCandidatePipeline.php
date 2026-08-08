@@ -89,6 +89,16 @@ final class ContextAwareCandidatePipeline
         ],true) && $this->looksLikeList($raw)){
             return $this->stripTradeNoise($raw);
         }
+
+        // Phase 3Z.2: restore the proven Phase 3X upgrade-list case without
+        // reopening generic weapon raw-segment splitting. Only an explicit
+        // Weapon Mods umbrella plus a list containing upgrade semantics may use
+        // raw context here. Every resulting part still has to pass catalogue
+        // evidence below before the split is accepted.
+        if($raw!=='' && in_array($normalized,['weapon mods','mods'],true)
+            && $this->looksLikeList($raw) && $this->looksLikeUpgradeList($raw)){
+            return $this->stripTradeNoise($raw);
+        }
         return '';
     }
 
@@ -118,7 +128,30 @@ final class ContextAwareCandidatePipeline
             $st->execute([':n'=>'Miniature '.$candidate]);
             if((int)$st->fetchColumn()===1)return true;
         }
+
+        // Compact upgrade shorthand such as "Zealous Bow" is intentionally
+        // not required to be a literal alias. The controlled resolver already
+        // restricts upgrade searches to upgrade/mod/inscription catalogue
+        // categories and only returns an unambiguous winner.
+        if($this->looksLikeUpgradeCandidate($candidate)){
+            $resolved=(new ControlledCatalogResolver($this->pdo))->resolve($candidate,'',$candidate);
+            if($resolved!==null)return true;
+        }
         return false;
+    }
+
+    private function looksLikeUpgradeList(string $value): bool
+    {
+        $n=KnowledgeBase::normalize($value);
+        return preg_match('/\b(?:vamp|vampiric|zealous|mastery|fortitude|defense|shelter|enchanting|critical|crit|30hp|es\s*\+?5|sr\s*\+?\d+)\b/u',$n)===1
+            && preg_match('/\b(?:bow|spear|staff|wand|shield|axe|sword|hammer|scythe|daggers?)\b/u',$n)===1;
+    }
+
+    private function looksLikeUpgradeCandidate(string $value): bool
+    {
+        $n=KnowledgeBase::normalize($value);
+        return preg_match('/\b(?:vamp|vampiric|zealous|mastery|fortitude|defense|shelter|enchanting|critical|crit|30hp|es\s*\+?5|sr\s*\+?\d+)\b/u',$n)===1
+            && preg_match('/\b(?:bow|spear|staff|wand|shield|axe|sword|hammer|scythe|daggers?)\b/u',$n)===1;
     }
 
     private function looksLikeList(string $value): bool
