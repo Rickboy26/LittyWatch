@@ -52,8 +52,8 @@ final class ControlledCatalogResolver
     /** @return array{key:string,name:string,reason:string,score:float}|null */
     public function resolve(string $item, string $itemKey, string $context): ?array
     {
-        $item = trim($item);
-        $context = trim($context);
+        $item = trim(str_replace(['’','´','`'], "'", $item));
+        $context = trim(str_replace(['’','´','`'], "'", $context));
         if ($item === '' && $context === '') return null;
 
         // First recover compact/common spellings using the complete local context.
@@ -87,6 +87,8 @@ final class ControlledCatalogResolver
         foreach ([$item, $segment] as $value) {
             $norm = $this->normalizeShorthand($value);
             if ($norm !== '') $phrases[] = $norm;
+            $expandedCoin=preg_replace('/\bgold\s+zc\b/iu','Gold Zaishen Coin',$value)??$value;
+            if($expandedCoin!==$value)$phrases[]=$expandedCoin;
 
             // Common GW trade omission: "staff wrap enchanting" ->
             // "staff wrapping of enchanting". Exact catalog lookup still decides.
@@ -108,7 +110,7 @@ final class ControlledCatalogResolver
         $value = preg_replace('/\[(?:x\s*)?\d+\]|\b(?:x\s*)?\d+\b/iu',' ',$value) ?? $value;
         $value = preg_replace('/\b\d+(?:[.,]\d+)?\s*(?:a|e|k)\s*(?:\/\s*ea|each|ea)?\b/iu',' ',$value) ?? $value;
         $value = preg_replace('/\b(?:ea|each|pm|offer|offers|obo)\b/iu',' ',$value) ?? $value;
-        return trim(preg_replace('/\s+/u',' ',$value) ?? $value," \t\n\r\0\x0B,;|+-");
+        return trim(preg_replace('/\s+/u',' ',$value) ?? $value," \t\n\r\0\x0B,;|+/-");
     }
 
     private function normalizeShorthand(string $value): string
