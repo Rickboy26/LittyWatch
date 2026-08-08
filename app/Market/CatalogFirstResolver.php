@@ -136,9 +136,14 @@ final class CatalogFirstResolver
     private function normalizeMiniCandidate(string $candidate): string
     {
         $candidate=str_replace(['’','´','`'],"'",trim($candidate));
-        $candidate=preg_replace('/^(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)\s+/iu','',$candidate)??$candidate;
-        $candidate=preg_replace('/\s+(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)$/iu','',$candidate)??$candidate;
+        // Strip miniature markers before dedication state. This makes both
+        // "mini unded Asura" and "unded mini Asura" normalize identically.
         $candidate=preg_replace("/^mini(?:ature)?s?\\s*['’]?s?\\s*[:\\-]?\\s*/iu",'',$candidate)??$candidate;
+        $candidate=preg_replace('/^(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)\s+/iu','',$candidate)??$candidate;
+        // A state token may have preceded the miniature marker, so run the
+        // leading miniature cleanup once more after removing the state.
+        $candidate=preg_replace("/^mini(?:ature)?s?\\s*['’]?s?\\s*[:\\-]?\\s*/iu",'',$candidate)??$candidate;
+        $candidate=preg_replace('/\s+(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)$/iu','',$candidate)??$candidate;
         $candidate=preg_replace('/\s+mini(?:ature)?s?$/iu','',$candidate)??$candidate;
         return trim(preg_replace('/\s+/u',' ',$candidate)??$candidate," \t\n\r\0\x0B:,-");
     }
