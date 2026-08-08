@@ -72,6 +72,19 @@ $usedAssets=(int)($s['linked']??0);
 </section>
 <script src="/assets/js/gwca-id-import.js?v=3o" defer></script>
 
+
+<section class="surface asset-auto-map">
+ <div class="asset-auto-head"><div>
+  <span class="kicker">DIRECTE ITEM-ASSETS · PHASE 3P</span>
+  <h2>Inventory icons rechtstreeks aan itemnamen koppelen</h2>
+  <p>Gebruikt de reeds geïmporteerde GW1-catalogusnamen om de bijbehorende publieke inventory-assets éénmalig lokaal op te slaan. Daarna serveert LittyWatch alleen zijn eigen lokale kopie; er is geen Wiki-, GWCA-, DAT-ID- of live GW Market-koppeling nodig.</p>
+ </div><div class="asset-auto-actions">
+  <button class="btn" type="button" data-direct-assets>Inventory icons importeren</button>
+ </div></div>
+ <p class="muted" data-direct-assets-status>Nog niet gestart. Bestaande lokale Gw.dat-icons en handmatige koppelingen blijven gewoon behouden als tweede bron.</p>
+</section>
+<script src="/assets/js/gwmarket-direct-assets.js?v=3p" defer></script>
+
 <section class="surface asset-browser-tools">
   <div class="asset-browser-copy">
     <span class="kicker">HANDMATIGE REVIEW</span>

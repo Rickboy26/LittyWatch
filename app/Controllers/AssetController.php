@@ -222,6 +222,30 @@ final class AssetController
 
 
 
+
+
+    public function namedImportCatalog(Request $request): Response
+    {
+        try {
+            $pdo=db();
+            $rows=$pdo->query("SELECT name,category FROM kb_items WHERE active=1 AND source='gw-market-catalog' ORDER BY name COLLATE NOCASE")->fetchAll();
+            return Response::json(['ok'=>true,'items'=>$rows]);
+        } catch(Throwable $e){return Response::json(['ok'=>false,'error'=>$e->getMessage()],400);}
+    }
+
+    public function importNamedAsset(Request $request): Response
+    {
+        try {
+            $name=trim($request->string('name'));$category=trim($request->string('category'));
+            $encoded=$request->string('png');
+            if($name===''||$encoded==='')throw new \RuntimeException('Naam of PNG ontbreekt.');
+            if(str_contains($encoded,','))$encoded=substr($encoded,strpos($encoded,',')+1);
+            $binary=base64_decode($encoded,true);
+            if($binary===false||strlen($binary)>2_000_000)throw new \RuntimeException('Ongeldige PNG data.');
+            return Response::json(['ok'=>true]+$this->assets->saveNamedAsset($name,$category,$binary)+$this->assets->namedAssetSummary());
+        } catch(Throwable $e){return Response::json(['ok'=>false,'error'=>$e->getMessage()],400);}
+    }
+
     public function importGwcaIds(Request $request): Response
     {
         try {

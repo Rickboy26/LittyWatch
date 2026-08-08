@@ -99,13 +99,25 @@ SQL);
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_game_ids_model ON item_game_ids(model_id)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_item_game_ids_file ON item_game_ids(model_file_id)');
 
+
+        $this->pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS item_named_assets (
+    item_key TEXT PRIMARY KEY,
+    item_name TEXT NOT NULL,
+    category TEXT,
+    local_path TEXT NOT NULL,
+    source TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+SQL);
+
         // Migrate the older one-link-per-asset model into the item-centric link table.
         $this->pdo->exec("INSERT OR IGNORE INTO item_icon_links(item_key,item_name,asset_id,dat_file_id,match_source,confidence,created_at,updated_at) SELECT linked_item_key,COALESCE(NULLIF(linked_item_name,''),linked_item_key),id,dat_file_id,'legacy',1.0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM item_assets WHERE linked_item_key IS NOT NULL AND linked_item_key<>''");
     }
 
     private function schemaReady(): bool
     {
-        foreach (['asset_imports','item_assets','item_icon_links','item_game_ids'] as $table) {
+        foreach (['asset_imports','item_assets','item_icon_links','item_game_ids','item_named_assets'] as $table) {
             $stmt=$this->pdo->prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:name LIMIT 1");
             $stmt->execute([':name'=>$table]);
             if (!$stmt->fetchColumn()) return false;
@@ -575,6 +587,49 @@ SQL);
             if($started)$this->pdo->commit();
         }catch(Throwable$e){if($started&&$this->pdo->inTransaction())$this->pdo->rollBack();throw$e;}
         return ['updated'=>$updated,'icon_links'=>$iconLinks,'missing'=>$missing];
+    }
+
+
+    /**
+     * Store a directly named inventory asset. This deliberately bypasses DAT-ID
+     * reconstruction: the trusted catalogue already supplies item name + matching
+     * inventory image.
+     */
+    public function saveNamedAsset(string $itemName,string $category,string $binary): array
+    {
+        $this->install();
+        $item=$this->findMarketItemByName($itemName);
+        if($item===null) return ['saved'=>0,'unknown'=>1];
+        if(strlen($binary)<32||substr($binary,0,8)!=="\x89PNG\r\n\x1a\n") throw new \RuntimeException('Geen geldige PNG.');
+        $dir=dirname(__DIR__,3).'/assets/game-items/named';
+        if(!is_dir($dir)&&!mkdir($dir,0775,true)&&!is_dir($dir)) throw new \RuntimeException('Named asset-map kon niet worden gemaakt.');
+        $file=$this->safeKey((string)$item['item_key']).'.png';
+        $path=$dir.'/'.$file;
+        if(file_put_contents($path,$binary,LOCK_EX)===false) throw new \RuntimeException('Inventory icon kon niet worden opgeslagen.');
+        $stmt=$this->pdo->prepare("INSERT INTO item_named_assets(item_key,item_name,category,local_path,source,updated_at) VALUES(:k,:n,:c,:p,'gw-market-public-asset',CURRENT_TIMESTAMP) ON CONFLICT(item_key) DO UPDATE SET item_name=excluded.item_name,category=excluded.category,local_path=excluded.local_path,source=excluded.source,updated_at=CURRENT_TIMESTAMP");
+        $stmt->execute([':k'=>$item['item_key'],':n'=>$item['item'],':c'=>$category,':p'=>'/assets/game-items/named/'.$file]);
+        return ['saved'=>1,'unknown'=>0];
+    }
+
+    public function namedAssetFor(string $itemKey): ?string
+    {
+        $this->install();
+        $stmt=$this->pdo->prepare('SELECT local_path FROM item_named_assets WHERE item_key=:k LIMIT 1');
+        $stmt->execute([':k'=>$itemKey]);$path=$stmt->fetchColumn();
+        return is_string($path)&&$path!==''?$path:null;
+    }
+
+    /** @return array<string,int> */
+    public function namedAssetSummary(): array
+    {
+        $this->install();
+        return ['named_assets'=>(int)$this->pdo->query('SELECT COUNT(*) FROM item_named_assets')->fetchColumn()];
+    }
+
+    private function safeKey(string $key): string
+    {
+        $key=preg_replace('/[^a-z0-9._-]+/i','-',trim($key))??'item';
+        return trim($key,'-.')?:'item';
     }
 
     /** @return array<string,int> */

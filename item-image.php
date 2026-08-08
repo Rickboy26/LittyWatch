@@ -79,7 +79,20 @@ $findByDatId = static function (int $id) use ($assetRoot): ?string {
 
 if ($item === '') $placeholder();
 
-// 1. Primary source: local Gw.dat inventory-icon catalog. This works with the
+// Phase 3P primary source: directly named local inventory assets imported from
+// the public GW1 catalogue. No DAT-ID reconstruction is needed for display.
+try {
+    $pdo = db();
+    $hasNamed = (bool)$pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_named_assets' LIMIT 1")->fetchColumn();
+    if ($hasNamed) {
+        $st=$pdo->prepare("SELECT local_path FROM item_named_assets WHERE lower(trim(item_name))=lower(trim(:item)) LIMIT 1");
+        $st->execute([':item'=>$item]);
+        $web=$st->fetchColumn();
+        if(is_string($web)&&$web!==''&&($path=$normalizeLocalPath($web))!==null)$serve($path);
+    }
+} catch (Throwable) {}
+
+// 2. Secondary source: local Gw.dat inventory-icon catalog. This works with the
 // existing item_assets table and keeps the site completely independent of Wiki
 // thumbnails. linked_item_* is preferred; source_name is a useful fallback for
 // imports that happened before the market item existed.
@@ -146,7 +159,7 @@ try {
     // Images must never break the page when the DB is temporarily unavailable.
 }
 
-// 2. Optional tiny name -> DAT id override file. Useful for manually fixing a
+// 3. Optional tiny name -> DAT id override file. Useful for manually fixing a
 // handful of ambiguous/shared icons without touching database records.
 $manualMapFile = __DIR__ . '/config/item-icons.php';
 if (is_file($manualMapFile)) {
