@@ -13,4 +13,6 @@ config.local.php
 
 imports/assets/*.zip
 assets/game-items/*/
+!assets/game-items/manual/
+!assets/game-items/manual/**
 !assets/game-items/.gitkeep
