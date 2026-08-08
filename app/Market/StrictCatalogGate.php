@@ -11,8 +11,8 @@ final class StrictCatalogGate
     /** @return array{allowed:bool,reason:string,canonical_name:?string,canonical_key:?string} */
     public function inspect(string $item,string $itemKey): array
     {
-        $name=trim($item);$key=trim($itemKey);
-        if($name===''||$this->looksGeneric($name)){
+        $name=CanonicalMarketIdentity::nameFor(trim($item),trim($itemKey));$key=trim($itemKey);
+        if($name===''||$this->looksGeneric($name)||CanonicalMarketIdentity::isWikiDisambiguator($name)){
             return ['allowed'=>false,'reason'=>'strict_catalog_generic','canonical_name'=>null,'canonical_key'=>null];
         }
 
@@ -21,7 +21,7 @@ final class StrictCatalogGate
         $st->execute([':key'=>$key,':key2'=>$key,':name'=>$name]);
         $row=$st->fetch();
         if($row){
-            $canonical=(string)$row['name'];
+            $canonical=CanonicalMarketIdentity::nameFor((string)$row['name'],(string)$row['key']);
             if($this->looksGeneric($canonical))return ['allowed'=>false,'reason'=>'strict_catalog_placeholder','canonical_name'=>null,'canonical_key'=>null];
             return ['allowed'=>true,'reason'=>'strict_catalog_exact','canonical_name'=>$canonical,'canonical_key'=>(string)$row['key']];
         }
@@ -31,7 +31,9 @@ final class StrictCatalogGate
         $st=$this->pdo->prepare("SELECT i.key,i.name FROM kb_aliases a JOIN kb_items i ON i.key=a.item_key WHERE i.active=1 AND a.normalized_alias=:alias GROUP BY i.key,i.name LIMIT 2");
         $st->execute([':alias'=>$norm]);$rows=$st->fetchAll();
         if(count($rows)===1&&!$this->looksGeneric((string)$rows[0]['name'])){
-            return ['allowed'=>true,'reason'=>'strict_catalog_alias','canonical_name'=>(string)$rows[0]['name'],'canonical_key'=>(string)$rows[0]['key']];
+            $canonical=CanonicalMarketIdentity::nameFor((string)$rows[0]['name'],(string)$rows[0]['key']);
+            if(CanonicalMarketIdentity::isWikiDisambiguator($canonical))return ['allowed'=>false,'reason'=>'strict_catalog_placeholder','canonical_name'=>null,'canonical_key'=>null];
+            return ['allowed'=>true,'reason'=>'strict_catalog_alias','canonical_name'=>$canonical,'canonical_key'=>(string)$rows[0]['key']];
         }
         return ['allowed'=>false,'reason'=>count($rows)>1?'strict_catalog_ambiguous':'strict_catalog_missing','canonical_name'=>null,'canonical_key'=>null];
     }

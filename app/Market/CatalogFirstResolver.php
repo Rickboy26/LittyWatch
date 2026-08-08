@@ -25,7 +25,8 @@ final class CatalogFirstResolver
      */
     public function resolve(array $row,string $message): array
     {
-        $item=trim((string)($row['item']??''));
+        $item=CanonicalMarketIdentity::nameFor(trim((string)($row['item']??'')),trim((string)($row['item_key']??'')));
+        $row['item']=$item;
         $lower=mb_strtolower($item.' '.$message);
 
         if($this->isGenericEliteTome($item)){
@@ -68,7 +69,7 @@ final class CatalogFirstResolver
     private function resolveMiniature(array $row,string $message): ?array
     {
         $item=trim((string)($row['item']??''));
-        $candidate=$item;
+        $candidate=CanonicalMarketIdentity::nameFor($item,(string)($row['item_key']??''));
         $isMini=preg_match('/\bmini(?:ature)?\b/i',$item.' '.$message)===1;
         if(!$isMini){
             // A bare name is miniature semantics only if "Miniature <name>" exists exactly.
@@ -116,7 +117,7 @@ final class CatalogFirstResolver
     {
         $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND (key=:k OR lower(trim(name))=lower(trim(:n))) ORDER BY CASE WHEN key=:k2 THEN 0 ELSE 1 END LIMIT 1");
         $st->execute([':k'=>$key,':k2'=>$key,':n'=>trim($name)]);$r=$st->fetch();
-        return $r?['key'=>(string)$r['key'],'name'=>(string)$r['name']]:null;
+        return $r?['key'=>(string)$r['key'],'name'=>CanonicalMarketIdentity::nameFor((string)$r['name'],(string)$r['key'])]:null;
     }
     /** @return array{key:string,name:string}|null */
     private function uniqueAlias(string $alias): ?array
@@ -124,6 +125,6 @@ final class CatalogFirstResolver
         $norm=KnowledgeBase::normalize($alias);
         $st=$this->pdo->prepare("SELECT i.key,i.name FROM kb_aliases a JOIN kb_items i ON i.key=a.item_key WHERE i.active=1 AND a.normalized_alias=:a GROUP BY i.key,i.name LIMIT 2");
         $st->execute([':a'=>$norm]);$r=$st->fetchAll();
-        return count($r)===1?['key'=>(string)$r[0]['key'],'name'=>(string)$r[0]['name']]:null;
+        return count($r)===1?['key'=>(string)$r[0]['key'],'name'=>CanonicalMarketIdentity::nameFor((string)$r[0]['name'],(string)$r[0]['key'])]:null;
     }
 }

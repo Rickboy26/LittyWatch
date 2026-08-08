@@ -352,41 +352,52 @@
   },
   {
     "key": "ghostly-hero",
-    "name": "Ghostly Hero",
+    "name": "Miniature Ghostly Hero",
     "category": "miniature",
     "aliases": [
+      "Miniature Ghostly Hero",
+      "Ghostly Hero",
       "ghostly hero"
     ]
   },
   {
     "key": "rift-warden",
-    "name": "Rift Warden",
+    "name": "Miniature Rift Warden",
     "category": "miniature",
     "aliases": [
+      "Miniature Rift Warden",
+      "Rift Warden",
       "rift warden"
     ]
   },
   {
     "key": "mallyx",
-    "name": "Mallyx",
+    "name": "Miniature Mallyx",
     "category": "miniature",
     "aliases": [
+      "Miniature Mallyx",
+      "Mallyx",
       "mallyx"
     ]
   },
   {
     "key": "kuuna",
-    "name": "Kuuna",
+    "name": "Miniature Kuunavang",
     "category": "miniature",
     "aliases": [
-      "kuuna"
+      "Miniature Kuunavang",
+      "Kuuna",
+      "kuuna",
+      "kuunavang"
     ]
   },
   {
     "key": "mad-kings-guard",
-    "name": "Mad King's Guard",
+    "name": "Miniature Mad King's Guard",
     "category": "miniature",
     "aliases": [
+      "Miniature Mad King's Guard",
+      "Mad King's Guard",
       "mad king's guard",
       "mad kings guard",
       "mad king guard",
@@ -882,10 +893,13 @@
   },
   {
     "key": "silverwing-bow",
-    "name": "Silverwing Bow",
+    "name": "Silverwing Recurve Bow",
     "category": "weapon",
     "aliases": [
-      "silverwing bow"
+      "Silverwing Recurve Bow",
+      "Silverwing Bow",
+      "silverwing bow",
+      "silverwing"
     ]
   },
   {
