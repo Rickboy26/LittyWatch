@@ -52,6 +52,16 @@ function replace_once(string $contents, string $needle, string $replacement, str
     return str_replace($needle, $replacement, $contents);
 }
 
+
+function replace_first(string $contents, string $needle, string $replacement, string $label): string
+{
+    $pos = strpos($contents, $needle);
+    if ($pos === false) {
+        throw new RuntimeException("Anchor {$label} niet gevonden.");
+    }
+    return substr_replace($contents, $replacement, $pos, strlen($needle));
+}
+
 function write_checked(string $file, string $contents): void
 {
     if (file_put_contents($file, $contents) === false) {
@@ -330,7 +340,7 @@ PHP;
     if ($context === false) throw new RuntimeException('ContextualSegmentExpander.php kon niet worden gelezen.');
 
     if (!str_contains($context, 'LITTYWATCH_PHASE4C_MINIATURE_CONTEXT')) {
-        $context = replace_once(
+        $context = replace_first(
             $context,
             "        \$pendingHeader = null;\n",
             "        \$pendingHeader = null;\n"
