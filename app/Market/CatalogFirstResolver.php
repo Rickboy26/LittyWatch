@@ -68,6 +68,14 @@ final class CatalogFirstResolver
         $mini=$this->resolveMiniature($row,$message);
         if($mini!==null)return $mini;
 
+        // Phase 4B: rebuild concrete identity + weapon properties from the
+        // complete clause before generic controlled/fuzzy catalogue recovery.
+        $reconstructed=(new ClauseReconstructionResolver($this->pdo))->reconstruct($row,$message);
+        if($reconstructed!==null){
+            $reconstructed=$this->promoteRecoveredCatalogMatch($reconstructed);
+            return [$reconstructed];
+        }
+
         $context=trim((string)($row['raw_segment']??''));
         if($context==='')$context=$message;
         $controlled=(new ControlledCatalogResolver($this->pdo))->resolve($item,(string)($row['item_key']??''),$context);
