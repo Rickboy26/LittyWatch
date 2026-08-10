@@ -92,6 +92,7 @@ final class ParserEngine
                 ? $sharedListSegments
                 : (count($smartSegments) > 1 ? $smartSegments : $this->grammarSegmenter->split($blockText));
             if ($segments === []) $segments = $this->segmenter->split($blockText);
+            $segments = $this->splitExplicitRequirementCommaBoundaries($segments);
             $segments = $this->contextualSegmentExpander->expand($segments);
             // Phase 3V: expand comma-separated requirement/attribute variants and
             // inherit the concrete item identity across shorthand continuation
@@ -115,6 +116,39 @@ final class ParserEngine
         $results = $this->promoteExplicitGenericMarketSearches($results, $normalized);
         $results = $this->promotePhase2RTrustedCatalogMatches($results, $normalized);
         return $this->deduplicate($this->suppressGenericCatalogShadows($results, $normalized));
+    }
+
+    /**
+     * A comma followed by an explicit q/r requirement commonly starts the next
+     * item: "Q9 FC BDS, Q8 Tac Shield". Keeping that as one segment causes
+     * Q8/Tactics to leak backwards into the BDS. Parenthesized exclusions are
+     * protected so "q9 any(no chann,curses)" stays intact.
+     * @param list<string> $segments
+     * @return list<string>
+     */
+    private function splitExplicitRequirementCommaBoundaries(array $segments): array
+    {
+        $out=[];
+        foreach($segments as $segment){
+            $parts=[];$buf='';$depth=0;$len=mb_strlen($segment);
+            for($i=0;$i<$len;$i++){
+                $ch=mb_substr($segment,$i,1);
+                if($ch==='(' || $ch==='['){$depth++;$buf.=$ch;continue;}
+                if($ch===')' || $ch===']'){$depth=max(0,$depth-1);$buf.=$ch;continue;}
+                if($ch===',' && $depth===0){
+                    $tail=ltrim(mb_substr($segment,$i+1));
+                    if(preg_match('/^(?:q|r|rq|req(?:uirement)?)\s*\d{1,2}\b/iu',$tail)){
+                        if(trim($buf)!=='')$parts[]=trim($buf);
+                        $buf='';
+                        continue;
+                    }
+                }
+                $buf.=$ch;
+            }
+            if(trim($buf)!=='')$parts[]=trim($buf);
+            foreach(($parts?:[$segment]) as $part)$out[]=$part;
+        }
+        return $out;
     }
 
     /** @return list<ParsedOffer> */
@@ -438,10 +472,14 @@ final class ParserEngine
             // A continuation clause normally starts with requirement/attribute or
             // a bare price. Do not inherit into prose/services or obvious new nouns.
             $continuation = (bool)preg_match('/^(?:q|r|rq|req)\s*\d{1,2}\b|^(?:fc|es|sr|df|dom|inspa?|inspiration|comm?|communing|motivation|tact?|tactics|str|strength|prot|heal|water|air|fire|earth)\b/iu', trim($segment));
-            if ($lastItem !== null && $continuation) {
+            // Never inherit a previous concrete skin into a clause that names an
+            // explicit weapon family of its own (e.g. BDS -> "Q8 Tac Shield").
+            $hasExplicitWeaponFamily = (bool)preg_match('/\b(?:staff|wand|focus|bow|sword|axe|hammer|shield|spear|scythe|daggers?)s?\b/iu', $segment);
+            if ($lastItem !== null && $continuation && !$hasExplicitWeaponFamily) {
                 $out[] = $lastItem.' '.trim($segment);
             } else {
                 $out[] = $segment;
+                if ($hasExplicitWeaponFamily) $lastItem = null;
             }
         }
         return $out;

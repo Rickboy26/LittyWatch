@@ -82,6 +82,23 @@ final class ContextualSegmentExpander
                 continue;
             }
 
+            // An explicit weapon family starts a new context boundary. Without
+            // this guard, "Q9 FC BDS, Q8 Tac Shield" can inherit BDS into the
+            // generic Shield clause merely because Shield has no concrete skin match.
+            if ($activeItem !== null) {
+                $explicitFamily = $this->explicitFamilyInSegment($segment);
+                $activeItemFamily = $this->familyFromItem($activeItem);
+                if ($explicitFamily !== null && $activeItemFamily !== null && $explicitFamily !== $activeItemFamily) {
+                    if ($pendingHeader !== null) { $out[] = $pendingHeader; $pendingHeader = null; }
+                    $activeItem = null;
+                    $activeFamily = $explicitFamily;
+                    $req = $this->requirement($segment);
+                    if ($req !== null) $activeRequirement = $req;
+                    $out[] = $segment;
+                    continue;
+                }
+            }
+
             if ($activeItem !== null && $this->isModifierOnlyDescriptor($segment)) {
                 // A pipe-separated modifier belongs to the previous item, e.g.
                 // "Q11 Eternal Blade | Insc". Merge it into the pending header
@@ -165,6 +182,14 @@ final class ContextualSegmentExpander
             if (preg_match('/\b'.preg_quote($family,'/').'\b/iu', $item)) return $family === 'Dagger' ? 'Daggers' : ($family === 'Tonic' ? 'Everlasting Tonic' : $family);
         }
         return null;
+    }
+
+    private function explicitFamilyInSegment(string $segment): ?string
+    {
+        if (!preg_match('/\b(staves|staffs|staff|wands?|bows?|swords?|axes?|hammers?|shields?|spears?|scythes?|daggers?|focus(?:es)?)\b/iu', $segment, $m)) {
+            return null;
+        }
+        return $this->singularFamily($m[1]);
     }
 
     private function looksLikeWeapon(string $item): bool

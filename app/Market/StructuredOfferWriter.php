@@ -19,9 +19,13 @@ final class StructuredOfferWriter {
    if($r['quality_status']==='accepted'){
     $gate=(new StrictCatalogGate($this->pdo))->inspect((string)$r['item'],(string)$r['item_key']);
     if(!$gate['allowed']){$r['quality_status']='review';$r['quality_reason']=$gate['reason'];}
-    else{$r['item']=$gate['canonical_name'];$r['item_key']=$gate['canonical_key'];$r['market_key']=$gate['canonical_key'];}
+    else{
+     $r['item']=$gate['canonical_name'];$r['item_key']=$gate['canonical_key'];$r['market_key']=$gate['canonical_key'];
+     $variantGate=(new VariantValidityGate())->inspect($r);
+     if(!$variantGate['allowed']){$r['quality_status']='rejected';$r['quality_reason']=$variantGate['reason'];}
+    }
    }
-   $itemKeys[]=$r['item_key'];$ins->execute([$messageId,$r['trade_type'],$r['item'],$r['item_key'],$r['market_key'],$r['normalized_market_key'],$r['requirement'],$r['attribute_key'],$r['attribute_name'],$r['is_oldschool'],$r['is_inscribable'],$r['mods_json'],$r['relevant_json'],$r['profile_json'],$r['quantity'],$r['price_amount'],$r['price_currency'],$r['price_ecto'],$r['unit_price_ecto'],$r['price_basis'],$r['confidence'],$r['quality_status'],$r['quality_reason'],$r['raw_segment'],'v5.2-phase4b-clause-reconstruction-weapon-skin',date(DATE_ATOM),$r['quality_status']==='accepted'?'active':'rejected',date(DATE_ATOM),$r['exchange_item'],$r['exchange_item_key'],$r['exchange_give_quantity'],$r['exchange_receive_quantity']]);$n+=$ins->rowCount();}}
+   $itemKeys[]=$r['item_key'];$ins->execute([$messageId,$r['trade_type'],$r['item'],$r['item_key'],$r['market_key'],$r['normalized_market_key'],$r['requirement'],$r['attribute_key'],$r['attribute_name'],$r['is_oldschool'],$r['is_inscribable'],$r['mods_json'],$r['relevant_json'],$r['profile_json'],$r['quantity'],$r['price_amount'],$r['price_currency'],$r['price_ecto'],$r['unit_price_ecto'],$r['price_basis'],$r['confidence'],$r['quality_status'],$r['quality_reason'],$r['raw_segment'],'v5.2-phase6e-variant-validity',date(DATE_ATOM),$r['quality_status']==='accepted'?'active':'rejected',date(DATE_ATOM),$r['exchange_item'],$r['exchange_item_key'],$r['exchange_give_quantity'],$r['exchange_receive_quantity']]);$n+=$ins->rowCount();}}
   if($this->lifecycle!==null){$this->lifecycle->rebuild($messageId);(new MarketQualityService($this->pdo))->rebuildForItemKeys($itemKeys);}
   return $n;
  }
