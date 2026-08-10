@@ -4,8 +4,11 @@ declare(strict_types=1);
 namespace LittyWatch\Market;
 
 /**
- * Rejects market variants that cannot exist in Guild Wars.
- * Keep this deliberately conservative: only hard impossibilities belong here.
+ * Rejects only market variants that are physically impossible with high certainty.
+ *
+ * This gate is intentionally conservative. Parser context leakage can temporarily
+ * attach weapon modifiers to unrelated catalogue items (coins/materials/etc.); such
+ * rows must not be rejected merely because two leaked flags contradict each other.
  */
 final class VariantValidityGate
 {
@@ -25,16 +28,14 @@ final class VariantValidityGate
         $attribute = $this->key((string)($row['attribute_key'] ?? $row['attribute_name'] ?? ''));
         $requirement = isset($row['requirement']) && $row['requirement'] !== '' ? (int)$row['requirement'] : null;
         $oldschool = !empty($row['is_oldschool']);
-        $inscribable = !empty($row['is_inscribable']);
 
-        // A weapon cannot simultaneously be old-school and inscribable.
-        if ($oldschool && $inscribable) {
-            return ['allowed'=>false,'reason'=>'impossible_variant_os_and_inscribable'];
-        }
-
+        // Phase 6E.1: only hard catalogue-specific impossibilities belong here.
+        // Do NOT apply a generic "OS + inscribable" rejection. When context from a
+        // later item leaks onto a commodity/catalogue row, both flags can be present
+        // even though the item itself has no weapon variant at all.
         if ($itemKey === 'bone_dragon_staff') {
-            // BDS is an Eye of the North dungeon-chest skin and exists as an
-            // inscribable max staff. q7/q8 and old-school BDS variants are impossible.
+            // Bone Dragon Staff exists as a max inscribable staff. q7/q8, OS and
+            // non-caster requirements such as Tactics/Scythe Mastery are impossible.
             if ($requirement !== null && ($requirement < 9 || $requirement > 13)) {
                 return ['allowed'=>false,'reason'=>'impossible_bds_requirement'];
             }
