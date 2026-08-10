@@ -9,66 +9,56 @@ $writerFile   = $root . '/app/Market/StructuredOfferWriter.php';
 $bundleFile   = $root . '/app/Parser/MarketBundleExpander.php';
 $dataFile     = $root . '/app/Data/phase4e-items.json';
 
-foreach ([$catalogFile,$resolverFile,$gateFile,$writerFile,$bundleFile,$dataFile] as $required) {
-    if (!is_file($required)) {
-        fwrite(STDERR, "ERROR: vereist bestand ontbreekt: {$required}\n");
-        exit(1);
-    }
+foreach ([$catalogFile,$resolverFile,$gateFile,$writerFile,$bundleFile,$dataFile] as $f) {
+    if (!is_file($f)) { fwrite(STDERR,"ERROR: ontbreekt: {$f}\n"); exit(1); }
 }
 
-$stamp = date('Ymd-His');
-$backupDir = $root . '/storage/backups/phase4e-' . $stamp;
-if (!is_dir($backupDir) && !mkdir($backupDir, 0775, true) && !is_dir($backupDir)) {
-    fwrite(STDERR, "ERROR: backupmap kon niet worden gemaakt: {$backupDir}\n");
-    exit(1);
+$stamp=date('Ymd-His');
+$backupDir=$root.'/storage/backups/phase4e-'.$stamp;
+if(!is_dir($backupDir) && !mkdir($backupDir,0775,true) && !is_dir($backupDir)){
+    fwrite(STDERR,"ERROR: backupmap kon niet worden gemaakt\n"); exit(1);
 }
-foreach ([$catalogFile,$resolverFile,$gateFile,$writerFile,$bundleFile] as $file) {
-    if (!copy($file, $backupDir . '/' . basename($file))) {
-        fwrite(STDERR, "ERROR: backup mislukt voor {$file}\n");
-        exit(1);
-    }
+foreach([$catalogFile,$resolverFile,$gateFile,$writerFile,$bundleFile] as $f){
+    if(!copy($f,$backupDir.'/'.basename($f))){fwrite(STDERR,"ERROR: backup mislukt {$f}\n");exit(1);}
 }
 
-function replace_once_4e(string $contents,string $needle,string $replacement,string $label): string {
-    $count = substr_count($contents,$needle);
-    if ($count !== 1) throw new RuntimeException("Anchor {$label} verwacht 1x, gevonden {$count}x.");
-    return str_replace($needle,$replacement,$contents);
+function rep1(string $s,string $n,string $r,string $label): string {
+    $c=substr_count($s,$n);
+    if($c!==1) throw new RuntimeException("Anchor {$label} verwacht 1x, gevonden {$c}x.");
+    return str_replace($n,$r,$s);
 }
-function write_4e(string $file,string $contents): void {
-    if (file_put_contents($file,$contents) === false) throw new RuntimeException("Kon {$file} niet schrijven.");
+function wr(string $f,string $s): void {
+    if(file_put_contents($f,$s)===false) throw new RuntimeException("Kon {$f} niet schrijven.");
 }
 
 try {
-    // 1) Load synthetic market point identities before the 4D.1 KB sync.
-    $catalog = (string)file_get_contents($catalogFile);
-    if (!str_contains($catalog,'LITTYWATCH_PHASE4E_MARKET_IDENTITIES')) {
-        $anchor = "        \$this->modifiers = \$this->loadJson(\$dataDir . '/modifiers.json');\n";
-        $insert =
-            "        // LITTYWATCH_PHASE4E_MARKET_IDENTITIES\n" .
-            "        \$phase4eItemsPath = \$dataDir . '/phase4e-items.json';\n" .
-            "        if (is_file(\$phase4eItemsPath)) {\n" .
-            "            \$this->items = \$this->mergeItems(\$this->items, \$this->loadJson(\$phase4eItemsPath));\n" .
-            "        }\n" . $anchor;
-        $catalog = replace_once_4e($catalog,$anchor,$insert,'Catalog modifiers');
-        write_4e($catalogFile,$catalog);
+    $catalog=(string)file_get_contents($catalogFile);
+    if(!str_contains($catalog,'LITTYWATCH_PHASE4E_MARKET_IDENTITIES')){
+        $a="        \$this->modifiers = \$this->loadJson(\$dataDir . '/modifiers.json');\n";
+        $catalog=rep1($catalog,$a,
+            "        // LITTYWATCH_PHASE4E_MARKET_IDENTITIES\n".
+            "        \$phase4eItemsPath = \$dataDir . '/phase4e-items.json';\n".
+            "        if (is_file(\$phase4eItemsPath)) {\n".
+            "            \$this->items = \$this->mergeItems(\$this->items, \$this->loadJson(\$phase4eItemsPath));\n".
+            "        }\n".$a,
+            'Catalog modifiers');
+        wr($catalogFile,$catalog);
     }
 
-    // 2) CatalogFirstResolver: canonical name first, stale key second.
-    $resolver = (string)file_get_contents($resolverFile);
-    if (!str_contains($resolver,'LITTYWATCH_PHASE4E_NAME_FIRST_EXACT')) {
-        $old = <<<'OLD'
+    $resolver=(string)file_get_contents($resolverFile);
+    if(!str_contains($resolver,'LITTYWATCH_PHASE4E_NAME_FIRST_EXACT')){
+        $old=<<<'PHP'
     private function catalogueExact(string $name,string $key): ?array
     {
         $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND (key=:k OR lower(trim(name))=lower(trim(:n))) ORDER BY CASE WHEN key=:k2 THEN 0 ELSE 1 END LIMIT 1");
         $st->execute([':k'=>$key,':k2'=>$key,':n'=>trim($name)]);$r=$st->fetch();
         return $r?['key'=>(string)$r['key'],'name'=>CanonicalMarketIdentity::nameFor((string)$r['name'],(string)$r['key'])]:null;
     }
-OLD;
-        $new = <<<'NEW'
+PHP;
+        $new=<<<'PHP'
     private function catalogueExact(string $name,string $key): ?array
     {
         // LITTYWATCH_PHASE4E_NAME_FIRST_EXACT
-        // Reconstructed canonical identity outranks a legacy parser item_key.
         $name=trim($name);$key=trim($key);
         if($name!==''){
             $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(:n)) LIMIT 1");
@@ -82,82 +72,58 @@ OLD;
         }
         return null;
     }
-NEW;
-        $resolver = replace_once_4e($resolver,$old,$new,'CatalogFirstResolver catalogueExact');
+PHP;
+        $resolver=rep1($resolver,$old,$new,'resolver exact');
     }
 
-    if (!str_contains($resolver,'LITTYWATCH_PHASE4E_MINIATURE_QUARANTINE')) {
-        $old = "        \$state=\$this->miniState(\$message.' '.\$item);\n        if(\$state===null)return []; // no ded/unded = review, never player market\n";
-        $new =
-            "        // LITTYWATCH_PHASE4E_MINIATURE_QUARANTINE\n" .
-            "        \$segment=trim((string)(\$row['raw_segment']??''));\n" .
-            "        if(preg_match('/\\b(?:potion|tonic)\\b/iu',\$segment) && !preg_match('/\\bmini(?:ature|pet)?s?\\b|\\b(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)\\b/iu',\$segment)){\n" .
-            "            return [\$this->quarantineMiniature(\$row,'miniature_context_conflict')];\n" .
-            "        }\n" .
-            "        \$state=\$this->miniState(\$message.' '.\$item);\n" .
-            "        if(\$state===null)return [\$this->quarantineMiniature(\$row,'miniature_variant_unresolved')];\n";
-        $resolver = replace_once_4e($resolver,$old,$new,'miniature state gate');
-
-        $helper = <<<'PHPHELPER'
-
-    /** @param array<string,mixed> $row @return array<string,mixed> */
-    private function quarantineMiniature(array $row,string $reason): array
-    {
-        $row['quality_status']='review';
-        $row['quality_reason']=$reason;
-        $row['confidence']=min((float)($row['confidence']??0.80),0.84);
-        return $row;
+    if(!str_contains($resolver,'LITTYWATCH_PHASE4E_MINIATURE_QUARANTINE')){
+        $old="        \$state=\$this->miniState(\$message.' '.\$item);\n        if(\$state===null)return []; // no ded/unded = review, never player market\n";
+        $new=
+            "        // LITTYWATCH_PHASE4E_MINIATURE_QUARANTINE\n".
+            "        \$segment=trim((string)(\$row['raw_segment']??''));\n".
+            "        if(preg_match('/\\b(?:potion|tonic)\\b/iu',\$segment) && !preg_match('/\\bmini(?:ature|pet)?s?\\b|\\b(?:unded(?:icated)?|ded(?:icated)?)\\b/iu',\$segment)){\n".
+            "            \$row['quality_status']='review';\$row['quality_reason']='miniature_context_conflict';return [\$row];\n".
+            "        }\n".
+            "        \$state=\$this->miniState(\$message.' '.\$item);\n".
+            "        if(\$state===null){\$row['quality_status']='review';\$row['quality_reason']='miniature_variant_unresolved';return [\$row];}\n";
+        $resolver=rep1($resolver,$old,$new,'mini state');
     }
-PHPHELPER;
-        $anchor = "    private function normalizeMiniCandidate(string \$candidate): string\n";
-        $resolver = replace_once_4e($resolver,$anchor,$helper."\n".$anchor,'normalizeMiniCandidate');
-    }
-    write_4e($resolverFile,$resolver);
+    wr($resolverFile,$resolver);
 
-    // 3) StrictCatalogGate: same name-first rule.
-    $gate = (string)file_get_contents($gateFile);
-    if (!str_contains($gate,'LITTYWATCH_PHASE4E_NAME_FIRST_GATE')) {
-        $old = <<<'OLD'
+    $gate=(string)file_get_contents($gateFile);
+    if(!str_contains($gate,'LITTYWATCH_PHASE4E_NAME_FIRST_GATE')){
+        $old=<<<'PHP'
         // Exact active KB key/name is authoritative.
         $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND (key=:key OR lower(trim(name))=lower(trim(:name))) ORDER BY CASE WHEN key=:key2 THEN 0 ELSE 1 END LIMIT 1");
         $st->execute([':key'=>$key,':key2'=>$key,':name'=>$name]);
         $row=$st->fetch();
-OLD;
-        $new = <<<'NEW'
+PHP;
+        $new=<<<'PHP'
         // LITTYWATCH_PHASE4E_NAME_FIRST_GATE
-        // Exact canonical name outranks a stale legacy item_key.
         $row=false;
         if($name!==''){
             $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(:name)) LIMIT 1");
-            $st->execute([':name'=>$name]);
-            $row=$st->fetch();
+            $st->execute([':name'=>$name]);$row=$st->fetch();
         }
         if(!$row&&$key!==''){
             $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND key=:key LIMIT 1");
-            $st->execute([':key'=>$key]);
-            $row=$st->fetch();
+            $st->execute([':key'=>$key]);$row=$st->fetch();
         }
-NEW;
-        $gate = replace_once_4e($gate,$old,$new,'StrictCatalogGate exact lookup');
-        write_4e($gateFile,$gate);
+PHP;
+        $gate=rep1($gate,$old,$new,'gate exact');
+        wr($gateFile,$gate);
     }
 
-    // 4) Compact miniature list shared-state inheritance.
-    $bundle = (string)file_get_contents($bundleFile);
-    if (!str_contains($bundle,'LITTYWATCH_PHASE4E_SHARED_MINI_STATE')) {
-        $anchor = <<<'ANCHOR'
+    $bundle=(string)file_get_contents($bundleFile);
+    if(!str_contains($bundle,'LITTYWATCH_PHASE4E_SHARED_MINI_STATE')){
+        $a=<<<'PHP'
         // No explicit "mini" header: accept slash/comma lists only if every
         // member is a known miniature shorthand.
         $implicit = false;
-ANCHOR;
-        $replacement = <<<'REPL'
+PHP;
+        $r=<<<'PHP'
         // LITTYWATCH_PHASE4E_SHARED_MINI_STATE
-        // Example: unded Naga/Oni/Shiro'ken Assassin/Vizu/Zhed
-        if ($body === null && preg_match(
-            '/^(?:wts|wtb|wtt)?\s*(unded(?:icated)?|ded(?:icated)?)\s+(.+[,\/].+)$/iu',
-            trim($text),
-            $sm
-        )) {
+        if ($body === null && preg_match('/^(?:wts|wtb|wtt)?\s*(unded(?:icated)?|ded(?:icated)?)\s+(.+[,\/].+)$/iu',trim($text),$sm)) {
             $state = $this->state($sm[1]);
             $body = trim($sm[2]);
         }
@@ -165,63 +131,48 @@ ANCHOR;
         // No explicit "mini" header: accept slash/comma lists only if every
         // member is a known miniature shorthand.
         $implicit = false;
-REPL;
-        $bundle = replace_once_4e($bundle,$anchor,$replacement,'MarketBundleExpander implicit mini list');
-        write_4e($bundleFile,$bundle);
+PHP;
+        $bundle=rep1($bundle,$a,$r,'bundle mini state');
+        wr($bundleFile,$bundle);
     }
 
-    // 5) Separate insufficient identity from real catalog/parser backlog.
-    $writer = (string)file_get_contents($writerFile);
-    if (!str_contains($writer,'LITTYWATCH_PHASE4E_INSUFFICIENT_IDENTITY')) {
-        $old = "    \$mapped['quality_status']='review';\$mapped['quality_reason']='catalog_first_unresolved';\$resolved=[\$mapped];\n";
-        $new =
-            "    // LITTYWATCH_PHASE4E_INSUFFICIENT_IDENTITY\n" .
-            "    \$mapped['quality_status']='review';\n" .
-            "    \$mapped['quality_reason']=\$this->isInsufficientIdentity((string)\$mapped['item'])?'insufficient_item_identity':'catalog_first_unresolved';\n" .
+    $writer=(string)file_get_contents($writerFile);
+    if(!str_contains($writer,'LITTYWATCH_PHASE4E_INSUFFICIENT_IDENTITY')){
+        $old="    \$mapped['quality_status']='review';\$mapped['quality_reason']='catalog_first_unresolved';\$resolved=[\$mapped];\n";
+        $new=
+            "    // LITTYWATCH_PHASE4E_INSUFFICIENT_IDENTITY\n".
+            "    \$mapped['quality_status']='review';\n".
+            "    \$__lwItem=mb_strtolower(trim((string)(\$mapped['item']??'')));\n".
+            "    \$__lwInsufficient=(bool)preg_match('/^(?:axe|axes|shield|shields|staff|staves|scythe|scythes|sword|swords|hammer|hammers|spear|spears|wand|wands|dagger|daggers|focus|focus item|bow|bows|flatbow|flatbows|hornbow|hornbows|longbow|longbows|recurve bow|recurvebow|shortbow|shortbows|elite tome|elite tomes|normal tome|normal tomes)$/u',\$__lwItem);\n".
+            "    \$mapped['quality_reason']=\$__lwInsufficient?'insufficient_item_identity':'catalog_first_unresolved';\n".
             "    \$resolved=[\$mapped];\n";
-        $writer = replace_once_4e($writer,$old,$new,'StructuredOfferWriter unresolved mapping');
-
-        $anchor = "  private function requirement(mixed \$v):?int{";
-        $helper = <<<'HELPER'
-  private function isInsufficientIdentity(string $item):bool{
-   $n=mb_strtolower(trim($item));
-   return (bool)preg_match('/^(?:axe|axes|shield|shields|staff|staves|scythe|scythes|sword|swords|hammer|hammers|spear|spears|wand|wands|dagger|daggers|focus|focus item|bow|bows|flatbow|flatbows|hornbow|hornbows|longbow|longbows|recurve bow|recurvebow|shortbow|shortbows|elite tome|elite tomes|normal tome|normal tomes)$/u',$n);
-  }
-HELPER;
-        $writer = replace_once_4e($writer,$anchor,$helper."\n".$anchor,'StructuredOfferWriter requirement');
-        write_4e($writerFile,$writer);
+        $writer=rep1($writer,$old,$new,'writer unresolved');
+        wr($writerFile,$writer);
     }
 
     json_decode((string)file_get_contents($dataFile),true,flags:JSON_THROW_ON_ERROR);
-    foreach ([$catalogFile,$resolverFile,$gateFile,$writerFile,$bundleFile] as $lintFile) {
-        $out=[];$code=0;
-        exec('php -l '.escapeshellarg($lintFile).' 2>&1',$out,$code);
-        if($code!==0) throw new RuntimeException("PHP syntaxcheck faalde voor {$lintFile}:\n".implode("\n",$out));
+    foreach([$catalogFile,$resolverFile,$gateFile,$writerFile,$bundleFile] as $lint){
+        $out=[];$code=0;exec('php -l '.escapeshellarg($lint).' 2>&1',$out,$code);
+        if($code!==0) throw new RuntimeException("Syntaxcheck faalde {$lint}:\n".implode("\n",$out));
     }
 
-    require $root . '/bootstrap.php';
+    require $root.'/bootstrap.php';
     $db=db();
-    new \LittyWatch\Parser\Catalog($root . '/app/Data',$db);
+    new \LittyWatch\Parser\Catalog($root.'/app/Data',$db);
 
-    echo "OK: LittyWatch V5.2 Phase 4E geïnstalleerd.\n";
+    echo "OK: LittyWatch V5.2 Phase 4E FIX1 geïnstalleerd.\n";
     echo "Backup: {$backupDir}\n";
     echo "Point identities:\n";
-    $check=$db->prepare("SELECT key,name FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(?)) LIMIT 1");
+    $q=$db->prepare("SELECT key FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(?)) LIMIT 1");
     foreach(['Party Points','Sweet Points','Alcohol Points'] as $name){
-        $check->execute([$name]);$row=$check->fetch(PDO::FETCH_ASSOC);
-        echo "  {$name}: ".($row?"OK [".$row['key']."]":"NIET GEVONDEN")."\n";
+        $q->execute([$name]);$k=$q->fetchColumn();
+        echo "  {$name}: ".($k?"OK [{$k}]":"NIET GEVONDEN")."\n";
     }
-    echo "\nNa reparse worden bewust rejected:\n";
-    echo "  miniature_variant_unresolved\n";
-    echo "  miniature_context_conflict\n";
-    echo "  insufficient_item_identity\n";
-    echo "\nDraai nu de volledige reparse opnieuw.\n";
-} catch (Throwable $e) {
-    fwrite(STDERR,"ERROR: ".$e->getMessage()."\n");
-    fwrite(STDERR,"Rollback vanuit {$backupDir}...\n");
-    foreach ([$catalogFile,$resolverFile,$gateFile,$writerFile,$bundleFile] as $file) {
-        $backup=$backupDir.'/'.basename($file);
-        if(is_file($backup)) @copy($backup,$file);
+    echo "\nDraai daarna de volledige reparse opnieuw.\n";
+} catch(Throwable $e){
+    fwrite(STDERR,"ERROR: ".$e->getMessage()."\nRollback vanuit {$backupDir}...\n");
+    foreach([$catalogFile,$resolverFile,$gateFile,$writerFile,$bundleFile] as $f){
+        $b=$backupDir.'/'.basename($f); if(is_file($b)) @copy($b,$f);
     }
     exit(1);
 }
