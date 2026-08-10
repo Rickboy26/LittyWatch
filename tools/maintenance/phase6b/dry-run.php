@@ -4,18 +4,18 @@ declare(strict_types=1);
 require dirname(__DIR__,3).'/bootstrap.php';
 $db=db();
 
-function norm6b(string $v): string {
+function norm6b1(string $v):string{
     $v=mb_strtolower(trim($v));
     $v=strtr($v,['’'=>"'",'‘'=>"'",'´'=>"'",'`'=>"'"]);
-    $v=preg_replace('/[^a-z0-9\'+]+/iu',' ',$v)??$v;
+    $v=preg_replace('/[^a-z0-9\'+~]+/iu',' ',$v)??$v;
     return trim(preg_replace('/\s+/u',' ',$v)??$v);
 }
-function attr6b(string $text): ?string {
+function attr6b1(string $text):?string{
     $map=[
         'domination magic'=>['domination','dom'],
         'illusion magic'=>['illusion','illus','illu'],
         'curses'=>['curses','curs'],
-        'spawning power'=>['spawning power','spawning','spaw'],
+        'spawning power'=>['spawning power','spawning','spaw','sp'],
         'communing'=>['communing','comm'],
         'channeling magic'=>['channeling','channel','chan'],
         'restoration magic'=>['restoration','restor','resto'],
@@ -39,7 +39,7 @@ function attr6b(string $text): ?string {
         'tactics'=>['tactics','tac'],
         'strength'=>['strength','str'],
     ];
-    $n=' '.norm6b($text).' ';
+    $n=' '.norm6b1($text).' ';
     foreach($map as $canonical=>$aliases){
         foreach($aliases as $a){
             if(preg_match('/(?:^|\s)'.preg_quote($a,'/').'(?:\s|$)/iu',$n))return $canonical;
@@ -47,8 +47,8 @@ function attr6b(string $text): ?string {
     }
     return null;
 }
-function family6b(string $text): ?string {
-    $n=norm6b($text);
+function family6b1(string $text):?string{
+    $n=norm6b1($text);
     $families=[
         'wand'=>['wand','scepter','sceptre'],
         'staff'=>['staff','staves'],
@@ -69,25 +69,42 @@ function family6b(string $text): ?string {
     }
     return null;
 }
-function skin6b(string $item): string {
-    $n=norm6b($item);
-    $drop=[
-        'dom','domination','illusion','illus','illu','curs','curses','spaw','spawning',
-        'comm','communing','prot','protection','heal','healing','smite','smiting',
-        'sr','death','blood','fire','water','air','earth','df','divine','fc','es',
-        'q9','q10','q11','q12','q13'
+function isolateClause6b1(string $message,string $needle):string{
+    $parts=preg_split('/\s*[~|]\s*/u',$message)?:[$message];
+    $needleN=norm6b1($needle);
+    $needleTokens=array_values(array_filter(explode(' ',$needleN)));
+    $best='';$bestScore=-1;
+    foreach($parts as $p){
+        $pn=norm6b1($p);
+        $score=0;
+        foreach($needleTokens as $t){
+            if($t!=='' && preg_match('/\b'.preg_quote($t,'/').'\b/iu',$pn))$score++;
+        }
+        if($score>$bestScore){$bestScore=$score;$best=trim($p);}
+    }
+    return $best!==''?$best:trim($message);
+}
+function skinTarget6b1(string $item):string{
+    $n=norm6b1($item);
+    $rules=[
+        '/^bo\b/u'=>'bo staff',
+        '/^ghost\b/u'=>'ghostly staff',
+        '/^outcast\b/u'=>'outcast staff',
+        '/^plag\b/u'=>'plagueborn staff',
+        '/^jade\b/u'=>'jade staff',
     ];
-    $t=array_values(array_filter(explode(' ',$n),fn($x)=>!in_array($x,$drop,true)));
-    return trim(implode(' ',$t));
+    foreach($rules as $p=>$target){
+        if(preg_match($p,$n))return $target;
+    }
+    return $n;
 }
-function nameFamily6b(string $name): ?string {
-    return family6b($name);
-}
-function scoreSkin6b(string $skin,string $candidate): float {
-    $s=norm6b($skin);$c=norm6b($candidate);
-    if($s===''||$c==='')return 0.0;
-    if(str_contains($c,$s))return 1.0;
-    similar_text($s,$c,$pct);
+function nameFamily6b1(string $name):?string{return family6b1($name);}
+function score6b1(string $target,string $candidate):float{
+    $t=norm6b1($target);$c=norm6b1($candidate);
+    if($t===''||$c==='')return 0.0;
+    if($t===$c)return 1.0;
+    if(str_contains($c,$t))return 0.98;
+    similar_text($t,$c,$pct);
     return min(1.0,($pct/100)*0.9);
 }
 
@@ -122,55 +139,50 @@ foreach($targets as $g){
     $getExamples->execute([$g['id']]);
     $examples=$getExamples->fetchAll(PDO::FETCH_ASSOC);
 
-    $combined=(string)$g['item_sample'].' '.(string)$g['segment_sample'];
+    $clauses=[];
     foreach($examples as $e){
-        $combined.=' '.(string)($e['raw_segment']??'').' '.(string)($e['raw_message']??'');
+        $msg=(string)($e['raw_message']??'');
+        if($msg!=='')$clauses[]=isolateClause6b1($msg,(string)$g['item_sample']);
     }
+    if(!$clauses)$clauses[]=(string)$g['segment_sample'];
 
-    $attribute=attr6b((string)$g['item_sample'].' '.(string)$g['segment_sample']);
-    if($attribute===null)$attribute=attr6b($combined);
+    // Most frequent isolated clause becomes canonical context.
+    $freq=[];
+    foreach($clauses as $c)$freq[$c]=($freq[$c]??0)+1;
+    arsort($freq);
+    $clause=(string)array_key_first($freq);
 
-    // Prefer family from group clause. Fall back to raw messages only if the
-    // same family occurs repeatedly.
-    $family=family6b((string)$g['segment_sample']);
+    $attribute=attr6b1($clause);
+    if($attribute===null)$attribute=attr6b1((string)$g['item_sample']);
+
+    // Parent message establishes staff family for this whole tilde-list.
+    $family=family6b1($clause);
     if($family===null){
-        $counts=[];
         foreach($examples as $e){
-            $f=family6b((string)($e['raw_segment']??'').' '.(string)($e['raw_message']??''));
-            if($f)$counts[$f]=($counts[$f]??0)+1;
-        }
-        arsort($counts);
-        $topFamily=array_key_first($counts);
-        if($topFamily!==null && ($counts[$topFamily]??0)>=max(2,(int)ceil(count($examples)*0.5))){
-            $family=$topFamily;
+            $msg=(string)($e['raw_message']??'');
+            if(preg_match('/\b(?:staves?|staffs?)\b/iu',$msg)){
+                $family='staff';
+                break;
+            }
         }
     }
 
-    $skin=skin6b((string)$g['item_sample']);
+    $skinTarget=skinTarget6b1((string)$g['item_sample']);
     $cands=[];
 
     foreach($catalog as $c){
         $name=(string)$c['name'];
-        $candFamily=nameFamily6b($name);
-
+        $candFamily=nameFamily6b1($name);
         if($family!==null && $candFamily!==$family)continue;
 
-        $skinScore=scoreSkin6b($skin,$name);
-        if($skinScore<0.58)continue;
-
-        // Attribute evidence is contextual, because catalogue names often
-        // don't encode caster attributes. We report it, but don't fabricate
-        // compatibility when the catalogue has no explicit profile.
-        $score=$skinScore;
-        if($family!==null)$score+=0.08;
-        if($attribute!==null)$score+=0.04;
-        $score=min(1.0,$score);
+        $score=score6b1($skinTarget,$name);
+        if($score<0.70)continue;
 
         $cands[]=[
             'key'=>(string)$c['key'],
             'name'=>$name,
             'score'=>round($score,4),
-            'family'=>$candFamily,
+            'family'=>$candFamily
         ];
     }
 
@@ -180,11 +192,11 @@ foreach($targets as $g){
     $status='none';
     if($top){
         $margin=count($top)>1?$top[0]['score']-$top[1]['score']:1.0;
-        if($family!==null && $attribute!==null && $top[0]['score']>=0.96 && $margin>=0.10){
+        if($family!==null && $attribute!==null && $top[0]['score']>=0.98 && $margin>=0.08){
             $status='strong_context';
-        } elseif($top[0]['score']>=0.82 && $margin>=0.08){
+        }elseif($top[0]['score']>=0.90 && $margin>=0.08){
             $status='review';
-        } else {
+        }else{
             $status='ambiguous';
         }
     }
@@ -192,9 +204,9 @@ foreach($targets as $g){
     $results[]=[
         'group_id'=>(int)$g['id'],
         'item_sample'=>(string)$g['item_sample'],
-        'segment_sample'=>(string)$g['segment_sample'],
         'offer_count'=>(int)$g['offer_count'],
-        'skin'=>$skin,
+        'isolated_clause'=>$clause,
+        'skin_target'=>$skinTarget,
         'attribute'=>$attribute,
         'family'=>$family,
         'status'=>$status,
@@ -208,21 +220,16 @@ if(!is_dir($outDir))mkdir($outDir,0775,true);
 $path=$outDir.'/littywatch-phase6b-context-greens-'.date('Ymd-His').'.json';
 file_put_contents($path,json_encode($results,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
 
-echo "Phase 6B context-aware green dry-run klaar.\n";
+echo "Phase 6B FIX1 clause-aware green dry-run klaar.\n";
 echo "Groups analysed: ".count($results)."\n";
 echo "Rapport: {$path}\n\n";
 
 foreach($results as $r){
     echo "#{$r['group_id']} {$r['item_sample']} x{$r['offer_count']}\n";
-    echo "  skin={$r['skin']} attribute=".($r['attribute']??'-')." family=".($r['family']??'-')." status={$r['status']}\n";
+    echo "  clause={$r['isolated_clause']}\n";
+    echo "  skin={$r['skin_target']} attribute=".($r['attribute']??'-')." family=".($r['family']??'-')." status={$r['status']}\n";
     foreach($r['top'] as $i=>$c){
         printf("  %d. %-40s [%s] %.2f family=%s\n",
             $i+1,$c['name'],$c['key'],$c['score'],$c['family']??'-');
-    }
-    if($r['examples']){
-        echo "  examples:\n";
-        foreach($r['examples'] as $e){
-            echo "    - ".preg_replace('/\s+/u',' ',trim((string)$e['raw_message']))."\n";
-        }
     }
 }
