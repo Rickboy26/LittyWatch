@@ -138,10 +138,28 @@ final class MarketRepository
     {
         $key = $this->itemKeyForName($name);
         if ($key === null) return [];
-        $statement = $this->pdo->prepare("SELECT o.*,".$this->variantExpr('o')." AS details,m.player,m.message,m.posted_at
-            FROM structured_offers o JOIN messages m ON m.id=o.message_id
-            WHERE lower(o.item)=lower(:item) AND o.quality_status='accepted' AND COALESCE(o.lifecycle_status,'active')='active'
-            ORDER BY datetime(m.posted_at) DESC,o.id DESC LIMIT ".max(1,min(500,$limit)));
+
+        // Player-facing item pages should represent current listings, not chat spam.
+        // Keep only the newest active row for the same trader + direction + variant.
+        // This is deliberately a display-layer safety net on top of lifecycle_status:
+        // historical/parser rows remain untouched for review and analytics.
+        $variant = $this->variantExpr('o');
+        $sql = "SELECT ranked.* FROM (
+            SELECT o.*, $variant AS details, m.player, m.message, m.posted_at,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY lower(trim(m.player)), o.trade_type, $variant
+                       ORDER BY datetime(m.posted_at) DESC, o.id DESC
+                   ) AS listing_rank
+            FROM structured_offers o
+            JOIN messages m ON m.id=o.message_id
+            WHERE lower(o.item)=lower(:item)
+              AND o.quality_status='accepted'
+              AND COALESCE(o.lifecycle_status,'active')='active'
+        ) ranked
+        WHERE ranked.listing_rank=1
+        ORDER BY datetime(ranked.posted_at) DESC, ranked.id DESC
+        LIMIT ".max(1,min(500,$limit));
+        $statement = $this->pdo->prepare($sql);
         $statement->execute([':item'=>$name]);
         return $this->sanitizeDisplayedPrices($statement->fetchAll());
     }

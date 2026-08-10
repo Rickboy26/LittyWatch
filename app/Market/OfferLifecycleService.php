@@ -21,13 +21,21 @@ final class OfferLifecycleService
                 $s->execute([$messageId]);
             }
 
-            $rows = $this->pdo->query("SELECT so.id,so.trade_type,COALESCE(NULLIF(so.normalized_market_key,''),so.market_key) market_key,m.player,m.posted_at,m.id message_id FROM structured_offers so JOIN messages m ON m.id=so.message_id WHERE so.quality_status='accepted' ORDER BY m.id DESC,so.id DESC")->fetchAll();
+            $rows = $this->pdo->query("SELECT so.id,so.trade_type,so.item_key,so.requirement,so.attribute_key,so.is_oldschool,so.is_inscribable,m.player,m.posted_at,m.id message_id FROM structured_offers so JOIN messages m ON m.id=so.message_id WHERE so.quality_status='accepted' ORDER BY datetime(m.posted_at) DESC,m.id DESC,so.id DESC")->fetchAll();
             $seen = [];
             $superseded = 0;
             $expired = 0;
             $update = $this->pdo->prepare("UPDATE structured_offers SET lifecycle_status=?,superseded_by=?,lifecycle_updated_at=datetime('now') WHERE id=?");
             foreach ($rows as $row) {
-                $key = mb_strtolower(trim((string)$row['player'])) . '|' . $row['trade_type'] . '|' . $row['market_key'];
+                $key = implode('|', [
+                    mb_strtolower(trim((string)$row['player'])),
+                    (string)$row['trade_type'],
+                    mb_strtolower(trim((string)$row['item_key'])),
+                    $row['requirement'] === null ? '' : (string)$row['requirement'],
+                    mb_strtolower(trim((string)($row['attribute_key'] ?? ''))),
+                    (string)((int)($row['is_oldschool'] ?? 0)),
+                    (string)((int)($row['is_inscribable'] ?? 0)),
+                ]);
                 if (isset($seen[$key])) {
                     $update->execute(['superseded', $seen[$key], (int)$row['id']]);
                     $superseded++;
