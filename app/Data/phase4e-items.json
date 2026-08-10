@@ -1,0 +1,5 @@
+[
+  {"key":"market-points-party","name":"Party Points","category":"market_metrics","aliases":["Party Points"],"market_quote_basis":"each","market_quote_size":1,"market_display_basis":"each"},
+  {"key":"market-points-sweet","name":"Sweet Points","category":"market_metrics","aliases":["Sweet Points"],"market_quote_basis":"each","market_quote_size":1,"market_display_basis":"each"},
+  {"key":"market-points-alcohol","name":"Alcohol Points","category":"market_metrics","aliases":["Alcohol Points"],"market_quote_basis":"each","market_quote_size":1,"market_display_basis":"each"}
+]
