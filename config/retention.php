@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 return [
     // Kamadan-listings zijn vluchtig; na 48 uur tellen ze niet meer als actief.
-    'active_offer_hours' => 48,
+    'active_offer_hours'        => 200,
 
     // Ruwe chatberichten blijven lang genoeg beschikbaar voor reparses/training,
     // maar groeien niet onbeperkt door.
