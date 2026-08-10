@@ -500,6 +500,14 @@ function collectMessages(): array {
             try{(new \LittyWatch\Market\StructuredOfferWriter(db(),parserV2(),new \LittyWatch\Market\VariantNormalizer(),new \LittyWatch\Market\OfferLifecycleService(db())))->parseMessage($id,$row['message'],true);}catch(Throwable $shadowError){error_log('Parser v2 shadow write failed: '.$shadowError->getMessage());}
         }
     }
+    // Phase 6D: active offers expire automatically after the configured age,
+    // even on collector passes where Kamadan returned no new rows.
+    try {
+        (new \LittyWatch\Market\OfferLifecycleService(db()))->expireStaleOffers();
+    } catch (Throwable $expiryError) {
+        error_log('Offer expiry failed: '.$expiryError->getMessage());
+    }
+
     try {
         (new \LittyWatch\Market\MarketDataRetentionService(db()))->pruneIfDue();
     } catch (Throwable $retentionError) {

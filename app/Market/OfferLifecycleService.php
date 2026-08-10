@@ -18,6 +18,18 @@ final class OfferLifecycleService
         $this->expiryHours = max(1, $expiryHours);
     }
 
+    public function expiryHours(): int
+    {
+        return $this->expiryHours;
+    }
+
+    /**
+     * Rebuild lifecycle identity/deduplication and expiry state.
+     *
+     * When a message id is supplied only that message is reset first, but the
+     * accepted offer set is still evaluated so a newly posted offer can
+     * supersede an older listing from the same player/variant.
+     */
     public function rebuild(?int $messageId = null): array
     {
         $this->pdo->beginTransaction();
@@ -30,11 +42,12 @@ final class OfferLifecycleService
                 $s->execute([$messageId]);
             }
 
-            $rows = $this->pdo->query("SELECT so.id,so.trade_type,so.item_key,so.requirement,so.attribute_key,so.is_oldschool,so.is_inscribable,m.player,m.posted_at,m.id message_id FROM structured_offers so JOIN messages m ON m.id=so.message_id WHERE so.quality_status='accepted' ORDER BY datetime(m.posted_at) DESC,m.id DESC,so.id DESC")->fetchAll();
+            $rows = $this->pdo->query("SELECT so.id,so.trade_type,so.item_key,so.requirement,so.attribute_key,so.is_oldschool,so.is_inscribable,so.lifecycle_status,m.player,m.posted_at,m.id message_id FROM structured_offers so JOIN messages m ON m.id=so.message_id WHERE so.quality_status='accepted' ORDER BY datetime(m.posted_at) DESC,m.id DESC,so.id DESC")->fetchAll();
             $seen = [];
             $superseded = 0;
             $expired = 0;
             $update = $this->pdo->prepare("UPDATE structured_offers SET lifecycle_status=?,superseded_by=?,lifecycle_updated_at=datetime('now') WHERE id=?");
+
             foreach ($rows as $row) {
                 $key = implode('|', [
                     mb_strtolower(trim((string)$row['player'])),
@@ -45,23 +58,58 @@ final class OfferLifecycleService
                     (string)((int)($row['is_oldschool'] ?? 0)),
                     (string)((int)($row['is_inscribable'] ?? 0)),
                 ]);
+
                 if (isset($seen[$key])) {
                     $update->execute(['superseded', $seen[$key], (int)$row['id']]);
                     $superseded++;
                     continue;
                 }
+
                 $seen[$key] = (int)$row['id'];
                 if ($this->isExpired((string)$row['posted_at'])) {
                     $update->execute(['expired', null, (int)$row['id']]);
                     $expired++;
+                } elseif (($row['lifecycle_status'] ?? 'active') !== 'active') {
+                    // Only relevant for partial rebuilds: the newest accepted row for
+                    // a listing identity must remain active when it is not expired.
+                    $update->execute(['active', null, (int)$row['id']]);
                 }
             }
+
             $this->pdo->commit();
-            return ['active' => count($seen) - $expired, 'superseded' => $superseded, 'expired' => $expired];
+            return [
+                'active' => count($seen) - $expired,
+                'superseded' => $superseded,
+                'expired' => $expired,
+            ];
         } catch (\Throwable $e) {
-            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             throw $e;
         }
+    }
+
+    /**
+     * Cheap periodic expiry pass used by the collector even when no new
+     * Kamadan messages were inserted. Superseded/rejected rows are untouched.
+     */
+    public function expireStaleOffers(): int
+    {
+        $cutoff = (new \DateTimeImmutable('-' . $this->expiryHours . ' hours'))->format(DATE_ATOM);
+        $stmt = $this->pdo->prepare(<<<'SQL'
+UPDATE structured_offers
+SET lifecycle_status='expired',
+    superseded_by=NULL,
+    lifecycle_updated_at=datetime('now')
+WHERE quality_status='accepted'
+  AND COALESCE(lifecycle_status,'active')='active'
+  AND message_id IN (
+      SELECT id FROM messages WHERE datetime(posted_at) < datetime(:cutoff)
+  )
+SQL);
+        $stmt->execute([':cutoff' => $cutoff]);
+        return $stmt->rowCount();
     }
 
     private function isExpired(string $postedAt): bool
@@ -69,7 +117,9 @@ final class OfferLifecycleService
         try {
             $date = new \DateTimeImmutable($postedAt);
             $year = (int)$date->format('Y');
-            if ($year < 2005 || $year > 2100) return false;
+            if ($year < 2005 || $year > 2100) {
+                return false;
+            }
             return $date < new \DateTimeImmutable('-' . $this->expiryHours . ' hours');
         } catch (\Throwable) {
             return false;
