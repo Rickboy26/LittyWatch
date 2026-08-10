@@ -30,13 +30,14 @@ $patterns=[
     ['/\\bel slightly mad king\\b/iu','Everlasting Slightly Mad King Thorn Tonic'],
     ['/\\bids\\b/iu','Icy Dragon Sword'],
     ['/\\bobsidians frag\\b/iu','Obsidian Shard'],
-    ['/\\bshards\\b/iu','Obsidian Shard'],
+    // FIX1: bare "Shards" intentionally removed; too ambiguous.
     ['/\\bplague idols?\\b/iu','Plague Idol'],
     ['/\\broyal gifts?\\b/iu','Royal Gift'],
     ['/\\babnormal seeds?\\b/iu','Abnormal Seed'],
 ];
 
 $find=$db->prepare("SELECT key,name FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(?)) LIMIT 1");
+
 $groups=$db->query("
 SELECT id,item_sample,segment_sample,offer_count
 FROM parser_residual_groups
@@ -47,8 +48,10 @@ ORDER BY offer_count DESC,id
 $candidates=[];
 foreach($groups as $g){
     $text=(string)$g['item_sample'].' '.(string)$g['segment_sample'];
+
     foreach($patterns as [$pat,$canonical]){
         if(!preg_match($pat,$text))continue;
+
         $find->execute([$canonical]);
         $row=$find->fetch(PDO::FETCH_ASSOC);
         if(!$row)continue;
@@ -81,7 +84,7 @@ if(!is_dir($outDir))mkdir($outDir,0775,true);
 $path=$outDir.'/littywatch-phase5i-items-dryrun-'.date('Ymd-His').'.json';
 file_put_contents($path,json_encode($candidates,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
 
-echo "Phase 5I item dry-run klaar.\n";
+echo "Phase 5I FIX1 item dry-run klaar.\n";
 echo "Candidates: ".count($candidates)."\n";
 echo "Rapport: {$path}\n\n";
 foreach($candidates as $c){
