@@ -31,7 +31,12 @@ ORDER BY id
 
 $groups=[];
 foreach($rows as $r){
-    [$sig,$ni,$ns]=signature5b((string)$r['item'],(string)($r['raw_segment']??''));
+    [$sig,$ni,$ns]=signature5b(
+        (string)$r['item'],
+        (string)($r['raw_segment']??''),
+        (string)$r['current_reason']
+    );
+
     if(!isset($groups[$sig])){
         $groups[$sig]=[
             'signature'=>$sig,
@@ -45,6 +50,7 @@ foreach($rows as $r){
             'suggested_json'=>(string)($r['suggested_json']??'[]'),
         ];
     }
+
     $groups[$sig]['review_ids'][]=(int)$r['id'];
     if(!empty($r['message_id']))$groups[$sig]['message_ids'][(int)$r['message_id']]=true;
 }
@@ -65,7 +71,10 @@ ON CONFLICT(signature) DO UPDATE SET
  segment_sample=excluded.segment_sample,
  offer_count=excluded.offer_count,
  message_count=excluded.message_count,
- suggested_json=CASE WHEN parser_residual_groups.decision IS NULL THEN excluded.suggested_json ELSE parser_residual_groups.suggested_json END,
+ suggested_json=CASE
+   WHEN parser_residual_groups.decision IS NULL THEN excluded.suggested_json
+   ELSE parser_residual_groups.suggested_json
+ END,
  updated_at=excluded.updated_at
 ");
 
@@ -74,9 +83,12 @@ $link=$db->prepare("INSERT OR IGNORE INTO parser_residual_group_members(group_id
 
 $db->beginTransaction();
 try{
-    $done=0;$total=count($groups);
+    $done=0;
+    $total=count($groups);
+
     foreach($groups as $g){
         $now=gmdate('c');
+
         $up->execute([
             ':signature'=>$g['signature'],
             ':normalized_item'=>$g['normalized_item'],
@@ -90,12 +102,20 @@ try{
             ':created_at'=>$now,
             ':updated_at'=>$now,
         ]);
+
         $find->execute([$g['signature']]);
         $gid=(int)$find->fetchColumn();
-        foreach($g['review_ids'] as $rid)$link->execute([$gid,$rid]);
+
+        foreach($g['review_ids'] as $rid){
+            $link->execute([$gid,$rid]);
+        }
+
         $done++;
-        if($done%100===0||$done===$total)echo "Voortgang: {$done}/{$total} groepen\n";
+        if($done%100===0 || $done===$total){
+            echo "Voortgang: {$done}/{$total} groepen\n";
+        }
     }
+
     $db->commit();
 }catch(Throwable $e){
     if($db->inTransaction())$db->rollBack();
