@@ -170,6 +170,14 @@ final class SemanticNormalizer
         $text = preg_replace('/\bMysterious\s+Summonig\s+Stones?\b/iu', 'Mysterious Summoning Stone', $text) ?? $text;
         $text = preg_replace('/\bStars?\s+of\s+Transf(?:erence)?\b/iu', 'Star of Transference', $text) ?? $text;
         $text = preg_replace('/\b\d+\s*Elonian\s+Leather\s+Squares?\b/iu', 'Elonian Leather Square', $text) ?? $text;
+        // Preserve miniature dedication as metadata-bearing suffix. Prefix qualifiers
+        // can be consumed by later candidate/segment cleanup, so canonicalize
+        // `unded Gpriest` / `ded Ghostly Priest` to `<item> unded|ded`.
+        $text = preg_replace_callback(
+            '/\b(unded(?:icated)?|ded(?:icated)?)\s+(?:g\s*priest|ghostly\s+priest)\b/iu',
+            static fn(array $m): string => 'Miniature Ghostly Priest ' . (str_starts_with(mb_strtolower($m[1]), 'unded') ? 'unded' : 'ded'),
+            $text
+        ) ?? $text;
         $text = preg_replace('/\bghostly\s+priest\b/iu', 'Miniature Ghostly Priest', $text) ?? $text;
         // In Kamadan these bare labels with armbrace prices refer to the PvP boxes,
         // not the title/NPC concepts. Keep the rewrite price-contextual and narrow.
@@ -199,7 +207,11 @@ final class SemanticNormalizer
 
         // Phase 3V: canonical miniature identities are applied before the
         // generic fallback path. Dedication remains metadata, not part of the name.
-        $text = preg_replace('/\b(?:ded(?:icated)?|unded(?:icated)?)\s+ghostly\s+hero\b/iu', 'Miniature Ghostly Hero', $text) ?? $text;
+        $text = preg_replace_callback(
+            '/\b(unded(?:icated)?|ded(?:icated)?)\s+ghostly\s+hero\b/iu',
+            static fn(array $m): string => 'Miniature Ghostly Hero ' . (str_starts_with(mb_strtolower($m[1]), 'unded') ? 'unded' : 'ded'),
+            $text
+        ) ?? $text;
         $text = preg_replace('/\bmini(?:ature)?\s+undead\s+prince(?:\s+rurik)?\b/iu', 'Miniature Undead Prince Rurik', $text) ?? $text;
         $text = preg_replace('/\bundead\s+prince\s+rurik\b/iu', 'Miniature Undead Prince Rurik', $text) ?? $text;
         $text = preg_replace('/\belixirs?\s+of\s+valor\b/iu', 'Elixir of Valor', $text) ?? $text;
