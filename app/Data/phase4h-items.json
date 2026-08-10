@@ -1,0 +1,35 @@
+[
+  {
+    "key": "flame-artifact",
+    "name": "Flame Artifact",
+    "category": "focus_items",
+    "aliases": [
+      "Flame Artifact",
+      "Artifact flame",
+      "Flame Artifact With Eye",
+      "Flame Artifact With the Eye"
+    ]
+  },
+  {
+    "key": "obsidian-shard",
+    "name": "Obsidian Shard",
+    "category": "materials",
+    "aliases": [
+      "Obsidian Shard",
+      "Obsidian Shards",
+      "Obi Shard",
+      "Obi Shards",
+      "Stack of Obi Shards"
+    ]
+  },
+  {
+    "key": "granite-slab",
+    "name": "Granite Slab",
+    "category": "materials",
+    "aliases": [
+      "Granite Slab",
+      "Granite Slabs",
+      "granite"
+    ]
+  }
+]
