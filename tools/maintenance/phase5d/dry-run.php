@@ -33,24 +33,56 @@ function variants5d(string $text):array{
     return array_values(array_unique(array_filter($vars)));
 }
 function tokens5d(string $v):array{
-    return array_values(array_filter(explode(' ',norm5d($v)),fn($t)=>mb_strlen($t)>=2));
+    return array_values(array_unique(array_filter(explode(' ',norm5d($v)),fn($t)=>mb_strlen($t)>=2)));
 }
 function score5d(string $q,string $c):float{
     $qn=norm5d($q);$cn=norm5d($c);
     if($qn===''||$cn==='')return 0.0;
     if($qn===$cn)return 1.0;
+
     $qt=tokens5d($qn);$ct=tokens5d($cn);
     $inter=count(array_intersect($qt,$ct));
     if($inter===0)return 0.0;
     $union=count(array_unique(array_merge($qt,$ct)));
     $jac=$union?($inter/$union):0.0;
+
     similar_text($qn,$cn,$pct);
     $sim=($pct/100)*0.9;
     $contains=(str_contains($cn,$qn)||str_contains($qn,$cn))?0.92:0.0;
-    return max($jac,$sim,$contains);
+
+    return min(1.0,max($jac,$sim,$contains));
+}
+function autoBlock5d(array $group,array $top): ?string{
+    $item=mb_strtolower(trim((string)$group['item_sample']));
+    $seg=mb_strtolower(trim((string)$group['segment_sample']));
+    $topName=mb_strtolower(trim((string)$top['name']));
+
+    // Generic tome identities must never become concrete catalog matches.
+    if(in_array($topName,['elite tome','normal tome','tome'],true)){
+        return 'generic_tome';
+    }
+
+    // Miniatures require explicit ded/unded context.
+    if(str_starts_with($topName,'miniature ')
+        && !preg_match('/\b(?:unded(?:icated)?|ded(?:icated)?)\b/iu',$seg)){
+        return 'miniature_variant_missing';
+    }
+
+    // Very short market shorthands are too ambiguous for auto-accept.
+    $itemNorm=norm5d($item);
+    if(mb_strlen(str_replace(' ','',$itemNorm))<=3){
+        return 'short_alias';
+    }
+
+    // Broad/list wording still blocks auto-accept.
+    if(preg_match('/\b(?:set|package|all|any|many|collection|weapons?|items?|tomes?)\b/iu',$item.' '.$seg)){
+        return 'broad_list';
+    }
+
+    return null;
 }
 
-// Build catalogue + inverted token index once.
+// Build catalogue + token index once.
 $catalog=[];
 $tokenIndex=[];
 $exactIndex=[];
@@ -59,7 +91,6 @@ foreach($db->query("SELECT key,name FROM kb_items WHERE active=1") as $r){
     $key=(string)$r['key'];$name=(string)$r['name'];
     $catalog[$key]=['key'=>$key,'name'=>$name,'strings'=>[$name]];
 }
-
 foreach($db->query("
 SELECT a.item_key,a.alias
 FROM kb_aliases a
@@ -69,7 +100,6 @@ WHERE i.active=1
     $key=(string)$r['item_key'];
     if(isset($catalog[$key]))$catalog[$key]['strings'][]=(string)$r['alias'];
 }
-
 foreach($catalog as $key=>&$row){
     $row['strings']=array_values(array_unique(array_filter($row['strings'])));
     $row['norms']=[];
@@ -122,7 +152,7 @@ foreach($groups as $g){
             $scores[]=[
                 'key'=>$key,
                 'name'=>$catalog[$key]['name'],
-                'score'=>round($best,4),
+                'score'=>round(min(1.0,$best),4),
                 'via'=>$via
             ];
         }
@@ -130,13 +160,19 @@ foreach($groups as $g){
 
     usort($scores,fn($a,$b)=>$b['score']<=>$a['score']);
     $top=$scores[0]??null;$second=$scores[1]??null;
-    $confidence='NONE';$apply=false;
+    $confidence='NONE';$apply=false;$blockedReason=null;
 
     if($top){
+        $blockedReason=autoBlock5d($g,$top);
         $margin=$second?($top['score']-$second['score']):1.0;
-        if($top['score']>=0.97 && $margin>=0.08){$confidence='HIGH';$apply=true;}
-        elseif($top['score']>=0.92 && $margin>=0.12){$confidence='MEDIUM';}
-        else{$confidence='LOW';}
+
+        if($blockedReason===null && $top['score']>=0.97 && $margin>=0.08){
+            $confidence='HIGH';$apply=true;
+        } elseif($top['score']>=0.92 && $margin>=0.12){
+            $confidence='MEDIUM';
+        } else {
+            $confidence='LOW';
+        }
     }
 
     $results[]=[
@@ -144,7 +180,11 @@ foreach($groups as $g){
         'item_sample'=>(string)$g['item_sample'],
         'segment_sample'=>(string)$g['segment_sample'],
         'offer_count'=>(int)$g['offer_count'],
-        'top'=>$top,'second'=>$second,'confidence'=>$confidence,'apply'=>$apply
+        'top'=>$top,
+        'second'=>$second,
+        'confidence'=>$confidence,
+        'apply'=>$apply,
+        'blocked_reason'=>$blockedReason,
     ];
 
     $done++;
@@ -157,14 +197,21 @@ $path=$outDir.'/littywatch-phase5d-dryrun-'.date('Ymd-His').'.json';
 file_put_contents($path,json_encode($results,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
 
 $high=array_values(array_filter($results,fn($r)=>$r['confidence']==='HIGH'));
-$medium=array_values(array_filter($results,fn($r)=>$r['confidence']==='MEDIUM'));
+$blocked=array_values(array_filter($results,fn($r)=>!empty($r['blocked_reason'])));
 
-echo "Phase 5D FIX1 dry-run klaar.\n";
+echo "Phase 5D FIX2 dry-run klaar.\n";
 echo "HIGH candidates: ".count($high)."\n";
-echo "MEDIUM candidates: ".count($medium)."\n";
+echo "Blocked candidates: ".count($blocked)."\n";
 echo "Rapportbestand: {$path}\n\n";
+
 echo "=== TOP HIGH CANDIDATES ===\n";
 foreach(array_slice($high,0,80) as $r){
     printf("#%-5d %-30s -> %-35s [%s] score %.2f x%d\n",
         $r['group_id'],$r['item_sample'],$r['top']['name'],$r['top']['key'],$r['top']['score'],$r['offer_count']);
+}
+
+echo "\n=== TOP BLOCKED CANDIDATES ===\n";
+foreach(array_slice($blocked,0,40) as $r){
+    printf("#%-5d %-30s -> %-35s reason=%s score %.2f x%d\n",
+        $r['group_id'],$r['item_sample'],$r['top']['name'],$r['blocked_reason'],$r['top']['score'],$r['offer_count']);
 }
