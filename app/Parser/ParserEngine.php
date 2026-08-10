@@ -116,7 +116,66 @@ final class ParserEngine
         $results = $this->promoteExplicitGenericRequirements($results);
         $results = $this->promoteExplicitGenericMarketSearches($results, $normalized);
         $results = $this->promotePhase2RTrustedCatalogMatches($results, $normalized);
+        // Phase 6H.1: dedication qualifiers can be stripped by semantic / grammar
+        // cleanup after the miniature itself has already been canonicalized. Restore
+        // ded/unded from the original normalized market text before deduplication so
+        // the two states also receive distinct market keys.
+        $results = $this->restoreMiniatureDedication($results, $normalized);
         return $this->deduplicate($this->suppressGenericCatalogShadows($results, $normalized));
+    }
+
+    /** @param list<ParsedOffer> $offers @return list<ParsedOffer> */
+    private function restoreMiniatureDedication(array $offers, string $source): array
+    {
+        foreach ($offers as $index => $offer) {
+            if (!str_starts_with(mb_strtolower($offer->item), 'miniature ')) continue;
+            if (isset($offer->modifiers['dedication'])) continue;
+
+            $name = preg_replace('/^Miniature\s+/iu', '', $offer->item) ?? $offer->item;
+            $aliases = [preg_quote($name, '/')];
+            if (mb_strtolower($name) === 'ghostly priest') $aliases[] = 'g\s*priest';
+            $itemPattern = '(?:miniature\s+)?(?:' . implode('|', $aliases) . ')';
+            $matches = [];
+
+            if (preg_match_all('/\b(unded(?:icated)?|ded(?:icated)?)\s+' . $itemPattern . '\b/iu', $source, $m)) {
+                foreach ($m[1] as $token) $matches[] = str_starts_with(mb_strtolower((string)$token), 'unded') ? 'undedicated' : 'dedicated';
+            }
+            if (preg_match_all('/\b' . $itemPattern . '\s+(unded(?:icated)?|ded(?:icated)?)\b/iu', $source, $m)) {
+                foreach ($m[1] as $token) $matches[] = str_starts_with(mb_strtolower((string)$token), 'unded') ? 'undedicated' : 'dedicated';
+            }
+
+            $matches = array_values(array_unique($matches));
+            // Ambiguous messages that mention the same miniature in both states are
+            // intentionally left untouched rather than assigning the wrong variant.
+            if (count($matches) !== 1) continue;
+
+            $dedication = $matches[0];
+            $modifiers = $offer->modifiers;
+            $modifiers['dedication'] = $dedication;
+            $relevant = $offer->relevantProperties;
+            $relevant['dedication'] = $dedication;
+            $marketKey = preg_replace('/\|dedication:[^|]+/iu', '', $offer->marketKey) ?? $offer->marketKey;
+            if ($marketKey === '') $marketKey = $offer->itemKey;
+            $marketKey .= '|dedication:' . $dedication;
+
+            $offers[$index] = new ParsedOffer(
+                $offer->tradeType,
+                $offer->item,
+                $offer->itemKey,
+                $modifiers,
+                $offer->price,
+                $offer->confidence,
+                $offer->status,
+                $offer->reason,
+                $offer->segment,
+                $offer->tokens,
+                $offer->profile,
+                $relevant,
+                $marketKey,
+                $offer->exchange,
+            );
+        }
+        return $offers;
     }
 
     /**
