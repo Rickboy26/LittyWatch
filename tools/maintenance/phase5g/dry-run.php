@@ -19,7 +19,7 @@ $patterns=[
     ['/\bemeral blade\b/iu','Emerald Blade'],
     ['/\bzodiaq\b/iu','Zodiac Sword'],
     ['/\bcursus\b/iu','Curses Staff'],
-    ['/\baoken aegis\b/iu','Aureate Aegis'],
+    ['/\baoken aegis\b/iu','Oaken Aegis'],
     ['/\bsharp stick\b/iu','The Sharp Stick'],
     ['/\bmeasure4measure\b/iu','Measure for Measure'],
     ['/\bstilettos\b/iu','Stilettos'],
@@ -27,7 +27,7 @@ $patterns=[
     // Consumables / materials
     ['/\bfow scrolls?\b/iu','Passage Scroll to the Fissure of Woe'],
     ['/\bobs?hards?\b/iu','Obsidian Shard'],
-    ['/\bfirewater\b/iu','Dwarven Ale'],
+    ['/\bfirewater\b/iu','Flask of Firewater'],
     ['/\bgrails?\b/iu','Grail of Might'],
     ['/\beggs?\b/iu','Golden Egg'],
     ['/\broyal gifts?\b/iu','Royal Gift'],
@@ -35,13 +35,11 @@ $patterns=[
     ['/\babnormal seeds?\b/iu','Abnormal Seed'],
     ['/\bsuperbcharr carvings?\b/iu','Superb Charr Carving'],
 
-    // Tonics / miniatures with explicit names
+    // Tonics / polymock
     ['/\bel mursaat\b/iu','Everlasting Mursaat Tonic'],
     ['/\bmursaat elementalist polymo\b/iu','Mursaat Elementalist Polymock Piece'],
 
-    // Greens / uniques only when exact catalogue name is expected
-    ['/\bbeautiful menzies\b/iu',"Menzies' Sorrow"],
-    ['/\bbow of the paragon\b/iu','Bow of the Hierophant'],
+    // Bow of the paragon intentionally removed: not proven unique enough.
 ];
 
 $find=$db->prepare("SELECT key,name FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(?)) LIMIT 1");
@@ -93,7 +91,7 @@ if(!is_dir($outDir))mkdir($outDir,0775,true);
 $path=$outDir.'/littywatch-phase5g-alias-dryrun-'.date('Ymd-His').'.json';
 file_put_contents($path,json_encode($candidates,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
 
-echo "Phase 5G alias dry-run klaar.\n";
+echo "Phase 5G FIX1 alias dry-run klaar.\n";
 echo "Candidates: ".count($candidates)."\n";
 echo "Rapport: {$path}\n\n";
 foreach($candidates as $c){
