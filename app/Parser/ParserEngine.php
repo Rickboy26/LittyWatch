@@ -93,6 +93,7 @@ final class ParserEngine
                 : (count($smartSegments) > 1 ? $smartSegments : $this->grammarSegmenter->split($blockText));
             if ($segments === []) $segments = $this->segmenter->split($blockText);
             $segments = $this->splitExplicitRequirementCommaBoundaries($segments);
+            $segments = $this->splitExplicitWeaponFamilyBoundaries($segments);
             $segments = $this->contextualSegmentExpander->expand($segments);
             // Phase 3V: expand comma-separated requirement/attribute variants and
             // inherit the concrete item identity across shorthand continuation
@@ -149,6 +150,79 @@ final class ParserEngine
             foreach(($parts?:[$segment]) as $part)$out[]=$part;
         }
         return $out;
+    }
+
+    /**
+     * Phase 6G: explicit weapon-family words start a new ownership clause even
+     * when Kamadan shorthand omits commas. This protects the previous concrete
+     * skin from metadata that belongs to a later generic weapon, e.g.
+     * "BDS/ q8 gold inscribable scarabshell shield" and
+     * "Ghostly Staff Green shield q8 ...".
+     *
+     * @param list<string> $segments
+     * @return list<string>
+     */
+    private function splitExplicitWeaponFamilyBoundaries(array $segments): array
+    {
+        $out=[];
+        $family='(?:staff|wand|focus|bow|longbow|sword|axe|hammer|shield|spear|scythe|daggers?)';
+        foreach($segments as $segment){
+            // Slash-separated market lists: split only when the right-hand side
+            // clearly contains a weapon-family noun. Attribute lists such as
+            // "Air Q9/11" therefore remain untouched.
+            $parts=preg_split('/\s*\/\s*(?=[^\/]{0,80}\b'.$family.'\b)/iu',$segment) ?: [$segment];
+            foreach($parts as $part){
+                $part=trim($part);
+                if($part==='') continue;
+
+                $matches=$this->itemMatcher->matchAll($part);
+                $concrete=array_values(array_filter($matches,fn(array $m):bool=>$this->taxonomy->isConcreteMatch($m)));
+                if($concrete===[]){$out[]=$part;continue;}
+
+                $first=$concrete[0];
+                $firstEnd=(int)$first['start']+(int)$first['length'];
+                $tail=mb_substr($part,$firstEnd);
+                $itemFamily=$this->weaponFamilyFromName((string)$first['item']);
+                if($itemFamily===null){$out[]=$part;continue;}
+
+                // A later, different family noun is a hard ownership boundary.
+                if(preg_match('/\b'.$family.'\b/iu',$tail,$fm,PREG_OFFSET_CAPTURE)){
+                    $familyWord=mb_strtolower((string)$fm[0][0]);
+                    $familyWord=rtrim($familyWord,'s');
+                    if($familyWord==='dagger')$familyWord='dagger';
+                    $normalizedItemFamily=rtrim(mb_strtolower($itemFamily),'s');
+                    if($familyWord!==$normalizedItemFamily){
+                        $offset=$firstEnd+(int)$fm[0][1];
+                        // Include one descriptive token immediately before the
+                        // family ("Green shield", "scarabshell shield") in the
+                        // new clause where possible.
+                        $prefix=mb_substr($part,0,$offset);
+                        $boundary=$offset;
+                        if(preg_match('/(?:^|[\s,;])([A-Za-z][A-Za-z\'’-]{2,})\s*$/u',$prefix,$pm,PREG_OFFSET_CAPTURE)){
+                            $candidate=mb_strtolower((string)$pm[1][0]);
+                            if(!preg_match('/^(?:q\d+|gold|blue|purple|white|inscribable|insc|os)$/iu',$candidate)){
+                                $boundary=(int)$pm[1][1];
+                            }
+                        }
+                        $left=trim(mb_substr($part,0,$boundary)," \t\n\r\0\x0B|,;/");
+                        $right=trim(mb_substr($part,$boundary)," \t\n\r\0\x0B|,;/");
+                        if($left!=='')$out[]=$left;
+                        if($right!=='')$out[]=$right;
+                        continue;
+                    }
+                }
+                $out[]=$part;
+            }
+        }
+        return $out;
+    }
+
+    private function weaponFamilyFromName(string $item): ?string
+    {
+        if(!preg_match('/\b(staff|wand|focus|bow|longbow|sword|axe|hammer|shield|spear|scythe|daggers?)\b/iu',$item,$m))return null;
+        $f=mb_strtolower($m[1]);
+        if($f==='longbow')return 'bow';
+        return rtrim($f,'s');
     }
 
     /** @return list<ParsedOffer> */
@@ -364,12 +438,22 @@ final class ParserEngine
             if ($setQuantity !== null && $price->amount !== null) {
                 $price = new ParsedPrice($price->amount,$price->currency,$price->ectoValue,'set',$setQuantity,$price->ectoValue!==null?$price->ectoValue/$setQuantity:null,$price->raw);
             }
-            $modifiers = array_merge(
-                $this->modifierMatcher->match($segment),
-                $this->metadataExtractor->extract($segment),
-                $this->modifierMatcher->match($slice),
-                $this->metadataExtractor->extract($slice)
-            );
+            // Modifier ownership is item-local. When multiple catalogue items
+            // share one chat segment, whole-segment metadata must never bleed
+            // into each item (e.g. "BDS, Q8 Tac Shield" or
+            // "Celestial Shield r8 Tact +10 Fire/-2we"). For a single item,
+            // whole-segment context is still safe and preserves legacy syntax.
+            $modifiers = count($items) === 1
+                ? array_merge(
+                    $this->modifierMatcher->match($segment),
+                    $this->metadataExtractor->extract($segment),
+                    $this->modifierMatcher->match($slice),
+                    $this->metadataExtractor->extract($slice)
+                )
+                : array_merge(
+                    $this->modifierMatcher->match($slice),
+                    $this->metadataExtractor->extract($slice)
+                );
 
             if (preg_match('/\b(?:q|rq|req(?:uirement)?)\s*([0-9]{1,2})\b/iu', $slice, $requirementMatch)) {
                 $modifiers['requirement'] = 'q' . $requirementMatch[1];
