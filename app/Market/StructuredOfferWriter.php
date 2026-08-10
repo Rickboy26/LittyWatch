@@ -13,7 +13,58 @@ final class StructuredOfferWriter {
   if($resolved===[]){
     $noise=(new NoiseFragmentGate())->inspect((string)$mapped['item'],(string)$mapped['raw_segment']);
     if($noise['drop'])continue;
-    $mapped['quality_status']='review';$mapped['quality_reason']='catalog_first_unresolved';$resolved=[$mapped];
+    // LITTYWATCH_PHASE4E_INSUFFICIENT_IDENTITY
+    // LITTYWATCH_PHASE4G_RESIDUAL_CLASSIFIER
+    $mapped['quality_status']='review';
+
+    $__lwItem=mb_strtolower(trim((string)($mapped['item']??'')));
+    $__lwSegment=mb_strtolower(trim((string)($mapped['raw_segment']??$mapped['segment']??$mapped['item']??'')));
+    $__lwText=trim($__lwItem.' '.$__lwSegment);
+
+    $__lwInsufficient=(bool)preg_match(
+        '/^(?:axe|axes|shield|shields|staff|staves|scythe|scythes|sword|swords|hammer|hammers|spear|spears|wand|wands|dagger|daggers|focus|focus item|bow|bows|flatbow|flatbows|hornbow|hornbows|longbow|longbows|recurve bow|recurvebow|shortbow|shortbows|elite tome|elite tomes|normal tome|normal tomes)$/u',
+        $__lwItem
+    );
+
+    $__lwCollection = !$__lwInsufficient && (
+        preg_match('/\b(?:q|req)\s*[0-9]+(?:\s*\/\s*(?:q|req)?\s*[0-9]+)?\s+(?:bows?|weapons?|items?|shields?|staves?|staffs?)\b/iu',$__lwText)
+        || preg_match('/\b(?:gold|white|purple|green)\s+(?:items?|weapons?|minis?|miniatures?)\b/iu',$__lwText)
+        || preg_match('/\b(?:os|old\s*school|pre[- ]?nerf|prenerf)\b.*\b(?:items?|mods?|weapons?|gold)\b/iu',$__lwText)
+        || preg_match('/\b(?:all|any|many|package|collection)\s+(?:tomes?|minis?|miniatures?|tonics?|weapons?|items?)\b/iu',$__lwText)
+        || preg_match('/\b(?:white\s+minis?|el\s+tonics?|minipet\s+package|gold\s+value\s+q[0-9]+)\b/iu',$__lwText)
+        || preg_match('/\b(?:large\s+or\s+medium)\s+(?:eqbag|equipment\s+pack)\b/iu',$__lwText)
+    );
+
+    $__lwServiceNoise = !$__lwInsufficient && !$__lwCollection && (
+        preg_match('/\b(?:running|run)\s+[a-z0-9 .\'-]+\s*(?:->|to)\s*[a-z0-9 .\'-]+/iu',$__lwText)
+        || preg_match('/\b(?:trade\s+me|wsp\s+me|whisper\s+me|pm\s+me)\s*@?\s*(?:chest|here)?\b/iu',$__lwText)
+        || preg_match('/\b(?:snowman\s+summoners?|runner|running\s+service|service|taxi|ferry)\b/iu',$__lwText)
+        // LITTYWATCH_PHASE4H_CLASSIFIER_FIX: removed hard-coded item names from service/noise.
+);
+
+    // LITTYWATCH_PHASE4H_CLASSIFIER_FIX
+    $__lwModifierFragment = !$__lwInsufficient && !$__lwCollection && !$__lwServiceNoise && (
+        preg_match('/\b(?:[345]\s*(?:sr|soul\s*reaping|leadership|energy\s*storage)\s+for\s+(?:bow|staff|scepter|wand)|sr\s*\+\s*[345]\s+for\s+(?:bow|staff|scepter|wand))\b/iu',$__lwText)
+        ||         preg_match('/^(?:\+?\s*30\s*hp|45\s*hp\s+w\s+ench|each\s*:\s*\+?\s*10\s+armor\s+vs|armor\s+\+?\s*[0-9]+\s+vs|40\/40\s+[a-z ]+\s+set)$/iu',$__lwItem)
+        || (
+            preg_match('/\b(?:staffhead|bowgrip|inscription)\b/iu',$__lwText)
+            && !preg_match('/\b(?:of\s+the|of\s+fortitude|of\s+enchanting|of\s+shelter|of\s+warding)\b/iu',$__lwText)
+        )
+    );
+
+    if ($__lwInsufficient) {
+        $mapped['quality_reason']='insufficient_item_identity';
+    } elseif ($__lwCollection) {
+        $mapped['quality_reason']='collection_or_market_request';
+    } elseif ($__lwServiceNoise) {
+        $mapped['quality_reason']='service_or_noise';
+    } elseif ($__lwModifierFragment) {
+        $mapped['quality_reason']='modifier_fragment_unresolved';
+    } else {
+        $mapped['quality_reason']='catalog_first_unresolved';
+    }
+
+    $resolved=[$mapped];
   }
   foreach($resolved as $r){
    if($r['quality_status']==='accepted'){

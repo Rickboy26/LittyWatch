@@ -1,5 +1,23 @@
 <?php
 declare(strict_types=1);
+// LITTYWATCH_ARM_BRACE_MANUAL_OVERRIDE_BEGIN
+// Handmatige hoogste-prioriteit override voor het correcte Armbrace of Truth inventory icon.
+if (
+    isset($_GET['item'])
+    && strcasecmp(trim((string) $_GET['item']), 'Armbrace of Truth') === 0
+) {
+    $manualArmbrace = __DIR__ . '/assets/game-items/manual/armbrace-of-truth.png';
+
+    if (is_file($manualArmbrace)) {
+        header('Content-Type: image/png');
+        header('Content-Length: ' . (string) filesize($manualArmbrace));
+        header('Cache-Control: public, max-age=3600');
+        header('X-LittyWatch-Image-Source: manual-override');
+        readfile($manualArmbrace);
+        exit;
+    }
+}
+// LITTYWATCH_ARM_BRACE_MANUAL_OVERRIDE_END
 
 require_once __DIR__ . '/bootstrap.php';
 

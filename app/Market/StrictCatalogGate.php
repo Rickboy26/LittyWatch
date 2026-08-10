@@ -16,10 +16,16 @@ final class StrictCatalogGate
             return ['allowed'=>false,'reason'=>'strict_catalog_generic','canonical_name'=>null,'canonical_key'=>null];
         }
 
-        // Exact active KB key/name is authoritative.
-        $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND (key=:key OR lower(trim(name))=lower(trim(:name))) ORDER BY CASE WHEN key=:key2 THEN 0 ELSE 1 END LIMIT 1");
-        $st->execute([':key'=>$key,':key2'=>$key,':name'=>$name]);
-        $row=$st->fetch();
+        // LITTYWATCH_PHASE4E_NAME_FIRST_GATE
+        $row=false;
+        if($name!==''){
+            $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(:name)) LIMIT 1");
+            $st->execute([':name'=>$name]);$row=$st->fetch();
+        }
+        if(!$row&&$key!==''){
+            $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND key=:key LIMIT 1");
+            $st->execute([':key'=>$key]);$row=$st->fetch();
+        }
         if($row){
             $canonical=CanonicalMarketIdentity::nameFor((string)$row['name'],(string)$row['key']);
             if($this->looksGeneric($canonical))return ['allowed'=>false,'reason'=>'strict_catalog_placeholder','canonical_name'=>null,'canonical_key'=>null];

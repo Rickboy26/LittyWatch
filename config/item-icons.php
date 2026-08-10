@@ -11,7 +11,6 @@ declare(strict_types=1);
  */
 return [
     'Glob of Ectoplasm' => 136300,
-    'Armbrace of Truth' => 231154,
     'Zaishen Key' => 339663,
     'Obsidian Shard' => 285058,
 ];

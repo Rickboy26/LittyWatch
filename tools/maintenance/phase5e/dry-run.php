@@ -43,6 +43,13 @@ foreach($q as $g){
     $canonicalNorm=norm5e((string)$g['corrected_item']);
     if($norm===$canonicalNorm)continue;
 
+    // LITTYWATCH_PHASE5E_FIX1_SKIP_CANONICAL_PUNCTUATION
+    // Canonical spelling/punctuation corrections are not reusable market aliases.
+    $punctuationInsensitiveAlias = preg_replace('/[^a-z0-9]+/iu','',$norm) ?? $norm;
+    $punctuationInsensitiveCanonical = preg_replace('/[^a-z0-9]+/iu','',$canonicalNorm) ?? $canonicalNorm;
+    if($punctuationInsensitiveAlias === $punctuationInsensitiveCanonical)continue;
+    if($norm === 'not in the face' && $canonicalNorm === 'not the face')continue;
+
     $candidates[]=[
         'alias'=>$alias,
         'normalized_alias'=>$norm,

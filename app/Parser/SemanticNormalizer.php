@@ -17,6 +17,8 @@ final class SemanticNormalizer
     public function normalize(string $text): string
     {
         $text = trim(preg_replace('/\s+/u',' ', $text) ?? $text);
+        // LITTYWATCH_PHASE4C_APOSTROPHES
+        $text = strtr($text, ["’"=>"'", "‘"=>"'", "´"=>"'", "`"=>"'"]);
         $text=$this->knowledge?->aliases($text)??$text;
         $text = preg_replace('/\bpm(?:\s+me)?\b.*$/iu','',$text) ?? $text;
         $text = preg_replace('/\bopen\s+trade\b.*$/iu','',$text) ?? $text;
@@ -67,6 +69,93 @@ final class SemanticNormalizer
             $text = preg_replace($pattern, $replacement, $text) ?? $text;
         }
 
+        // LITTYWATCH_PHASE4C_ALIAS_CLEANUP
+        // Exact, observed residual aliases. Keep these narrow: a generic weapon
+        // family must never become a fabricated skin.
+        $text = preg_replace('/\bGhozer[\'’´`]?s\s+Key(?:\s+for)?(?=\s+(?:\d+(?:[.,]\d+)?\s*(?:e|a|k|g)\b|$))/iu', "Ghozer's Key", $text) ?? $text;
+        $text = preg_replace('/\bGold(?:en)?\s+Flames?\b/iu', 'Golden Flame of Balthazar', $text) ?? $text;
+        $text = preg_replace('/\bAcient\s*Horn\s*bow\b|\bAcientHornbow\b/iu', 'Ancient Hornbow', $text) ?? $text;
+
+        // 2025 profession weapon upgrades: observed market shorthand names the
+        // attribute and weapon family instead of the actual upgrade component.
+        $text = preg_replace('/\bSR\s*\+\s*[45]\s+Spea(?:r)?\b/iu', 'Spear Grip of the Necromancer', $text) ?? $text;
+        $text = preg_replace('/\bBow\s+ES\s*\+\s*(?:5|12|13|14|15)\b/iu', 'Bow Grip of the Elementalist', $text) ?? $text;
+
+        // +30HP only becomes Fortitude when the component family is explicit.
+        $fortitude = [
+            'axe'=>'Axe Grip of Fortitude',
+            'bow'=>'Bow Grip of Fortitude',
+            'hammer'=>'Hammer Grip of Fortitude',
+            'spear'=>'Spear Grip of Fortitude',
+            'scythe'=>'Scythe Grip of Fortitude',
+            'sword'=>'Sword Pommel of Fortitude',
+            'dagger'=>'Dagger Handle of Fortitude',
+            'daggers'=>'Dagger Handle of Fortitude',
+            'shield'=>'Shield Handle of Fortitude',
+        ];
+        $text = preg_replace_callback(
+            '/\b(axe|bow|hammer|spear|scythe|sword|daggers?|shield)\s*(?:grip|pommel|handle)?\s*\+?\s*30\s*hp\b|\b\+?\s*30\s*hp\s+(axe|bow|hammer|spear|scythe|sword|daggers?|shield)(?:\s+(?:grip|pommel|handle))?\b/iu',
+            static function(array $m) use ($fortitude): string {
+                $family = mb_strtolower((string)($m[1] !== '' ? $m[1] : $m[2]));
+                return $fortitude[$family] ?? $m[0];
+            },
+            $text
+        ) ?? $text;
+        $text = preg_replace('/\b(?:\+?\s*30\s*hp\s+)?staff\s+wra(?:p|pping)(?:\s+\+?\s*30\s*hp)?\b/iu', 'Staff Wrapping of Fortitude', $text) ?? $text;
+
+        // Targeted miniature names that are unsafe as bare aliases because NPCs
+        // and non-market concepts share the same words. Require mini/ded/unded.
+        $miniatureAliases = [
+            'ghostly\s+hero' => 'Miniature Ghostly Hero',
+            'kuuna(?:vang)?' => 'Miniature Kuunavang',
+            'zhed(?:\s+shadowhoof)?' => 'Miniature Zhed Shadowhoof',
+            'rift\s+warden' => 'Miniature Rift Warden',
+            '(?:undead\s+prince(?:\s+rurik)?|prince\s+rurik)' => 'Miniature Undead Prince Rurik',
+        ];
+        foreach ($miniatureAliases as $aliasPattern => $canonicalMiniature) {
+            $text = preg_replace_callback(
+                '/\b(unded(?:icated)?|ded(?:icated)?)\s+(?:mini(?:ature)?\s+)?(' . $aliasPattern . ')\b/iu',
+                static function(array $m) use ($canonicalMiniature): string {
+                    $state = str_starts_with(mb_strtolower($m[1]), 'un') ? 'unded' : 'ded';
+                    return $canonicalMiniature . ' ' . $state;
+                },
+                $text
+            ) ?? $text;
+            $text = preg_replace('/\bmini(?:ature)?\s+(' . $aliasPattern . ')\b/iu', $canonicalMiniature, $text) ?? $text;
+        }
+        // LITTYWATCH_PHASE4D_CANONICAL_FIXES
+        // Official item name is Miniature Undead Prince (not "... Rurik").
+        $text = preg_replace('/\bMiniature\s+Undead\s+Prince(?:\s+Rurik)?\b/iu', 'Miniature Undead Prince', $text) ?? $text;
+        $text = preg_replace('/\bPreacher\s+Xun\s+Rao\s+mini(?:ature|pet)?\b/iu', 'Miniature Ecclesiate Xun Rao', $text) ?? $text;
+        $text = preg_replace('/\bMini(?:ature)?[\'’]s?\s+Dagnar\b|\bDagnar\s+mini(?:ature|pet)?\b/iu', 'Miniature Dagnar Stonepate', $text) ?? $text;
+
+        // Strongbox community shorthand.
+        $text = preg_replace('/\bChampion(?:\'s)?\s+Zaishen\s+Strongboxes?\b/iu', "Champion's Zaishen Strongbox", $text) ?? $text;
+        $text = preg_replace('/\b(?:zaishen\s+)?strat(?:egist)?(?:\'s)?\s+(?:zaishen\s+)?strongboxes?\b/iu', "Strategist's Zaishen Strongbox", $text) ?? $text;
+        // LITTYWATCH_PHASE4F_RESIDUAL_NORMALIZATION
+        $text = preg_replace('/\bLarge\s+(?:Equip(?:ment)?\s+Pack|eq\s*bag|eqbag)\b/iu','Large Equipment Pack',$text) ?? $text;
+        $text = preg_replace('/\bHeavy\s+(?:Equip(?:ment)?\s+Pack|eq\s*bag|eqbag)\b/iu','Heavy Equipment Pack',$text) ?? $text;
+
+        $text = preg_replace('/\b(?:stacks?\s+of\s+)?(?:Glittering\s+)?Dust\b/iu','Pile of Glittering Dust',$text) ?? $text;
+        $text = preg_replace('/\b(?:stacks?\s+of\s+)?Cloth\b/iu','Bolt of Cloth',$text) ?? $text;
+        $text = preg_replace('/\b(?:stacks?\s+of\s+)?Iron\b/iu','Iron Ingot',$text) ?? $text;
+        $text = preg_replace('/\bStygian(?:\s+Gems?|\s+Gemstones?)?\b/iu','Stygian Gemstone',$text) ?? $text;
+
+        $text = preg_replace('/\bPlagueborn\s+Shiled\b/iu','Plagueborn Shield',$text) ?? $text;
+
+        $text = preg_replace('/\bbow\s*grip\s+of\s+necro(?:mancer)?\b|\bbowgrip\s+of\s+necro(?:mancer)?\b/iu','Bow Grip of the Necromancer',$text) ?? $text;
+        $text = preg_replace('/\b(?:SR\s*\+\s*[45]\s+(?:for\s+)?bow|[45]\s+SR\s+for\s+bow)\b/iu','Bow Grip of the Necromancer',$text) ?? $text;
+
+        $text = preg_replace('/\bReq[. ]*\s*(\d{1,2})\b/iu','q$1',$text) ?? $text;
+        // LITTYWATCH_PHASE4H_FINAL_NORMALIZATION
+        $text=preg_replace('/\bArtifact\s+flame\b|\bFlame\s+Artifact(?:\s*\(\s*Fire\s+Magic\s*\))?\s+With\s+(?:the\s+)?Eye\b/iu','Flame Artifact',$text)??$text;
+        $text=preg_replace('/\b(?:Stack\s+of\s+)?Obi(?:sidian)?\s+Shards?\b/iu','Obsidian Shard',$text)??$text;
+        $text=preg_replace('/\bGranite(?:\s+Slabs?)?\b/iu','Granite Slab',$text)??$text;
+        $text=preg_replace('/\bshiroken\s+assassin\s+mini(?:ature|pet)?\b/iu',"Miniature Shiro'ken Assassin",$text)??$text;
+        // LITTYWATCH_PHASE4H_FINAL_NORMALIZATION_END
+        // LITTYWATCH_PHASE4F_RESIDUAL_NORMALIZATION_END
+        // LITTYWATCH_PHASE4D_CANONICAL_FIXES_END
+        // LITTYWATCH_PHASE4C_ALIAS_CLEANUP_END
         // Phase 2F: canonical names must remain idempotent after repeated normalization.
         $text = preg_replace('/\bDeldrimor Armor Remnant(?:\s+Remnant|\s+remnants?)+\b/iu', 'Deldrimor Armor Remnant', $text) ?? $text;
         $text = preg_replace('/\bMysterious Armor Piece(?:\s+Piece|\s+pieces?)+\b/iu', 'Mysterious Armor Piece', $text) ?? $text;
@@ -123,7 +212,7 @@ final class SemanticNormalizer
         $text = preg_replace('/\bgolden\s+zaishen\s+coins?\b/iu', 'Gold Zaishen Coin', $text) ?? $text;
         $text = preg_replace('/\bflames?\s+of\s+balthazar\b/iu', 'Flames of Balthazar', $text) ?? $text;
         $text = preg_replace('/\bsup(?:erior)?\s+rune\s+(?:of\s+)?vigor\b/iu', 'Superior Rune of Vigor', $text) ?? $text;
-        $text = preg_replace('/\bstygian\s+gems?\b/iu', 'Stygian Gem', $text) ?? $text;
+        $text = preg_replace('/\bstygian\s+(?:gems?|gemstones?)\b/iu', 'Stygian Gemstone', $text) ?? $text;
         $text = preg_replace('/\bstack\s+of\s+iron\b/iu', 'Iron Ingot stack', $text) ?? $text;
 
         // Phase 2H: residual GW1 market shorthand that is safe to canonicalize.

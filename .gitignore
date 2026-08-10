@@ -16,3 +16,6 @@ assets/game-items/*/
 !assets/game-items/manual/
 !assets/game-items/manual/**
 !assets/game-items/.gitkeep
+/storage/
+/assets/items/
+*.backup

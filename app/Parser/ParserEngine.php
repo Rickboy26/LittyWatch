@@ -26,6 +26,7 @@ final class ParserEngine
     private ReviewCandidateClassifier $reviewCandidateClassifier;
     private ItemTaxonomy $taxonomy;
     private SharedOfferListExpander $sharedOfferListExpander;
+    private MarketBundleExpander $marketBundleExpander;
     private ?CategoryExpander $categoryExpander = null;
     private ?\LittyWatch\Knowledge\ProfileResolver $profileResolver = null;
     private ?AttributeMatcher $attributeMatcher = null;
@@ -59,6 +60,7 @@ final class ParserEngine
         $this->taxonomy = new ItemTaxonomy($catalog->taxonomy());
         $this->reviewCandidateClassifier = new ReviewCandidateClassifier($this->taxonomy);
         $this->sharedOfferListExpander = new SharedOfferListExpander();
+        $this->marketBundleExpander = new MarketBundleExpander();
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
@@ -86,7 +88,9 @@ final class ParserEngine
             $blockText = $this->stripNegativeItemClauses($blockText);
             // Tome advertisements use profession shorthand and comma/space lists that
             // need semantic expansion before the generic grammar splitter flattens them.
-            $sharedListSegments = $this->sharedOfferListExpander->expand($blockText);
+            // LITTYWATCH_PHASE4C_BUNDLE_RESOLVER
+            $phase4cBundleSegments = $this->marketBundleExpander->expand($blockText);
+            $sharedListSegments = $phase4cBundleSegments ?? $this->sharedOfferListExpander->expand($blockText);
             $smartSegments = preg_match('/\btomes?\b/iu', $blockText) ? $this->segmenter->split($blockText) : [];
             $segments = $sharedListSegments !== null
                 ? $sharedListSegments

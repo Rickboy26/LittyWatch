@@ -127,8 +127,13 @@ final class CatalogFirstResolver
         }
         if(!$isMini)return null;
 
+        // LITTYWATCH_PHASE4E_MINIATURE_QUARANTINE
+        $segment=trim((string)($row['raw_segment']??''));
+        if(preg_match('/\b(?:potion|tonic)\b/iu',$segment) && !preg_match('/\bmini(?:ature|pet)?s?\b|\b(?:unded(?:icated)?|ded(?:icated)?)\b/iu',$segment)){
+            $row['quality_status']='review';$row['quality_reason']='miniature_context_conflict';return [$row];
+        }
         $state=$this->miniState($message.' '.$item);
-        if($state===null)return []; // no ded/unded = review, never player market
+        if($state===null){$row['quality_status']='review';$row['quality_reason']='miniature_variant_unresolved';return [$row];}
 
         // Variant tokens and trader words are metadata, never part of the
         // catalogue identity. Phase 3Y also understands forms such as
@@ -197,9 +202,19 @@ final class CatalogFirstResolver
     /** @return array{key:string,name:string}|null */
     private function catalogueExact(string $name,string $key): ?array
     {
-        $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND (key=:k OR lower(trim(name))=lower(trim(:n))) ORDER BY CASE WHEN key=:k2 THEN 0 ELSE 1 END LIMIT 1");
-        $st->execute([':k'=>$key,':k2'=>$key,':n'=>trim($name)]);$r=$st->fetch();
-        return $r?['key'=>(string)$r['key'],'name'=>CanonicalMarketIdentity::nameFor((string)$r['name'],(string)$r['key'])]:null;
+        // LITTYWATCH_PHASE4E_NAME_FIRST_EXACT
+        $name=trim($name);$key=trim($key);
+        if($name!==''){
+            $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND lower(trim(name))=lower(trim(:n)) LIMIT 1");
+            $st->execute([':n'=>$name]);$r=$st->fetch();
+            if($r)return ['key'=>(string)$r['key'],'name'=>CanonicalMarketIdentity::nameFor((string)$r['name'],(string)$r['key'])];
+        }
+        if($key!==''){
+            $st=$this->pdo->prepare("SELECT key,name FROM kb_items WHERE active=1 AND key=:k LIMIT 1");
+            $st->execute([':k'=>$key]);$r=$st->fetch();
+            if($r)return ['key'=>(string)$r['key'],'name'=>CanonicalMarketIdentity::nameFor((string)$r['name'],(string)$r['key'])];
+        }
+        return null;
     }
     /** @return array{key:string,name:string}|null */
     private function uniqueAlias(string $alias): ?array

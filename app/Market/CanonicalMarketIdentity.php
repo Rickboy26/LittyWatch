@@ -16,6 +16,8 @@ final class CanonicalMarketIdentity
         'mallyx' => 'Miniature Mallyx',
         'kuuna' => 'Miniature Kuunavang',
         'mad-kings-guard' => "Miniature Mad King's Guard",
+        // LITTYWATCH_PHASE4D1_UNDEAD_PRINCE
+        'mini-undead-prince-rurik' => 'Miniature Undead Prince',
     ];
 
     /** @var array<string,string> */
@@ -29,6 +31,8 @@ final class CanonicalMarketIdentity
         'kuunavang' => 'Miniature Kuunavang',
         "mad king's guard" => "Miniature Mad King's Guard",
         'mad kings guard' => "Miniature Mad King's Guard",
+        'miniature undead prince rurik' => 'Miniature Undead Prince',
+        'undead prince rurik' => 'Miniature Undead Prince',
     ];
 
     public static function nameFor(string $name,string $key=''): string

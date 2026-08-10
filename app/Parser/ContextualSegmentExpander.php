@@ -22,6 +22,8 @@ final class ContextualSegmentExpander
         $activeFamily = null;
         $activeRequirement = null;
         $pendingHeader = null;
+        // LITTYWATCH_PHASE4C_MINIATURE_CONTEXT
+        $activeMiniatureState = null;
 
         foreach ($segments as $raw) {
             $segment = trim($raw, " \t\n\r\0\x0B|,;");
@@ -32,10 +34,22 @@ final class ContextualSegmentExpander
                 continue;
             }
 
+            // Phase 4C: "unded minis | Bone Dragon, Zhed, Kuuna" is a typed
+            // list. This context must win over an accidental bare-name match.
+            $miniatureHeader = $this->miniatureHeader($segment);
+            if ($miniatureHeader !== null) {
+                if ($pendingHeader !== null) { $out[] = $pendingHeader; $pendingHeader = null; }
+                $activeFamily = 'Miniature';
+                $activeMiniatureState = $miniatureHeader['state'];
+                $activeItem = null;
+                $activeRequirement = null;
+                continue;
+            }
             $family = $this->familyHeader($segment);
             if ($family !== null) {
                 if ($pendingHeader !== null) { $out[] = $pendingHeader; $pendingHeader = null; }
                 $activeFamily = $family['family'];
+                $activeMiniatureState = null;
                 $activeItem = null;
                 if ($family['requirement'] !== null) $activeRequirement = $family['requirement'];
                 continue;
@@ -49,7 +63,7 @@ final class ContextualSegmentExpander
                 if (count($parts) > 1) {
                     $expandedAny = false;
                     foreach ($parts as $part) {
-                        $candidate = $this->attachFamily($part, $activeFamily, $activeRequirement);
+                        $candidate = $this->attachFamily($part, $activeFamily, $activeRequirement, $activeMiniatureState);
                         $candidateMatches = $this->items->matchAll($candidate);
                         if ($candidateMatches === []) continue;
                         if ($pendingHeader !== null) { $pendingHeader = null; }
@@ -61,12 +75,32 @@ final class ContextualSegmentExpander
                 }
             }
 
+            // Phase 4C: while a miniature list is active, try "Miniature X"
+            // before matching the bare X. This is the key fix for Ghostly Hero,
+            // Zhed, Kuuna/Kuunavang, Rift Warden, Prince Rurik, etc.
+            if ($activeFamily === 'Miniature') {
+                $miniCandidate = $this->attachFamily($segment, 'Miniature', null, $activeMiniatureState);
+                $miniMatches = $this->items->matchAll($miniCandidate);
+                if ($miniMatches !== []) {
+                    if ($pendingHeader !== null) { $pendingHeader = null; }
+                    $out[] = $miniCandidate;
+                    $activeItem = (string)$miniMatches[0]['item'];
+                    continue;
+                }
+            }
             $matches = $this->items->matchAll($segment);
             if ($matches !== []) {
                 if ($pendingHeader !== null) { $out[] = $pendingHeader; $pendingHeader = null; }
                 $activeItem = (string)$matches[0]['item'];
                 $inferredFamily = $this->familyFromItem($activeItem);
-                if ($inferredFamily !== null) $activeFamily = $inferredFamily;
+                if ($inferredFamily !== null) {
+                    $activeFamily = $inferredFamily;
+                    if ($inferredFamily !== 'Miniature') $activeMiniatureState = null;
+                } elseif ($activeFamily === 'Miniature') {
+                    // A concrete non-miniature item ends miniature list context.
+                    $activeFamily = null;
+                    $activeMiniatureState = null;
+                }
                 $req = $this->requirement($segment);
                 if ($req !== null) $activeRequirement = $req;
 
@@ -127,7 +161,7 @@ final class ContextualSegmentExpander
 
             if ($activeFamily !== null) {
                 if ($pendingHeader !== null) { $out[] = $pendingHeader; $pendingHeader = null; }
-                $candidate = $this->attachFamily($segment, $activeFamily, $activeRequirement);
+                $candidate = $this->attachFamily($segment, $activeFamily, $activeRequirement, $activeMiniatureState);
                 if ($this->items->matchAll($candidate) !== []) {
                     foreach ($this->expandRequirements($candidate) as $expanded) $out[] = $expanded;
                     $candidateMatches = $this->items->matchAll($candidate);
@@ -144,6 +178,21 @@ final class ContextualSegmentExpander
         return array_values($out);
     }
 
+    /** @return array{state:?string}|null */
+    private function miniatureHeader(string $segment): ?array
+    {
+        $clean = trim($segment);
+        if (!preg_match(
+            '/^(?:(unded(?:icated)?|ded(?:icated)?)\s+)?(?:(?:bday|birthday|cele(?:stial)?)\s+)?(?:miniatures?|minis?|mini\s*pets?|minipets?)(?:\s+list)?$/iu',
+            $clean,
+            $m
+        )) {
+            return null;
+        }
+        $state = null;
+        if (!empty($m[1])) $state = str_starts_with(mb_strtolower($m[1]), 'un') ? 'unded' : 'ded';
+        return ['state'=>$state];
+    }
     /** @return array{family:string,requirement:?string}|null */
     private function familyHeader(string $segment): ?array
     {
@@ -178,7 +227,7 @@ final class ContextualSegmentExpander
 
     private function familyFromItem(string $item): ?string
     {
-        foreach (['Staff','Wand','Bow','Sword','Axe','Hammer','Shield','Spear','Scythe','Daggers','Dagger','Focus','Tonic'] as $family) {
+        foreach (['Miniature','Staff','Wand','Bow','Sword','Axe','Hammer','Shield','Spear','Scythe','Daggers','Dagger','Focus','Tonic'] as $family) {
             if (preg_match('/\b'.preg_quote($family,'/').'\b/iu', $item)) return $family === 'Dagger' ? 'Daggers' : ($family === 'Tonic' ? 'Everlasting Tonic' : $family);
         }
         return null;
@@ -260,9 +309,19 @@ final class ContextualSegmentExpander
         return $out;
     }
 
-    private function attachFamily(string $segment, string $family, ?string $requirement): string
+    private function attachFamily(string $segment, string $family, ?string $requirement, ?string $miniatureState = null): string
     {
         $segment = trim($segment);
+        if ($family === 'Miniature') {
+            $localState = $miniatureState;
+            if (preg_match('/^(unded(?:icated)?|ded(?:icated)?)\s+/iu', $segment, $sm)) {
+                $localState = str_starts_with(mb_strtolower($sm[1]), 'un') ? 'unded' : 'ded';
+                $segment = trim(preg_replace('/^(?:unded(?:icated)?|ded(?:icated)?)\s+/iu', '', $segment, 1) ?? $segment);
+            }
+            $segment = trim(preg_replace('/^mini(?:ature)?\s+/iu', '', $segment, 1) ?? $segment);
+            $candidate = trim('Miniature ' . $segment . ($localState !== null ? ' ' . $localState : ''));
+            return $candidate;
+        }
         $suffix = '';
         if (preg_match('/^(.*?)(\s*\([^)]*\))$/u', $segment, $m)) {
             $segment = trim($m[1]);
