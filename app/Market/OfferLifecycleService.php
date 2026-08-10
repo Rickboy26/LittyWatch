@@ -7,7 +7,16 @@ use PDO;
 
 final class OfferLifecycleService
 {
-    public function __construct(private readonly PDO $pdo, private readonly int $expiryDays = 14) {}
+    private readonly int $expiryHours;
+
+    public function __construct(private readonly PDO $pdo, ?int $expiryHours = null)
+    {
+        if ($expiryHours === null) {
+            $cfg = require dirname(__DIR__, 2) . '/config/retention.php';
+            $expiryHours = (int)($cfg['active_offer_hours'] ?? 48);
+        }
+        $this->expiryHours = max(1, $expiryHours);
+    }
 
     public function rebuild(?int $messageId = null): array
     {
@@ -61,7 +70,7 @@ final class OfferLifecycleService
             $date = new \DateTimeImmutable($postedAt);
             $year = (int)$date->format('Y');
             if ($year < 2005 || $year > 2100) return false;
-            return $date < new \DateTimeImmutable('-' . $this->expiryDays . ' days');
+            return $date < new \DateTimeImmutable('-' . $this->expiryHours . ' hours');
         } catch (\Throwable) {
             return false;
         }

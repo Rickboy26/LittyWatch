@@ -500,6 +500,11 @@ function collectMessages(): array {
             try{(new \LittyWatch\Market\StructuredOfferWriter(db(),parserV2(),new \LittyWatch\Market\VariantNormalizer(),new \LittyWatch\Market\OfferLifecycleService(db())))->parseMessage($id,$row['message'],true);}catch(Throwable $shadowError){error_log('Parser v2 shadow write failed: '.$shadowError->getMessage());}
         }
     }
+    try {
+        (new \LittyWatch\Market\MarketDataRetentionService(db()))->pruneIfDue();
+    } catch (Throwable $retentionError) {
+        error_log('Market retention failed: '.$retentionError->getMessage());
+    }
     return['fetched'=>count($messages),'added'=>$added,'offers_added'=>$offerCount,'source'=>$used,'warning'=>$error,'collector_version'=>'phase3m1'];
 }
 
