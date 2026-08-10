@@ -1,0 +1,94 @@
+[
+  {
+    "key": "large-equipment-pack",
+    "name": "Large Equipment Pack",
+    "category": "containers",
+    "aliases": [
+      "Large Equipment Pack",
+      "Large Equip Pack",
+      "Large eqbag"
+    ]
+  },
+  {
+    "key": "heavy-equipment-pack",
+    "name": "Heavy Equipment Pack",
+    "category": "containers",
+    "aliases": [
+      "Heavy Equipment Pack",
+      "Heavy Equip Pack",
+      "Heavy eqbag"
+    ]
+  },
+  {
+    "key": "pile-of-glittering-dust",
+    "name": "Pile of Glittering Dust",
+    "category": "materials",
+    "aliases": [
+      "Pile of Glittering Dust",
+      "Glittering Dust",
+      "stack of dust",
+      "stacks of dust"
+    ]
+  },
+  {
+    "key": "bolt-of-cloth",
+    "name": "Bolt of Cloth",
+    "category": "materials",
+    "aliases": [
+      "Bolt of Cloth",
+      "Cloth",
+      "stack of cloth",
+      "stacks of cloth"
+    ]
+  },
+  {
+    "key": "iron-ingot",
+    "name": "Iron Ingot",
+    "category": "materials",
+    "aliases": [
+      "Iron Ingot",
+      "Iron",
+      "stack of iron",
+      "stacks of iron"
+    ]
+  },
+  {
+    "key": "stygian-gemstone",
+    "name": "Stygian Gemstone",
+    "category": "materials",
+    "aliases": [
+      "Stygian Gemstone",
+      "Stygian Gemstones",
+      "Stygian"
+    ]
+  },
+  {
+    "key": "plagueborn-shield",
+    "name": "Plagueborn Shield",
+    "category": "weapons",
+    "aliases": [
+      "Plagueborn Shield",
+      "Plagueborn Shiled"
+    ]
+  },
+  {
+    "key": "bow-grip-necromancer",
+    "name": "Bow Grip of the Necromancer",
+    "category": "weapon_upgrades",
+    "aliases": [
+      "Bow Grip of the Necromancer",
+      "bowgrip of necro",
+      "5 SR for bow",
+      "SR+5 bow"
+    ]
+  },
+  {
+    "key": "miniature-shiroken-assassin",
+    "name": "Miniature Shiro'ken Assassin",
+    "category": "miniatures",
+    "aliases": [
+      "Miniature Shiro'ken Assassin",
+      "Shiro'ken Assassin mini"
+    ]
+  }
+]
