@@ -49,16 +49,20 @@ final class OfferLifecycleService
             $update = $this->pdo->prepare("UPDATE structured_offers SET lifecycle_status=?,superseded_by=?,lifecycle_updated_at=datetime('now') WHERE id=?");
 
             foreach ($rows as $row) {
-                // LITTYWATCH_PHASE7D1_CANONICAL_LIVE_IDENTITY
-                // item_key prevents a stale/generic normalized key (e.g. elite_tome)
-                // from merging different catalog items. normalized_market_key carries
-                // only variant dimensions the item's market profile actually tracks,
-                // avoiding false duplicates caused by stray parsed requirements/mods.
-                $itemKey = mb_strtolower(trim((string)$row['item_key']));
-                $marketKey = mb_strtolower(trim((string)($row['normalized_market_key'] ?? '')));
-                if ($marketKey === '') {
-                    $marketKey = implode('|', [
-                        $itemKey,
+                // LITTYWATCH_PHASE7D2_CANONICAL_LIVE_IDENTITY
+                // New rows have a canonical normalized_market_key. Old rows may
+                // still contain a generic pre-catalog key, so only trust the
+                // normalized key when it begins with the canonical item key.
+                $canonicalItem = $this->key((string)$row['item_key']);
+                $normalizedMarket = trim((string)($row['normalized_market_key'] ?? ''));
+                $normalizedPrefix = $normalizedMarket === '' ? '' : explode('|', $normalizedMarket, 2)[0];
+                $normalizedPrefix = $this->key($normalizedPrefix);
+
+                if ($normalizedMarket !== '' && $normalizedPrefix === $canonicalItem) {
+                    $variantIdentity = mb_strtolower($normalizedMarket);
+                } else {
+                    $variantIdentity = implode('|', [
+                        $canonicalItem,
                         $row['requirement'] === null ? '' : 'q:' . (string)$row['requirement'],
                         mb_strtolower(trim((string)($row['attribute_key'] ?? ''))),
                         (string)((int)($row['is_oldschool'] ?? 0)),
@@ -68,9 +72,8 @@ final class OfferLifecycleService
 
                 $key = implode('|', [
                     mb_strtolower(trim((string)$row['player'])),
-                    (string)$row['trade_type'],
-                    $itemKey,
-                    $marketKey,
+                    mb_strtolower(trim((string)$row['trade_type'])),
+                    $variantIdentity,
                 ]);
 
                 if (isset($seen[$key])) {
@@ -124,6 +127,11 @@ WHERE quality_status='accepted'
 SQL);
         $stmt->execute([':cutoff' => $cutoff]);
         return $stmt->rowCount();
+    }
+
+    private function key(string $value): string
+    {
+        return trim((string)preg_replace('/[^a-z0-9]+/', '_', mb_strtolower($value)), '_');
     }
 
     private function isExpired(string $postedAt): bool

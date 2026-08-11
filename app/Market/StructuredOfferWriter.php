@@ -72,42 +72,38 @@ final class StructuredOfferWriter {
     if(!$gate['allowed']){$r['quality_status']='review';$r['quality_reason']=$gate['reason'];}
     else{
      $r['item']=$gate['canonical_name'];$r['item_key']=$gate['canonical_key'];$r['market_key']=$gate['canonical_key'];
-
-     // LITTYWATCH_PHASE7D1_CANONICAL_VARIANT_KEY
-     // map() runs before CatalogFirstResolver/StrictCatalogGate, so its market key
-     // can still contain a generic/pre-canonical item key (e.g. elite_tome).
-     // Rebuild the normalized key from the final catalog identity before writing.
+     // LITTYWATCH_PHASE7D2_CANONICAL_MARKET_IDENTITY
+     // CatalogFirstResolver/StrictCatalogGate may replace a generic parser key
+     // (for example elite_tome) with a concrete catalog item. Rebuild the
+     // normalized market identity from that final canonical item so different
+     // concrete items never collapse into the same market bucket.
      $normalizer=$this->normalizer??new VariantNormalizer();
-     $relevant=json_decode((string)($r['relevant_json']??'{}'),true);if(!is_array($relevant))$relevant=[];
-     $profile=json_decode((string)($r['profile_json']??'{}'),true);if(!is_array($profile))$profile=[];
-     $canonicalNormalized=$normalizer->normalize(
-      (string)$gate['canonical_key'],
+     $relevant=$this->decodeJsonArray($r['relevant_json']??null);
+     $profile=$this->decodeJsonArray($r['profile_json']??null);
+     $normalized=$normalizer->normalize(
+      (string)$r['item_key'],
       $r['requirement']===null?null:(int)$r['requirement'],
-      $r['attribute_key']===null?null:(string)$r['attribute_key'],
-      $r['attribute_name']===null?null:(string)$r['attribute_name'],
-      (bool)((int)($r['is_oldschool']??0)),
-      (bool)((int)($r['is_inscribable']??0)),
+      isset($r['attribute_key'])?(string)$r['attribute_key']:null,
+      isset($r['attribute_name'])?(string)$r['attribute_name']:null,
+      ((int)($r['is_oldschool']??0))===1,
+      ((int)($r['is_inscribable']??0))===1,
       $relevant,
       $profile
      );
-     $r['normalized_market_key']=$canonicalNormalized['market_key'];
-     $r['attribute_key']=$canonicalNormalized['attribute_key'];
-
+     $r['item_key']=$normalized['item_key'];
+     $r['normalized_market_key']=$normalized['market_key'];
      $variantGate=(new VariantValidityGate())->inspect($r);
      if(!$variantGate['allowed']){$r['quality_status']='rejected';$r['quality_reason']=$variantGate['reason'];}
     }
    }
-   $itemKeys[]=$r['item_key'];$ins->execute([$messageId,$r['trade_type'],$r['item'],$r['item_key'],$r['market_key'],$r['normalized_market_key'],$r['requirement'],$r['attribute_key'],$r['attribute_name'],$r['is_oldschool'],$r['is_inscribable'],$r['mods_json'],$r['relevant_json'],$r['profile_json'],$r['quantity'],$r['price_amount'],$r['price_currency'],$r['price_ecto'],$r['unit_price_ecto'],$r['price_basis'],$r['confidence'],$r['quality_status'],$r['quality_reason'],$r['raw_segment'],'v5.2-phase7d1-canonical-live-dedup',date(DATE_ATOM),$r['quality_status']==='accepted'?'active':'rejected',date(DATE_ATOM),$r['exchange_item'],$r['exchange_item_key'],$r['exchange_give_quantity'],$r['exchange_receive_quantity']]);$n+=$ins->rowCount();}}
-  if($this->lifecycle!==null){
-   $this->lifecycle->rebuild($messageId);
-   (new MarketQualityService($this->pdo))->rebuildForItemKeys($itemKeys);
-  }
+   $itemKeys[]=$r['item_key'];$ins->execute([$messageId,$r['trade_type'],$r['item'],$r['item_key'],$r['market_key'],$r['normalized_market_key'],$r['requirement'],$r['attribute_key'],$r['attribute_name'],$r['is_oldschool'],$r['is_inscribable'],$r['mods_json'],$r['relevant_json'],$r['profile_json'],$r['quantity'],$r['price_amount'],$r['price_currency'],$r['price_ecto'],$r['unit_price_ecto'],$r['price_basis'],$r['confidence'],$r['quality_status'],$r['quality_reason'],$r['raw_segment'],'v5.2-phase7d2-canonical-live-dedup',date(DATE_ATOM),$r['quality_status']==='accepted'?'active':'rejected',date(DATE_ATOM),$r['exchange_item'],$r['exchange_item_key'],$r['exchange_give_quantity'],$r['exchange_receive_quantity']]);$n+=$ins->rowCount();}}
+  if($this->lifecycle!==null){$this->lifecycle->rebuild($messageId);(new MarketQualityService($this->pdo))->rebuildForItemKeys($itemKeys);}
   return $n;
  }
-
  private function map(ParsedOffer $o):array{$p=$o->relevantProperties;$m=$o->modifiers;$req=$this->requirement($p['requirement']??$m['requirement']??null);$an=$p['attribute']??$m['attribute']??null;$ak=$p['attribute_key']??($an?$this->key((string)$an):null);$os=$this->truthy($p['oldschool']??$m['oldschool']??false);$insc=$this->truthy($p['inscribable']??$m['inscribable']??false);$profile=$o->profile;$normalizer=$this->normalizer??new VariantNormalizer();$normalized=$normalizer->normalize($o->itemKey,$req,$ak,$an,$os,$insc,$p,$profile);return['trade_type'=>$o->tradeType,'item'=>$o->item,'item_key'=>$normalized['item_key'],'market_key'=>$o->marketKey!==''?$o->marketKey:$o->itemKey,'normalized_market_key'=>$normalized['market_key'],'requirement'=>$req,'attribute_key'=>$normalized['attribute_key'],'attribute_name'=>$an,'is_oldschool'=>$os?1:0,'is_inscribable'=>$insc?1:0,'mods_json'=>$this->json($m),'relevant_json'=>$this->json($p),'profile_json'=>$this->json($profile),'quantity'=>$o->price->quantity,'price_amount'=>$o->price->amount,'price_currency'=>$o->price->currency,'price_ecto'=>$o->price->ectoValue,'unit_price_ecto'=>$o->price->unitEcto,'price_basis'=>$o->price->basis,'confidence'=>$o->confidence,'quality_status'=>$o->status,'quality_reason'=>$o->reason,'raw_segment'=>$o->segment,'exchange_item'=>$o->exchange['target_item']??null,'exchange_item_key'=>$o->exchange['target_item_key']??null,'exchange_give_quantity'=>$o->exchange['give_quantity']??null,'exchange_receive_quantity'=>$o->exchange['receive_quantity']??null];}
  private function requirement(mixed $v):?int{if(is_int($v))return$v;if(is_float($v))return(int)$v;if(is_string($v)&&preg_match('/(?:q|r|req)?\s*([0-9]{1,2})/i',$v,$m))return(int)$m[1];return null;}
  private function truthy(mixed $v):bool{if(is_bool($v))return$v;if(is_numeric($v))return(int)$v===1;return in_array(mb_strtolower((string)$v),['1','true','yes','ja','os','insc','inscribable'],true);}
  private function key(string $v):string{return trim(preg_replace('/[^a-z0-9]+/','_',mb_strtolower($v))??'');}
  private function json(array $v):string{return json_encode($v,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?:'{}';}
+ private function decodeJsonArray(mixed $v):array{if(is_array($v))return$v;if(!is_string($v)||trim($v)==='')return[];$d=json_decode($v,true);return is_array($d)?$d:[];}
 }
