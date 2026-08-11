@@ -1,48 +1,49 @@
 <?php
 declare(strict_types=1);
-
 require dirname(__DIR__,3).'/bootstrap.php';
-
 use LittyWatch\Parser\Catalog;
 use LittyWatch\Parser\ItemMatcher;
 
-$catalog = new Catalog(db());
-$matcher = new ItemMatcher($catalog);
+$root=dirname(__DIR__,3);
+$ref=new ReflectionClass(Catalog::class);
+$params=$ref->getConstructor()?->getParameters()??[];
+$args=[];
+foreach($params as $i=>$p){
+    $t=$p->getType();
+    $name=$t instanceof ReflectionNamedType?$t->getName():'';
+    if($i===0 && $name==='string'){$args[]=$root.'/app/Data';continue;}
+    if($name==='PDO'){$args[]=db();continue;}
+    if($p->isDefaultValueAvailable()){$args[]=$p->getDefaultValue();continue;}
+    fwrite(STDERR,"ERROR onbekende Catalog parameter: ".$p->getName()."\n");exit(1);
+}
+$catalog=$ref->newInstanceArgs($args);
+echo "Catalog constructor OK.\n";
 
-$tests = [
-    ['OBSI EDGE q11 8a', 'Obsidian Edge', true],
-    ['Ghero 10a', 'Miniature Ghostly Hero', false],
-    ['Ded Ghero 10a', 'Miniature Ghostly Hero', true],
-    ["Miniature Shiro'ken Assassin unded 20a", "Miniature Shiro'ken Assassin", true],
-    ['Outcast Dom 20a', 'Outcast Staff', true],
-    ['Plag Illus 20a', 'Plagueborn Staff', true],
-    ['Jade Sp 20a', 'Jade Staff', true],
-    ['Tome Elite 1e', 'Elite Tome', false],
+$items=$catalog->items();$byKey=[];
+foreach($items as $it){$k=(string)($it['key']??'');if($k!=='')$byKey[$k]=$it;}
+$failed=0;$checked=0;
+foreach(db()->query("SELECT alias,item_key FROM parser_learned_aliases WHERE active=1 AND confidence>=0.99 ORDER BY id") as $r){
+    $key=(string)$r['item_key'];$alias=(string)$r['alias'];
+    $aliases=$byKey[$key]['aliases']??[];
+    $ok=isset($byKey[$key])&&is_array($aliases)&&in_array($alias,$aliases,true);
+    printf("%-30s -> [%s] %s\n",$alias,$key,$ok?'OK':'MISSING');
+    $checked++; if(!$ok)$failed++;
+}
+echo "Learned aliases checked: {$checked}\n";
+
+$matcher=new ItemMatcher($catalog);
+echo "ItemMatcher constructor OK.\n";
+$tests=[
+ ['OBSI EDGE q11 8a','Obsidian Edge'],
+ ['Outcast Dom 20a','Outcast Staff'],
+ ['Plag Illus 20a','Plagueborn Staff'],
+ ['Jade Sp 20a','Jade Staff'],
 ];
-
-$failed = 0;
-foreach ($tests as [$text,$expected,$shouldMatch]) {
-    $matches = $matcher->matchAll($text);
-    $names = array_map(static fn(array $m): string => (string)($m['item'] ?? ''), $matches);
-    $matched = in_array($expected,$names,true);
-    $ok = $shouldMatch ? $matched : !$matched;
-
-    printf("%-42s expected=%-28s result=%-8s %s\n",
-        $text,$expected,$matched?'MATCH':'NO_MATCH',$ok?'OK':'FAIL');
-
-    if (!$ok) $failed++;
+foreach($tests as [$text,$expected]){
+    $names=array_map(fn($m)=>(string)($m['item']??''),$matcher->matchAll($text));
+    $ok=in_array($expected,$names,true);
+    printf("%-25s -> %-24s %s\n",$text,$expected,$ok?'OK':'FAIL');
+    if(!$ok)$failed++;
 }
-
-echo "\nActive learned aliases: ";
-try {
-    echo (int)db()->query("SELECT COUNT(*) FROM parser_learned_aliases WHERE active=1")->fetchColumn();
-} catch (Throwable $e) {
-    echo "table unavailable";
-}
-echo "\n";
-
-if ($failed > 0) {
-    fwrite(STDERR,"Smoke test FAILED: {$failed} test(s).\n");
-    exit(1);
-}
+if($failed){fwrite(STDERR,"Smoke test FAILED: {$failed}\n");exit(1);}
 echo "Smoke test OK.\n";

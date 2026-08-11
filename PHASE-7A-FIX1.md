@@ -1,0 +1,1 @@
+Phase 7A FIX1: Catalog-only integration + Reflection smoke test.
