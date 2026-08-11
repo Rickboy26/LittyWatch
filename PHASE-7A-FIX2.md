@@ -1,0 +1,1 @@
+Phase 7A FIX2: literal Catalog anchor; voorkomt `$this` evaluatie in installer.
