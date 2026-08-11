@@ -42,21 +42,35 @@ final class OfferLifecycleService
                 $s->execute([$messageId]);
             }
 
-            $rows = $this->pdo->query("SELECT so.id,so.trade_type,so.item_key,so.requirement,so.attribute_key,so.is_oldschool,so.is_inscribable,so.lifecycle_status,m.player,m.posted_at,m.id message_id FROM structured_offers so JOIN messages m ON m.id=so.message_id WHERE so.quality_status='accepted' ORDER BY datetime(m.posted_at) DESC,m.id DESC,so.id DESC")->fetchAll();
+            $rows = $this->pdo->query("SELECT so.id,so.trade_type,so.item_key,so.normalized_market_key,so.requirement,so.attribute_key,so.is_oldschool,so.is_inscribable,so.lifecycle_status,m.player,m.posted_at,m.id message_id FROM structured_offers so JOIN messages m ON m.id=so.message_id WHERE so.quality_status='accepted' ORDER BY datetime(m.posted_at) DESC,m.id DESC,so.id DESC")->fetchAll();
             $seen = [];
             $superseded = 0;
             $expired = 0;
             $update = $this->pdo->prepare("UPDATE structured_offers SET lifecycle_status=?,superseded_by=?,lifecycle_updated_at=datetime('now') WHERE id=?");
 
             foreach ($rows as $row) {
+                // LITTYWATCH_PHASE7D1_CANONICAL_LIVE_IDENTITY
+                // item_key prevents a stale/generic normalized key (e.g. elite_tome)
+                // from merging different catalog items. normalized_market_key carries
+                // only variant dimensions the item's market profile actually tracks,
+                // avoiding false duplicates caused by stray parsed requirements/mods.
+                $itemKey = mb_strtolower(trim((string)$row['item_key']));
+                $marketKey = mb_strtolower(trim((string)($row['normalized_market_key'] ?? '')));
+                if ($marketKey === '') {
+                    $marketKey = implode('|', [
+                        $itemKey,
+                        $row['requirement'] === null ? '' : 'q:' . (string)$row['requirement'],
+                        mb_strtolower(trim((string)($row['attribute_key'] ?? ''))),
+                        (string)((int)($row['is_oldschool'] ?? 0)),
+                        (string)((int)($row['is_inscribable'] ?? 0)),
+                    ]);
+                }
+
                 $key = implode('|', [
                     mb_strtolower(trim((string)$row['player'])),
                     (string)$row['trade_type'],
-                    mb_strtolower(trim((string)$row['item_key'])),
-                    $row['requirement'] === null ? '' : (string)$row['requirement'],
-                    mb_strtolower(trim((string)($row['attribute_key'] ?? ''))),
-                    (string)((int)($row['is_oldschool'] ?? 0)),
-                    (string)((int)($row['is_inscribable'] ?? 0)),
+                    $itemKey,
+                    $marketKey,
                 ]);
 
                 if (isset($seen[$key])) {
