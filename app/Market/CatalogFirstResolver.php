@@ -99,6 +99,16 @@ final class CatalogFirstResolver
             return [$row];
         }
 
+        // LITTYWATCH_PHASE7C1_UNIQUE_CONCRETE_RECOVERY
+        // Final exact/explicit salvage for residual shorthand. Ambiguous weapon
+        // families and miniature variants are intentionally never promoted here.
+        $phase7c1=(new Phase7C1Recovery($this->pdo))->resolve($row,$message);
+        if($phase7c1!==null){
+            $row['item']=$phase7c1['name'];$row['item_key']=$phase7c1['key'];$row['market_key']=$phase7c1['key'];
+            $row=$this->promoteRecoveredCatalogMatch($row);
+            return [$row];
+        }
+
         $controlled=(new ControlledCatalogResolver($this->pdo))->resolve($item,(string)($row['item_key']??''),$context);
         if($controlled!==null){
             $row['item']=$controlled['name'];$row['item_key']=$controlled['key'];$row['market_key']=$controlled['key'];
