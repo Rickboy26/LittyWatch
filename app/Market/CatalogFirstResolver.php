@@ -78,6 +78,17 @@ final class CatalogFirstResolver
 
         $context=trim((string)($row['raw_segment']??''));
         if($context==='')$context=$message;
+
+        // LITTYWATCH_PHASE7B_CONSERVATIVE_CATALOG_RECOVERY
+        // Recover only catalogue-proven Kamadan shorthand and embedded concrete
+        // identities before the broader controlled/fuzzy resolver runs.
+        $phase7b=(new Phase7BRecovery($this->pdo))->resolve($row,$message);
+        if($phase7b!==null){
+            $row['item']=$phase7b['name'];$row['item_key']=$phase7b['key'];$row['market_key']=$phase7b['key'];
+            $row=$this->promoteRecoveredCatalogMatch($row);
+            return [$row];
+        }
+
         $controlled=(new ControlledCatalogResolver($this->pdo))->resolve($item,(string)($row['item_key']??''),$context);
         if($controlled!==null){
             $row['item']=$controlled['name'];$row['item_key']=$controlled['key'];$row['market_key']=$controlled['key'];
