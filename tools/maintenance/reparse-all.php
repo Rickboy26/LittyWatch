@@ -17,6 +17,30 @@ if (PHP_SAPI !== 'cli') {
 @ini_set('max_execution_time', '0');
 
 $root = dirname(__DIR__, 2);
+
+// LITTYWATCH_PHASE7D3_REPARSE_COLLECTOR_LOCK
+// Share the collector lock so cron cannot start a collector pass during a full reparse.
+$storage = $root . '/storage';
+if (!is_dir($storage) && !@mkdir($storage, 0775, true) && !is_dir($storage)) {
+    fwrite(STDERR, "Kan storage-map niet aanmaken: {$storage}\n");
+    exit(2);
+}
+$lockPath = $storage . '/kamadan-collector.lock';
+$maintenanceLock = fopen($lockPath, 'c+');
+if ($maintenanceLock === false) {
+    fwrite(STDERR, "Kan maintenance-lock niet openen: {$lockPath}\n");
+    exit(2);
+}
+if (!flock($maintenanceLock, LOCK_EX | LOCK_NB)) {
+    fwrite(STDERR, "Collector of andere reparse draait nog. Stop die eerst en probeer opnieuw.\n");
+    fclose($maintenanceLock);
+    exit(3);
+}
+register_shutdown_function(static function () use ($maintenanceLock): void {
+    @flock($maintenanceLock, LOCK_UN);
+    @fclose($maintenanceLock);
+});
+
 require $root . '/bootstrap.php';
 
 use LittyWatch\Market\OfferLifecycleService;
