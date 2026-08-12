@@ -89,6 +89,16 @@ final class CatalogFirstResolver
             return [$row];
         }
 
+        // LITTYWATCH_PHASE7C_CONCRETE_CLAUSE_RECOVERY
+        // Recover one uniquely evidenced concrete catalogue identity from noisy
+        // or truncated weapon clauses. Generic families remain unresolved.
+        $phase7c=(new Phase7CRecovery($this->pdo))->resolve($row,$message);
+        if($phase7c!==null){
+            $row['item']=$phase7c['name'];$row['item_key']=$phase7c['key'];$row['market_key']=$phase7c['key'];
+            $row=$this->promoteRecoveredCatalogMatch($row);
+            return [$row];
+        }
+
         $controlled=(new ControlledCatalogResolver($this->pdo))->resolve($item,(string)($row['item_key']??''),$context);
         if($controlled!==null){
             $row['item']=$controlled['name'];$row['item_key']=$controlled['key'];$row['market_key']=$controlled['key'];
