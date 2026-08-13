@@ -497,7 +497,25 @@ function collectMessages(): array {
         $insert->execute([$row['source'],$row['key'],$row['player'],$row['message'],$p['type'],$p['item'],$p['amount'],$p['currency'],$p['ecto'],$row['posted_at'],date(DATE_ATOM),$row['raw_payload']??null,'phase3m1']);
         if($insert->rowCount()){
             $added++;$id=(int)db()->lastInsertId();$offerCount+=saveOffers($id,$row['message']);
-            try{(new \LittyWatch\Market\StructuredOfferWriter(db(),parserV2(),new \LittyWatch\Market\VariantNormalizer(),new \LittyWatch\Market\OfferLifecycleService(db())))->parseMessage($id,$row['message'],true);}catch(Throwable $shadowError){error_log('Parser v2 shadow write failed: '.$shadowError->getMessage());}
+            try {
+                (new \LittyWatch\Market\StructuredOfferWriter(
+                    db(), parserV2(), new \LittyWatch\Market\VariantNormalizer(),
+                    new \LittyWatch\Market\OfferLifecycleService(db())
+                ))->parseMessage($id,$row['message'],true);
+            } catch (Throwable $shadowError) {
+                // LITTYWATCH_PHASE7D4_COLLECTOR_LIFECYCLE_RETRY
+                // Never silently leave a freshly inserted accepted offer active
+                // without lifecycle reconciliation. The targeted lifecycle pass
+                // has its own SQLite busy retries; one final repair attempt here
+                // makes collector failures visible instead of accumulating dupes.
+                try {
+                    (new \LittyWatch\Market\OfferLifecycleService(db()))->rebuild($id);
+                } catch (Throwable $repairError) {
+                    $msg = 'Parser v2/lifecycle write failed: '.$shadowError->getMessage().' | repair: '.$repairError->getMessage();
+                    error_log($msg);
+                    $error = trim($error === '' ? $msg : $error.'; '.$msg);
+                }
+            }
         }
     }
     // Phase 6D: active offers expire automatically after the configured age,
