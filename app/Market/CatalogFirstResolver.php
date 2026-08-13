@@ -163,8 +163,15 @@ final class CatalogFirstResolver
         if(preg_match('/\b(?:potion|tonic)\b/iu',$segment) && !preg_match('/\bmini(?:ature|pet)?s?\b|\b(?:unded(?:icated)?|ded(?:icated)?)\b/iu',$segment)){
             $row['quality_status']='review';$row['quality_reason']='miniature_context_conflict';return [$row];
         }
-        $state=$this->miniState($message.' '.$item);
+        $state=$this->miniState($message.' '.(string)($row['raw_segment']??'').' '.$item);
         if($state===null){$row['quality_status']='review';$row['quality_reason']='miniature_variant_unresolved';return [$row];}
+
+        // LITTYWATCH_PHASE7E_MINIATURE_BUNDLE_RECOVERY
+        // Recover one concrete miniature from noisy shorthand only when the
+        // dedication state is explicit. Multi-mini bundles remain unresolved
+        // unless price binding can be proven safe.
+        $phase7e=(new Phase7ERecovery($this->pdo))->resolve($row,$message,$state);
+        if($phase7e!==null)return [$phase7e];
 
         // Variant tokens and trader words are metadata, never part of the
         // catalogue identity. Phase 3Y also understands forms such as
@@ -181,6 +188,10 @@ final class CatalogFirstResolver
 
         $row['item']=$exact['name'];$row['item_key']=$exact['key'];$row['market_key']=$exact['key'];
         $row['variant']=$state;
+        $relevant=json_decode((string)($row['relevant_json']??'{}'),true);
+        if(!is_array($relevant))$relevant=[];
+        $relevant['dedication']=$state==='unded'?'undedicated':'dedicated';
+        $row['relevant_json']=json_encode($relevant,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?:'{}';
         $row=$this->promoteRecoveredCatalogMatch($row);
         return [$row];
     }
