@@ -149,9 +149,18 @@ final class CatalogFirstResolver
     {
         $item=trim((string)($row['item']??''));
         $candidate=CanonicalMarketIdentity::nameFor($item,(string)($row['item_key']??''));
-        $isMini=preg_match('/\bmini(?:ature)?\b/i',$item.' '.$message)===1;
+        $segment=trim((string)($row['raw_segment']??''));
+
+        // LITTYWATCH_PHASE7E1_MINIATURE_CONTEXT_OWNERSHIP
+        // Miniature semantics belong to this parsed clause, never to some other
+        // item elsewhere in the full Kamadan message. Using the complete message
+        // here caused ordinary weapons/keys/modifiers to become
+        // miniature_variant_unresolved whenever that advert also mentioned a mini.
+        $miniContext=trim($item.' '.$segment);
+        $isMini=preg_match('/\bmini(?:ature|pet)?s?\b/iu',$miniContext)===1;
         if(!$isMini){
-            // A bare name is miniature semantics only if "Miniature <name>" exists exactly.
+            // A bare name is miniature semantics only if the *current candidate*
+            // resolves exactly to a concrete Miniature <name> catalogue item.
             $pref=$this->catalogueExact('Miniature '.$candidate,'');
             if($pref===null)return null;
             $isMini=true;
@@ -159,11 +168,12 @@ final class CatalogFirstResolver
         if(!$isMini)return null;
 
         // LITTYWATCH_PHASE4E_MINIATURE_QUARANTINE
-        $segment=trim((string)($row['raw_segment']??''));
         if(preg_match('/\b(?:potion|tonic)\b/iu',$segment) && !preg_match('/\bmini(?:ature|pet)?s?\b|\b(?:unded(?:icated)?|ded(?:icated)?)\b/iu',$segment)){
             $row['quality_status']='review';$row['quality_reason']='miniature_context_conflict';return [$row];
         }
-        $state=$this->miniState($message.' '.(string)($row['raw_segment']??'').' '.$item);
+        // Dedication must also belong to this clause/candidate. Do not borrow
+        // ded/unded from another miniature elsewhere in the same message.
+        $state=$this->miniState($miniContext);
         if($state===null){$row['quality_status']='review';$row['quality_reason']='miniature_variant_unresolved';return [$row];}
 
         // LITTYWATCH_PHASE7E_MINIATURE_BUNDLE_RECOVERY
