@@ -233,6 +233,66 @@ SQL);
     }
 
     /**
+     * LITTYWATCH_PHASE7D5_ACTIVE_DUPLICATE_HEAL
+     * Final safety net after a collector batch. Even if an earlier targeted
+     * lifecycle reconciliation was skipped or interrupted, there may never be
+     * more than one active accepted row for player + direction + variant.
+     *
+     * Only currently-active accepted rows are scanned, keeping this much
+     * cheaper than a full lifecycle rebuild. History remains intact: older
+     * rows become superseded and point at the newest active winner.
+     */
+    public function healActiveDuplicates(): array
+    {
+        return $this->withBusyRetry(function (): array {
+            $this->pdo->beginTransaction();
+            try {
+                $rows = $this->pdo->query(<<<'SQL'
+SELECT so.id, so.trade_type, so.item_key, so.normalized_market_key,
+       so.requirement, so.attribute_key, so.is_oldschool, so.is_inscribable,
+       m.player, m.posted_at, m.id AS message_id
+FROM structured_offers so
+JOIN messages m ON m.id=so.message_id
+WHERE so.quality_status='accepted'
+  AND so.lifecycle_status='active'
+ORDER BY datetime(m.posted_at) DESC, m.id DESC, so.id DESC
+SQL)->fetchAll(PDO::FETCH_ASSOC);
+
+                $seen = [];
+                $superseded = 0;
+                $update = $this->pdo->prepare("UPDATE structured_offers SET lifecycle_status='superseded', superseded_by=?, lifecycle_updated_at=datetime('now') WHERE id=? AND lifecycle_status='active'");
+
+                foreach ($rows as $row) {
+                    $key = implode('|', [
+                        mb_strtolower(trim((string)$row['player'])),
+                        mb_strtolower(trim((string)$row['trade_type'])),
+                        $this->variantIdentity($row),
+                    ]);
+
+                    if (!isset($seen[$key])) {
+                        $seen[$key] = (int)$row['id'];
+                        continue;
+                    }
+
+                    $update->execute([$seen[$key], (int)$row['id']]);
+                    $superseded += $update->rowCount();
+                }
+
+                $this->pdo->commit();
+                return [
+                    'active_identities' => count($seen),
+                    'superseded' => $superseded,
+                ];
+            } catch (\Throwable $e) {
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                throw $e;
+            }
+        });
+    }
+
+    /**
      * Cheap periodic expiry pass used by the collector even when no new
      * Kamadan messages were inserted. Superseded/rejected rows are untouched.
      */

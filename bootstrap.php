@@ -518,6 +518,20 @@ function collectMessages(): array {
             }
         }
     }
+    // LITTYWATCH_PHASE7D5_BATCH_DUPLICATE_HEAL
+    // A final idempotent sweep guarantees one active row per player + trade
+    // direction + canonical market variant, even if a targeted live rebuild
+    // was missed because of a transient write-lock earlier in the batch.
+    if ($added > 0) {
+        try {
+            (new \LittyWatch\Market\OfferLifecycleService(db()))->healActiveDuplicates();
+        } catch (Throwable $healError) {
+            $msg = 'Active duplicate heal failed: '.$healError->getMessage();
+            error_log($msg);
+            $error = trim($error === '' ? $msg : $error.'; '.$msg);
+        }
+    }
+
     // Phase 6D: active offers expire automatically after the configured age,
     // even on collector passes where Kamadan returned no new rows.
     try {
