@@ -4,9 +4,11 @@ declare(strict_types=1);
 $root = dirname(__DIR__, 3);
 require $root . '/bootstrap.php';
 
+use LittyWatch\Parser\Catalog;
 use LittyWatch\Parser\ParserEngine;
 
-$engine = new ParserEngine();
+$catalog = new Catalog($root . '/app/Data', db());
+$engine = new ParserEngine($catalog);
 
 $tests = [
     ['WTS Unded Kuuna 250a', 'Miniature Kuunavang', 'undedicated', true],
@@ -24,6 +26,7 @@ echo "Phase 7E.2 FIX2 ParserEngine checks\n";
 foreach ($tests as [$text, $expectedItem, $expectedDed, $shouldAccept]) {
     $offers = $engine->parse($text);
     $found = null;
+
     foreach ($offers as $offer) {
         if ($offer->item === $expectedItem) {
             $found = $offer;
@@ -37,9 +40,17 @@ foreach ($tests as [$text, $expectedItem, $expectedDed, $shouldAccept]) {
         continue;
     }
 
-    $ded = $found->modifiers['dedication'] ?? $found->relevantProperties['dedication'] ?? null;
-    $hasExpectedDed = $expectedDed === null ? $ded === null : $ded === $expectedDed;
-    $accepted = $found->status === 'accepted' && $found->reason === 'catalog_match';
+    $ded = $found->modifiers['dedication']
+        ?? $found->relevantProperties['dedication']
+        ?? null;
+
+    $hasExpectedDed = $expectedDed === null
+        ? $ded === null
+        : $ded === $expectedDed;
+
+    $accepted = $found->status === 'accepted'
+        && $found->reason === 'catalog_match';
+
     $acceptOk = $shouldAccept ? $accepted : !$accepted;
 
     printf(
@@ -52,10 +63,12 @@ foreach ($tests as [$text, $expectedItem, $expectedDed, $shouldAccept]) {
         ($hasExpectedDed && $acceptOk) ? 'OK' : 'FAIL'
     );
 
-    if (!$hasExpectedDed || !$acceptOk) $fail++;
+    if (!$hasExpectedDed || !$acceptOk) {
+        $fail++;
+    }
 }
 
-if ($fail) {
+if ($fail > 0) {
     fwrite(STDERR, "\nPhase 7E.2 FIX2 smoke-test: FAIL ({$fail})\n");
     exit(1);
 }
