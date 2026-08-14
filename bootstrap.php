@@ -518,18 +518,17 @@ function collectMessages(): array {
             }
         }
     }
-    // LITTYWATCH_PHASE7D5_BATCH_DUPLICATE_HEAL
-    // A final idempotent sweep guarantees one active row per player + trade
-    // direction + canonical market variant, even if a targeted live rebuild
-    // was missed because of a transient write-lock earlier in the batch.
-    if ($added > 0) {
-        try {
-            (new \LittyWatch\Market\OfferLifecycleService(db()))->healActiveDuplicates();
-        } catch (Throwable $healError) {
-            $msg = 'Active duplicate heal failed: '.$healError->getMessage();
-            error_log($msg);
-            $error = trim($error === '' ? $msg : $error.'; '.$msg);
-        }
+    // LITTYWATCH_PHASE7D6_UNCONDITIONAL_BATCH_DUPLICATE_HEAL
+    // Run the idempotent active-dedup sweep on every collector pass, even when
+    // Kamadan returned no newly inserted messages. This lets cron self-heal any
+    // duplicates left by an earlier interrupted lifecycle call or another write
+    // path instead of waiting for a future batch with $added > 0.
+    try {
+        (new \LittyWatch\Market\OfferLifecycleService(db()))->healActiveDuplicates();
+    } catch (Throwable $healError) {
+        $msg = 'Active duplicate heal failed: '.$healError->getMessage();
+        error_log($msg);
+        $error = trim($error === '' ? $msg : $error.'; '.$msg);
     }
 
     // Phase 6D: active offers expire automatically after the configured age,
