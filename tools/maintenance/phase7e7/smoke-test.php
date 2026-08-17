@@ -29,12 +29,27 @@ check7e7(count($legacy) === 0, 'geen legacy phase4f Shiroken-key');
 check7e7(($canonical[0]['name'] ?? '') === "Miniature Shiro'ken Assassin", 'canonical naam klopt');
 
 $pdo = db();
-$st = $pdo->prepare("SELECT COUNT(*) FROM kb_items WHERE key=:k");
-$st->execute([':k'=>$legacyKey]);
+
+$st = $pdo->prepare("SELECT COUNT(*) FROM kb_items WHERE key=?");
+$st->execute([$legacyKey]);
 check7e7((int)$st->fetchColumn() === 0, 'legacy kb_items-key verwijderd');
 
-$st->execute([':k'=>$canonicalKey]);
+$st->execute([$canonicalKey]);
 check7e7((int)$st->fetchColumn() <= 1, 'canonical kb_items-key niet gedupliceerd');
+
+$cols = [];
+foreach ($pdo->query("PRAGMA table_info(kb_aliases)") as $r) {
+    $cols[(string)$r['name']] = true;
+}
+$refCol = isset($cols['item_key']) ? 'item_key' : (isset($cols['key']) ? 'key' : null);
+
+if ($refCol !== null) {
+    $st = $pdo->prepare("SELECT COUNT(*) FROM kb_aliases WHERE {$refCol}=?");
+    $st->execute([$legacyKey]);
+    check7e7((int)$st->fetchColumn() === 0, 'geen kb_aliases meer op legacy key');
+} else {
+    check7e7(false, 'kb_aliases item-key kolom gevonden');
+}
 
 echo PHP_EOL;
 if ($fail > 0) {

@@ -2,14 +2,11 @@
 declare(strict_types=1);
 
 /**
- * LittyWatch V5.2 - Phase 7E.7
+ * LittyWatch V5.2 - Phase 7E.7 FIX2
  * Shiro'ken Canonical KB Dedup
  *
- * Canonical key:
- *   miniature-shiro-ken-assassin
- *
- * Legacy duplicate:
- *   miniature-shiroken-assassin
+ * Fixes UNIQUE constraint collisions in kb_aliases by migrating aliases
+ * conflict-safe instead of mass-updating item_key.
  */
 
 $root = dirname(__DIR__, 3);
@@ -25,15 +22,12 @@ if (!is_file($catalogFile)) {
     exit(1);
 }
 
-$backupDir = $root . '/storage/backups/phase7e7-' . date('Ymd-His');
+$backupDir = $root . '/storage/backups/phase7e7-fix2-' . date('Ymd-His');
 if (!is_dir($backupDir) && !mkdir($backupDir, 0775, true) && !is_dir($backupDir)) {
     fwrite(STDERR, "ERROR: backupmap kon niet worden aangemaakt.\n");
     exit(1);
 }
-if (!copy($catalogFile, $backupDir . '/phase4f-items.json')) {
-    fwrite(STDERR, "ERROR: backup van phase4f-items.json mislukt.\n");
-    exit(1);
-}
+copy($catalogFile, $backupDir . '/phase4f-items.json');
 
 $raw = file_get_contents($catalogFile);
 $data = json_decode((string)$raw, true);
@@ -42,10 +36,8 @@ if (!is_array($data)) {
     exit(1);
 }
 
-$changed = false;
 $canonicalIndex = null;
 $legacyIndex = null;
-
 foreach ($data as $i => $row) {
     if (!is_array($row)) continue;
     $key = (string)($row['key'] ?? '');
@@ -53,17 +45,11 @@ foreach ($data as $i => $row) {
     if ($key === $legacyKey) $legacyIndex = $i;
 }
 
-/*
- * The old Phase 4F record used miniature-shiroken-assassin. If no canonical
- * record exists yet, rename that record. If both exist, merge aliases and
- * remove the duplicate.
- */
 if ($canonicalIndex === null && $legacyIndex !== null) {
     $data[$legacyIndex]['key'] = $canonicalKey;
     $data[$legacyIndex]['name'] = $canonicalName;
     $canonicalIndex = $legacyIndex;
     $legacyIndex = null;
-    $changed = true;
 }
 
 if ($canonicalIndex === null) {
@@ -80,23 +66,23 @@ if ($legacyIndex !== null && $legacyIndex !== $canonicalIndex) {
     unset($data[$legacyIndex]);
     $data = array_values($data);
 
-    // Re-find canonical index after array compaction.
     foreach ($data as $i => $row) {
         if (($row['key'] ?? null) === $canonicalKey) {
             $canonicalIndex = $i;
             break;
         }
     }
-    $changed = true;
 }
 
-$aliases[] = $canonicalName;
-$aliases[] = "Shiro'ken Assassin mini";
-$aliases[] = 'Shiroken Assassin mini';
-$aliases[] = "Miniature Shiro'ken Assassin";
-$aliases[] = 'Miniature Shiroken Assassin';
-$aliases[] = "Shiro'ken Assassin";
-$aliases[] = 'Shiroken Assassin';
+$aliases = array_merge($aliases, [
+    $canonicalName,
+    "Shiro'ken Assassin mini",
+    'Shiroken Assassin mini',
+    "Miniature Shiro'ken Assassin",
+    'Miniature Shiroken Assassin',
+    "Shiro'ken Assassin",
+    'Shiroken Assassin',
+]);
 
 $aliases = array_values(array_unique(array_filter(array_map(
     static fn($v) => trim((string)$v),
@@ -117,61 +103,143 @@ if ($json === false || file_put_contents($catalogFile, $json . PHP_EOL) === fals
 $pdo = db();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+function tableColumns(PDO $pdo, string $table): array {
+    $out = [];
+    foreach ($pdo->query("PRAGMA table_info(" . $table . ")") as $r) {
+        $out[(string)$r['name']] = true;
+    }
+    return $out;
+}
+
+$kbCols = tableColumns($pdo, 'kb_items');
+$aliasCols = tableColumns($pdo, 'kb_aliases');
+
+if (!isset($kbCols['key'])) {
+    fwrite(STDERR, "ERROR: kb_items.key ontbreekt.\n");
+    exit(1);
+}
+
+$refCol = isset($aliasCols['item_key']) ? 'item_key' : (isset($aliasCols['key']) ? 'key' : null);
+if ($refCol === null) {
+    fwrite(STDERR, "ERROR: geen item-key kolom gevonden in kb_aliases.\n");
+    exit(1);
+}
+
 $pdo->beginTransaction();
 try {
-    // Detect actual KB schema instead of assuming optional columns.
-    $columns = [];
-    foreach ($pdo->query("PRAGMA table_info(kb_items)") as $r) {
-        $columns[(string)$r['name']] = true;
-    }
-    if (!isset($columns['key'])) {
-        throw new RuntimeException('kb_items.key ontbreekt.');
-    }
+    // Backup affected DB rows as SQL-ish text for inspection/recovery.
+    $dump = [];
+    $st = $pdo->prepare("SELECT * FROM kb_items WHERE key IN (:c,:l)");
+    // SQLite cannot reuse named placeholders reliably in all builds, so use positional below.
+    $st = $pdo->prepare("SELECT * FROM kb_items WHERE key IN (?, ?)");
+    $st->execute([$canonicalKey, $legacyKey]);
+    $dump['kb_items'] = $st->fetchAll(PDO::FETCH_ASSOC);
 
-    $aliasColumns = [];
-    foreach ($pdo->query("PRAGMA table_info(kb_aliases)") as $r) {
-        $aliasColumns[(string)$r['name']] = true;
-    }
+    $st = $pdo->prepare("SELECT * FROM kb_aliases WHERE {$refCol} IN (?, ?)");
+    $st->execute([$canonicalKey, $legacyKey]);
+    $dump['kb_aliases'] = $st->fetchAll(PDO::FETCH_ASSOC);
+    file_put_contents(
+        $backupDir . '/kb-shiroken-before.json',
+        json_encode($dump, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL
+    );
 
-    // If both KB identities exist, migrate aliases that point at the legacy key.
-    if (isset($aliasColumns['item_key'])) {
-        $st = $pdo->prepare("UPDATE kb_aliases SET item_key=:canonical WHERE item_key=:legacy");
-        $st->execute([':canonical'=>$canonicalKey, ':legacy'=>$legacyKey]);
-    } elseif (isset($aliasColumns['key'])) {
-        // Some older KB layouts used `key` as the item reference.
-        $st = $pdo->prepare("UPDATE kb_aliases SET key=:canonical WHERE key=:legacy");
-        $st->execute([':canonical'=>$canonicalKey, ':legacy'=>$legacyKey]);
-    }
+    /*
+     * Conflict-safe alias migration.
+     * The previous installer did:
+     *   UPDATE kb_aliases SET item_key=canonical WHERE item_key=legacy
+     * which can violate UNIQUE(item_key, normalized_alias).
+     *
+     * FIX2:
+     * - for each legacy alias, if canonical already has the same normalized_alias,
+     *   delete the legacy duplicate;
+     * - otherwise move just that row to canonical.
+     */
+    $select = $pdo->prepare("SELECT * FROM kb_aliases WHERE {$refCol} = ?");
+    $select->execute([$legacyKey]);
+    $legacyAliases = $select->fetchAll(PDO::FETCH_ASSOC);
 
-    // Remove duplicate aliases if migration caused collisions.
-    if (isset($aliasColumns['id']) && isset($aliasColumns['alias'])) {
-        $ref = isset($aliasColumns['item_key']) ? 'item_key' : (isset($aliasColumns['key']) ? 'key' : null);
-        if ($ref !== null) {
-            $pdo->exec(
-                "DELETE FROM kb_aliases
-                 WHERE id NOT IN (
-                    SELECT MIN(id) FROM kb_aliases
-                    GROUP BY {$ref}, lower(trim(alias))
-                 )"
-            );
+    $moved = 0;
+    $deduped = 0;
+
+    foreach ($legacyAliases as $row) {
+        $whereParts = [];
+        $params = [$canonicalKey];
+
+        if (isset($aliasCols['normalized_alias']) && array_key_exists('normalized_alias', $row)) {
+            $whereParts[] = "normalized_alias = ?";
+            $params[] = $row['normalized_alias'];
+        } elseif (isset($aliasCols['alias']) && array_key_exists('alias', $row)) {
+            $whereParts[] = "lower(trim(alias)) = lower(trim(?))";
+            $params[] = $row['alias'];
+        } else {
+            throw new RuntimeException('kb_aliases heeft geen normalized_alias/alias kolom voor veilige dedup.');
+        }
+
+        $existsSql = "SELECT 1 FROM kb_aliases WHERE {$refCol} = ? AND " . implode(' AND ', $whereParts) . " LIMIT 1";
+        $exists = $pdo->prepare($existsSql);
+        $exists->execute($params);
+        $duplicateExists = (bool)$exists->fetchColumn();
+
+        if ($duplicateExists) {
+            if (isset($aliasCols['id']) && isset($row['id'])) {
+                $del = $pdo->prepare("DELETE FROM kb_aliases WHERE id = ?");
+                $del->execute([$row['id']]);
+            } else {
+                $delParams = [$legacyKey];
+                $delWhere = [];
+                if (isset($aliasCols['normalized_alias']) && array_key_exists('normalized_alias', $row)) {
+                    $delWhere[] = "normalized_alias = ?";
+                    $delParams[] = $row['normalized_alias'];
+                } else {
+                    $delWhere[] = "lower(trim(alias)) = lower(trim(?))";
+                    $delParams[] = $row['alias'];
+                }
+                $del = $pdo->prepare("DELETE FROM kb_aliases WHERE {$refCol} = ? AND " . implode(' AND ', $delWhere));
+                $del->execute($delParams);
+            }
+            $deduped++;
+        } else {
+            if (isset($aliasCols['id']) && isset($row['id'])) {
+                $upd = $pdo->prepare("UPDATE kb_aliases SET {$refCol} = ? WHERE id = ?");
+                $upd->execute([$canonicalKey, $row['id']]);
+            } else {
+                if (isset($aliasCols['normalized_alias']) && array_key_exists('normalized_alias', $row)) {
+                    $upd = $pdo->prepare("UPDATE kb_aliases SET {$refCol} = ? WHERE {$refCol} = ? AND normalized_alias = ?");
+                    $upd->execute([$canonicalKey, $legacyKey, $row['normalized_alias']]);
+                } else {
+                    $upd = $pdo->prepare("UPDATE kb_aliases SET {$refCol} = ? WHERE {$refCol} = ? AND lower(trim(alias)) = lower(trim(?))");
+                    $upd->execute([$canonicalKey, $legacyKey, $row['alias']]);
+                }
+            }
+            $moved++;
         }
     }
 
-    // Remove the obsolete KB item only. Canonical KB data remains untouched.
-    $st = $pdo->prepare("DELETE FROM kb_items WHERE key=:legacy");
-    $st->execute([':legacy'=>$legacyKey]);
+    // Safety: no aliases may still reference legacy key.
+    $st = $pdo->prepare("SELECT COUNT(*) FROM kb_aliases WHERE {$refCol} = ?");
+    $st->execute([$legacyKey]);
+    $remainingLegacyAliases = (int)$st->fetchColumn();
+    if ($remainingLegacyAliases !== 0) {
+        throw new RuntimeException("er verwijzen nog {$remainingLegacyAliases} aliases naar legacy key.");
+    }
+
+    $st = $pdo->prepare("DELETE FROM kb_items WHERE key = ?");
+    $st->execute([$legacyKey]);
+    $deletedItems = $st->rowCount();
 
     $pdo->commit();
+
+    echo "OK: LittyWatch V5.2 Phase 7E.7 FIX2 geïnstalleerd.\n";
+    echo "Canonical: {$canonicalKey}\n";
+    echo "Legacy aliases gemigreerd: {$moved}\n";
+    echo "Dubbele aliases verwijderd: {$deduped}\n";
+    echo "Legacy kb_items verwijderd: {$deletedItems}\n";
+    echo "Backup: {$backupDir}\n";
+    echo "Draai nu:\n";
+    echo "  php -l app/Parser/Catalog.php\n";
+    echo "  php tools/maintenance/phase7e7/smoke-test.php\n";
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     fwrite(STDERR, "ERROR: KB-dedup mislukt: " . $e->getMessage() . "\n");
     exit(1);
 }
-
-echo "OK: LittyWatch V5.2 Phase 7E.7 geïnstalleerd.\n";
-echo "Canonical: {$canonicalKey}\n";
-echo "Verwijderd legacy duplicate: {$legacyKey}\n";
-echo "Backup: {$backupDir}\n";
-echo "Draai nu:\n";
-echo "  php -l app/Parser/Catalog.php\n";
-echo "  php tools/maintenance/phase7e7/smoke-test.php\n";
