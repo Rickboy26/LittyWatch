@@ -1,0 +1,72 @@
+<?php
+declare(strict_types=1);
+
+$root=dirname(__DIR__,3);
+require $root.'/bootstrap.php';
+
+echo "=== Phase 7E.6 FIX3 slash-list verification ===\n";
+
+$sql="
+SELECT
+    m.id AS message_id,
+    m.message,
+    so.item,
+    so.item_key,
+    so.market_key,
+    so.raw_segment,
+    so.quality_status,
+    so.quality_reason,
+    so.lifecycle_status
+FROM structured_offers so
+JOIN messages m ON m.id=so.message_id
+WHERE LOWER(m.message) LIKE '%zhed%livia%'
+ORDER BY m.id DESC,so.id
+LIMIT 300
+";
+
+$bad=0;
+$rows=0;
+
+foreach(db()->query($sql) as $r){
+    $rows++;
+
+    $problem=
+        (string)$r['quality_reason']==='catalog_first_unresolved'
+        || (string)$r['quality_reason']==='miniature_variant_unresolved'
+        || mb_strtolower(trim((string)$r['item']))==='miniature';
+
+    if($problem)$bad++;
+
+    echo "ID: ".$r['message_id'].PHP_EOL;
+    echo "MSG: ".$r['message'].PHP_EOL;
+    echo " -> ".$r['item']
+        ." | ".$r['market_key']
+        ." | ".$r['quality_status']
+        ." | ".$r['quality_reason']
+        ." | ".$r['raw_segment']
+        .PHP_EOL.PHP_EOL;
+}
+
+echo "Getoonde rows: {$rows}\n";
+echo "Residual/problem rows: {$bad}\n";
+
+$orphan=db()->query("
+SELECT COUNT(*)
+FROM structured_offers
+WHERE LOWER(TRIM(item))='miniature'
+  AND LOWER(TRIM(raw_segment)) IN ('ded','unded','dedicated','undedicated')
+")->fetchColumn();
+
+echo "Orphan dedication->Miniature rows: ".(int)$orphan.PHP_EOL;
+
+echo "\n=== catalog_first_unresolved top ===\n";
+foreach(db()->query("
+SELECT item,raw_segment,COUNT(*) n
+FROM structured_offers
+WHERE quality_reason='catalog_first_unresolved'
+GROUP BY item,raw_segment
+ORDER BY n DESC
+LIMIT 50
+") as $r){
+    printf("%4d | %-32s | %s\n",$r['n'],$r['item'],$r['raw_segment']);
+}
