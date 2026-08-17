@@ -36,16 +36,22 @@ function mainDbFile(PDO $pdo): ?string {
     return null;
 }
 
-echo "=== LittyWatch Fresh Live Market Reset ===\n\n";
+echo "=== LittyWatch Fresh Live Market Reset FIX1 ===\n\n";
+
 echo "BEHOUDEN:\n";
 foreach(['messages','kb_items','kb_aliases','parser_learned_aliases','parser_corrections','parser_reviews','alert_rules','watchlist'] as $t){
     if(tableExists($pdo,$t)) printf("  KEEP  %-30s %d\n",$t,countRows($pdo,$t));
 }
+
 echo "\nLEEGMAKEN:\n";
 $total=0;
 foreach($clear as $t){
-    if(!tableExists($pdo,$t)){ printf("  SKIP  %-30s ontbreekt\n",$t); continue; }
-    $n=countRows($pdo,$t); $total+=$n;
+    if(!tableExists($pdo,$t)){
+        printf("  SKIP  %-30s ontbreekt\n",$t);
+        continue;
+    }
+    $n=countRows($pdo,$t);
+    $total+=$n;
     printf("  CLEAR %-30s %d\n",$t,$n);
 }
 echo "\nTotaal te verwijderen rijen: {$total}\n";
@@ -62,7 +68,7 @@ if($dbFile===null || !is_file($dbFile)){
     exit(1);
 }
 
-$backupDir=$root.'/storage/backups/live-market-reset-'.date('Ymd-His');
+$backupDir=$root.'/storage/backups/live-market-reset-fix1-'.date('Ymd-His');
 if(!is_dir($backupDir) && !mkdir($backupDir,0775,true) && !is_dir($backupDir)){
     fwrite(STDERR,"ERROR: backupmap kon niet worden aangemaakt.\n");
     exit(1);
@@ -76,30 +82,43 @@ echo "\nBackup: {$backupFile}\n";
 
 try{
     $pdo->exec('PRAGMA busy_timeout=10000');
-    $pdo->exec('BEGIN IMMEDIATE');
+
+    // FIX1:
+    // Use PDO's transaction API so commit()/rollBack() and inTransaction()
+    // all refer to the same transaction state.
+    $pdo->beginTransaction();
+
     foreach($clear as $t){
         if(!tableExists($pdo,$t)) continue;
         $q='"'.str_replace('"','""',$t).'"';
         $pdo->exec("DELETE FROM {$q}");
     }
+
     if(tableExists($pdo,'sqlite_sequence')){
         $marks=implode(',',array_fill(0,count($clear),'?'));
         $st=$pdo->prepare("DELETE FROM sqlite_sequence WHERE name IN ({$marks})");
         $st->execute($clear);
     }
+
     $pdo->commit();
 }catch(Throwable $e){
-    if($pdo->inTransaction()) $pdo->rollBack();
+    if($pdo->inTransaction()){
+        $pdo->rollBack();
+    }
     fwrite(STDERR,"ERROR: reset mislukt; rollback uitgevoerd: ".$e->getMessage()."\n");
     exit(1);
 }
 
 echo "\n=== Na reset ===\n";
 foreach($clear as $t){
-    if(tableExists($pdo,$t)) printf("  %-30s %d\n",$t,countRows($pdo,$t));
+    if(tableExists($pdo,$t)){
+        printf("  %-30s %d\n",$t,countRows($pdo,$t));
+    }
 }
+
 echo "\nMessages behouden: ".(tableExists($pdo,'messages')?countRows($pdo,'messages'):0)."\n";
 echo "KB items behouden: ".(tableExists($pdo,'kb_items')?countRows($pdo,'kb_items'):0)."\n";
 echo "KB aliases behouden: ".(tableExists($pdo,'kb_aliases')?countRows($pdo,'kb_aliases'):0)."\n";
+
 echo "\nOK: live marktdata is schoon.\n";
 echo "NIET reparse-all draaien; laat alleen nieuwe collector-data binnenkomen.\n";
