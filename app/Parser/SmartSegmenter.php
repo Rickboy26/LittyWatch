@@ -20,7 +20,19 @@ final class SmartSegmenter
             $sharedTrailingPrice = trim((string)$shared[0]);
         }
 
+        $tomeMatch = null;
         if (preg_match('/\b(?:(elite|normal|regular|reg)\s+)?tomes?\s*:?[ ]*(.+)$/iu', $text, $match)) {
+            $tomeMatch = $match;
+        } elseif (preg_match('/^\s*(elite|normal|regular|reg)\s+(.+?(?:\(\s*\d+\s*\)|\bx\s*\d+).+?)\s+(\d+(?:[.,]\d+)?\s*(?:e|a|k|g)\s*(?:\/\s*ea|each))\s*$/iu', $text, $match)) {
+            // Live shorthand may omit "Tome(s)": Elite Monk (12) Ele (6) Mes (10) 2e/ea.
+            // Multiple inventory counts plus an explicit shared /ea price make
+            // profession-tome intent sufficiently specific to expand safely.
+            $match[2] = trim((string)$match[2].' '.(string)$match[3]);
+            $tomeMatch = $match;
+        }
+
+        if ($tomeMatch !== null) {
+            $match = $tomeMatch;
             $defaultKind = mb_strtolower(trim((string)($match[1] ?? '')));
             $tail = trim((string)$match[2]);
             $sharedPrice = null;

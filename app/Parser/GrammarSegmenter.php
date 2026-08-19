@@ -24,7 +24,7 @@ final class GrammarSegmenter
                 if ($piece === '') continue;
 
                 $counted = preg_split(
-                    '/\s+(?=\d+\s+[A-Za-z][A-Za-z\'’ -]{2,}\b)/u',
+                    '/(?<!for)\s+(?=\d+\s+[A-Za-z][A-Za-z\'’ -]{2,}\b)/iu',
                     $piece
                 ) ?: [$piece];
 

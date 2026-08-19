@@ -91,7 +91,7 @@ final class ParserEngine
             // LITTYWATCH_PHASE4C_BUNDLE_RESOLVER
             $phase4cBundleSegments = $this->marketBundleExpander->expand($blockText);
             $sharedListSegments = $phase4cBundleSegments ?? $this->sharedOfferListExpander->expand($blockText);
-            $smartSegments = preg_match('/\btomes?\b/iu', $blockText) ? $this->segmenter->split($blockText) : [];
+            $smartSegments = preg_match('/\btomes?\b|^\s*(?:elite|normal|regular)\s+(?:war(?:rior)?|ranger|monk|necro(?:mancer)?|mes(?:mer)?|ele(?:mentalist)?|assassin|rit(?:ualist)?|para(?:gon)?|derv(?:ish)?)\b/iu', $blockText) ? $this->segmenter->split($blockText) : [];
             $segments = $sharedListSegments !== null
                 ? $sharedListSegments
                 : (count($smartSegments) > 1 ? $smartSegments : $this->grammarSegmenter->split($blockText));
@@ -307,6 +307,15 @@ final class ParserEngine
         // generic component phrase.
         $preItems = $this->itemMatcher->matchAll($segment);
 
+        // Phase 8A.1: in "11 zkeys for 7 ectos" the ectos are the price
+        // currency, not a second item being sold. Restrict catalog ownership to
+        // the left side when PriceMatcher recognizes an explicit quantity-total.
+        $segmentPrice = $this->priceMatcher->parse($segment);
+        if ($segmentPrice->basis === 'total' && preg_match('/^\s*\d+(?:[.,]\d+)?\s+(.+?)\s+for\s+\d+(?:[.,]\d+)?\s*(?:a|e|k|plat(?:inum)?|ectos?|armbraces?)\b/iu', $segment, $forMatch)) {
+            $leftItems = $this->itemMatcher->matchAll((string)$forMatch[1]);
+            if ($leftItems !== []) $preItems = $leftItems;
+        }
+
         // Phase 3C: compact same-q attribute lists represent multiple
         // market variants, e.g. "BDS q11 dom/air/FC/ES/comm".
         if ($preItems !== [] && !preg_match('/\bno\b/iu', $segment)) {
@@ -479,7 +488,9 @@ final class ParserEngine
         foreach ($items as $index => $item) {
             $start = $item['start'];
             $end = $items[$index + 1]['start'] ?? mb_strlen($segment);
-            $slice = trim(mb_substr($segment, $start, $end - $start), " \t\n\r\0\x0B|,;");
+            $slice = count($items) === 1
+                ? trim($segment, " \t\n\r\0\x0B|,;")
+                : trim(mb_substr($segment, $start, $end - $start), " \t\n\r\0\x0B|,;");
             if ($slice === '') $slice = $segment;
             $price = $this->priceMatcher->parse($slice);
             if ($price->amount === null && count($items) === 1 && $this->wholePriceIsLocalToItem($wholePrice, $segment, $slice, $start)) {
