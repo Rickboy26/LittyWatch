@@ -85,13 +85,12 @@ foreach ($timestampRows as $timestampRow) {
 }
 
 $total = (int)$pdo->query('SELECT COUNT(*) FROM messages')->fetchColumn();
-$legacyCreated = 0;
 $structuredCreated = 0;
 $processed = 0;
 $lastId = 0;
 $batchSize = 250;
 
-fwrite(STDOUT, "LittyWatch Phase 3L.15 volledige reparse gestart ({$total} berichten).\n");
+fwrite(STDOUT, "LittyWatch volledige structured reparse gestart ({$total} berichten).\n");
 
 while (true) {
     $stmt = $pdo->prepare('SELECT id, message FROM messages WHERE id > :last_id ORDER BY id LIMIT :limit');
@@ -104,7 +103,6 @@ while (true) {
     foreach ($rows as $row) {
         $messageId = (int)$row['id'];
         $message = (string)$row['message'];
-        $legacyCreated += saveOffers($messageId, $message);
         $structuredCreated += $writer->parseMessage($messageId, $message, true);
         $processed++;
         $lastId = $messageId;
@@ -120,7 +118,6 @@ $marketQualityResult = (new MarketQualityService($pdo))->rebuildAll();
 
 fwrite(STDOUT, "\nKlaar.\n");
 fwrite(STDOUT, "Berichten: {$processed}\n");
-fwrite(STDOUT, "Legacy offers: {$legacyCreated}\n");
 fwrite(STDOUT, "Structured offers: {$structuredCreated}\n");
 fwrite(STDOUT, "Timestamps gerepareerd: {$timestampsRepaired}\n");
 fwrite(STDOUT, 'Lifecycle: ' . json_encode($lifecycleResult, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");

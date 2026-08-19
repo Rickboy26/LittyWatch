@@ -13,12 +13,12 @@ use LittyWatch\Market\VariantNormalizer;
 use LittyWatch\Market\MarketQualityService;
 use LittyWatch\Parser\Catalog;
 use LittyWatch\Parser\ParserEngine;
-use LittyWatch\V2\Alerts\LiveFeedService;
-use LittyWatch\V2\Assets\AssetCatalogService;
-use LittyWatch\V2\Intelligence\CurrencyFormatter;
-use LittyWatch\V2\Intelligence\MarketIntelligenceService;
-use LittyWatch\V2\SnapshotService;
-use LittyWatch\V2\MarketStats;
+use LittyWatch\Alerts\LiveFeedService;
+use LittyWatch\Assets\AssetCatalogService;
+use LittyWatch\Intelligence\CurrencyFormatter;
+use LittyWatch\Intelligence\MarketIntelligenceService;
+use LittyWatch\Snapshots\SnapshotService;
+use LittyWatch\Snapshots\MarketStats;
 use PDO;
 
 final class MaintenanceController
@@ -78,17 +78,13 @@ final class MaintenanceController
         }
 
         $rows = $this->pdo->query('SELECT id, message FROM messages ORDER BY id')->fetchAll();
-        $legacyCreated = 0;
         $structuredCreated = 0;
 
         foreach ($rows as $row) {
             $messageId = (int)$row['id'];
             $message = (string)$row['message'];
 
-            // Rebuild the table used by Dashboard, Items and item detail.
-            $legacyCreated += saveOffers($messageId, $message);
-
-            // Rebuild the structured market/intelligence shadow table.
+            // Structured offers are the single market source of truth.
             $structuredCreated += $writer->parseMessage($messageId, $message, true);
         }
 
@@ -97,13 +93,12 @@ final class MaintenanceController
 
         return $this->resultPage('Alle aanbiedingen opnieuw geparsed', [
             'messages_reparsed' => count($rows),
-            'offers_created' => $legacyCreated,
             'structured_offers_created' => $structuredCreated,
             'lifecycle' => $lifecycleResult,
             'market_quality' => $marketQualityResult,
-            'parser_fix' => 'Phase 3L.15 offer-level unit recovery + market quality actief.',
+            'parser_fix' => 'Single structured parser path + market quality actief.',
             'items_source' => 'structured_offers',
-            'parser_release' => 'V5.2 Phase 3L.15',
+            'parser_release' => 'V5.2 consolidated',
             'timestamps_repaired' => $timestampsRepaired,
         ], '/items');
     }

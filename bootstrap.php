@@ -44,28 +44,6 @@ CREATE TABLE IF NOT EXISTS messages (
  collected_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_posted ON messages(posted_at DESC);
-CREATE TABLE IF NOT EXISTS offers (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- message_id INTEGER NOT NULL,
- trade_type TEXT NOT NULL,
- item TEXT NOT NULL,
- item_key TEXT NOT NULL,
- details TEXT,
- quantity REAL,
- price_amount REAL,
- price_currency TEXT,
- price_ecto REAL,
- unit_price_ecto REAL,
- confidence REAL NOT NULL DEFAULT 0.5,
- created_at TEXT NOT NULL,
- price_basis TEXT,
- raw_segment TEXT,
- UNIQUE(message_id, trade_type, item_key, details, price_amount, price_currency, raw_segment),
- FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_offers_item ON offers(item_key);
-CREATE INDEX IF NOT EXISTS idx_offers_type ON offers(trade_type);
-CREATE INDEX IF NOT EXISTS idx_offers_price ON offers(unit_price_ecto);
 CREATE TABLE IF NOT EXISTS structured_offers (id INTEGER PRIMARY KEY AUTOINCREMENT,message_id INTEGER NOT NULL,trade_type TEXT NOT NULL,item TEXT NOT NULL,item_key TEXT NOT NULL,market_key TEXT NOT NULL,requirement INTEGER,attribute_key TEXT,attribute_name TEXT,is_oldschool INTEGER NOT NULL DEFAULT 0,is_inscribable INTEGER NOT NULL DEFAULT 0,mods_json TEXT NOT NULL DEFAULT '{}',relevant_json TEXT NOT NULL DEFAULT '{}',profile_json TEXT NOT NULL DEFAULT '{}',quantity REAL,price_amount REAL,price_currency TEXT,price_ecto REAL,unit_price_ecto REAL,price_basis TEXT,confidence REAL NOT NULL DEFAULT 0.5,quality_status TEXT NOT NULL DEFAULT 'review',quality_reason TEXT,raw_segment TEXT,parser_version TEXT NOT NULL,parsed_at TEXT NOT NULL,UNIQUE(message_id,trade_type,market_key,price_amount,price_currency,raw_segment),FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE);
 CREATE INDEX IF NOT EXISTS idx_structured_market ON structured_offers(market_key);
 CREATE INDEX IF NOT EXISTS idx_structured_item ON structured_offers(item_key);
@@ -74,14 +52,6 @@ CREATE TABLE IF NOT EXISTS parser_reviews (id INTEGER PRIMARY KEY AUTOINCREMENT,
 CREATE INDEX IF NOT EXISTS idx_parser_reviews_status ON parser_reviews(review_status);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 SQL);
-    ensureColumn('offers','price_basis','TEXT');
-    ensureColumn('offers','raw_segment','TEXT');
-    ensureColumn('offers','quality_status',"TEXT NOT NULL DEFAULT 'review'");
-    ensureColumn('offers','quality_reason','TEXT');
-    ensureColumn('offers','exchange_item','TEXT');
-    ensureColumn('offers','exchange_item_key','TEXT');
-    ensureColumn('offers','exchange_give_quantity','REAL');
-    ensureColumn('offers','exchange_receive_quantity','REAL');
     ensureColumn('messages','parser_status','TEXT');
     ensureColumn('messages','parser_summary','TEXT');
     ensureColumn('messages','parser_offer_count','INTEGER');
@@ -184,281 +154,48 @@ function lw_market_price_for_item(string $item, mixed $ecto, bool $equivalent = 
     return lw_market_price($ecto,$equivalent);
 }
 
-function itemCatalog(): array {
-    static $catalog = null;
-    if ($catalog !== null) return $catalog;
-
-    $path = __DIR__ . '/app/Data/items.json';
-    $decoded = json_decode((string)file_get_contents($path), true);
-    $catalog = [];
-    foreach (is_array($decoded) ? $decoded : [] as $item) {
-        $name = (string)($item['name'] ?? '');
-        if ($name === '') continue;
-        $aliases = array_values(array_unique(array_filter(array_map('strval', array_merge([$name], $item['aliases'] ?? [])))));
-        $catalog[$name] = $aliases;
+/**
+ * Compatibility adapter for older diagnostics/tests.
+ * Parsing has one source of truth: ParserEngine.
+ * @return list<array<string,mixed>>
+ */
+function parseOffers(string $message): array {
+    $out=[];
+    foreach(parserV2()->parse($message) as $offer){
+        $price=$offer->price;
+        $out[]=[
+            'type'=>$offer->tradeType,
+            'item'=>$offer->item,
+            'item_key'=>$offer->itemKey,
+            'details'=>'',
+            'quantity'=>$price->quantity,
+            'amount'=>$price->amount,
+            'currency'=>$price->currency,
+            'ecto'=>$price->ectoValue,
+            'unit_ecto'=>$price->unitEcto,
+            'confidence'=>$offer->confidence,
+            'basis'=>$price->basis,
+            'segment'=>$offer->segment,
+            'quality_status'=>$offer->status,
+            'quality_reason'=>$offer->reason,
+            'exchange_item'=>$offer->exchange['target_item']??null,
+            'exchange_item_key'=>$offer->exchange['target_item_key']??null,
+            'exchange_give_quantity'=>$offer->exchange['give_quantity']??null,
+            'exchange_receive_quantity'=>$offer->exchange['receive_quantity']??null,
+        ];
     }
-    return $catalog;
-}
-
-function detectType(string $text): ?string {
-    if (preg_match('/(?:^|\W)wtb(?:\W|$)|\bbuying\b/i',$text)) return 'buy';
-    if (preg_match('/(?:^|\W)wts(?:\W|$)|\bselling\b/i',$text)) return 'sell';
-    if (preg_match('/(?:^|\W)wtt(?:\W|$)/i',$text)) return 'trade';
-    return null;
-}
-function currencyToEcto(float $amount,string $currency): float { return match($currency){'a'=>$amount*27.0,'e'=>$amount,'k'=>$amount/15.0,default=>$amount}; }
-
-function extractPrice(string $segment): ?array {
-    // 5:1e = five items for one ecto.
-    if(preg_match('/(?<!\d)([0-9]+(?:[.,][0-9]+)?)\s*:\s*([0-9]+(?:[.,][0-9]+)?)\s*(a|e|k)\b/i',$segment,$m,PREG_OFFSET_CAPTURE)){
-        $qty=(float)str_replace(',','.',$m[1][0]); $amount=(float)str_replace(',','.',$m[2][0]); $cur=strtolower($m[3][0]);
-        return ['amount'=>$amount,'currency'=>$cur,'ecto'=>currencyToEcto($amount,$cur),'offset'=>$m[0][1],'raw'=>$m[0][0],'ratio_qty'=>$qty,'basis'=>'ratio'];
-    }
-    // 250 = 125e or 7e = 100k.
-    if(preg_match('/(?<!\d)([0-9]+(?:[.,][0-9]+)?)\s*=\s*([0-9]+(?:[.,][0-9]+)?)\s*(a|e|k)\b/i',$segment,$m,PREG_OFFSET_CAPTURE)){
-        $qty=(float)str_replace(',','.',$m[1][0]); $amount=(float)str_replace(',','.',$m[2][0]); $cur=strtolower($m[3][0]);
-        return ['amount'=>$amount,'currency'=>$cur,'ecto'=>currencyToEcto($amount,$cur),'offset'=>$m[0][1],'raw'=>$m[0][0],'ratio_qty'=>$qty,'basis'=>'exchange'];
-    }
-    if(preg_match('/(?<![a-z0-9])([0-9]+(?:[.,][0-9]+)?)\s*(a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)(?=\b|\/|$)/i',$segment,$m,PREG_OFFSET_CAPTURE)){
-        $amount=(float)str_replace(',','.',$m[1][0]); $u=mb_strtolower($m[2][0]); $cur=str_starts_with($u,'a')?'a':(str_starts_with($u,'e')?'e':'k');
-        $tail=mb_substr($segment,$m[0][1]+mb_strlen($m[0][0]),12);
-        $basis=preg_match('/\/\s*(?:st|stk|stack)\b/i',$tail)?'stack':(preg_match('/\/\s*(?:ea|each)\b/i',$tail)?'each':'total');
-        return ['amount'=>$amount,'currency'=>$cur,'ecto'=>currencyToEcto($amount,$cur),'offset'=>$m[0][1],'raw'=>$m[0][0],'ratio_qty'=>null,'basis'=>$basis];
-    }
-    return null;
-}
-
-function detectQuantity(string $segment,?array $price): array {
-    if($price && $price['ratio_qty']) return [(float)$price['ratio_qty'],$price['basis']];
-    if(preg_match('/\[x\s*([0-9]+)\]/i',$segment,$m)) return [(float)$m[1],'inventory'];
-    if(preg_match('/\bx\s*([0-9]+)\b/i',$segment,$m)) return [(float)$m[1],'inventory'];
-    if(preg_match('/\b([0-9]+)\s+(?:gott|gotts|gots?|nickgifts?|nick\s*sets?|nicholas\s*sets?|gifts?|tomes?|unids?|rubies|sapphires|char carvings?|diessa chalices?|gaki|war horns?)\b/i',$segment,$m)) return [(float)$m[1],($price && $price['basis']==='each')?'inventory':'total'];
-    if(preg_match('/\b([0-9]+)\s+stacks?\b/i',$segment,$m)) return [(float)$m[1],'inventory_stacks'];
-    if($price && $price['basis']==='stack') return [250.0,'stack'];
-    if(preg_match('/\b(?:stack|stk)\b/i',$segment)) return [250.0,'stack'];
-    return [null,$price['basis']??'unknown'];
-}
-
-function extractDetails(string $clean): string {
-    $d=[];
-    if(preg_match('/\b(?:q|rq|req(?:uirement)?)\s*([0-9]{1,2})(?:\s*[-–]\s*([0-9]{1,2}))?\b/i',$clean,$m)) {
-        $d[]='q'.$m[1].(!empty($m[2])?'-'.$m[2]:'');
-    } elseif(preg_match('/\b([0-9]{1,2})\s+(soul\s+reaping|fast\s+casting|inspiration|protection|communing|motivation|tactics|strength|channeling|domination|illusion|death\s+magic|blood\s+magic|fire\s+magic|air\s+magic|water\s+magic|earth\s+magic)\b/i',$clean,$m)) {
-        $d[]='q'.$m[1]; $d[]=mb_strtolower($m[2]);
-    } elseif(preg_match('/\breq(?:uirement)?\s+(soul\s+reaping|fast\s+casting|inspiration|protection|communing|motivation|tactics|strength|channeling|domination|illusion|death\s+magic|blood\s+magic|fire\s+magic|air\s+magic|water\s+magic|earth\s+magic)\b/i',$clean,$m)) {
-        $d[]='req '.mb_strtolower($m[1]);
-    }
-    if(preg_match('/\+\s*([0-9]+)\s*energy\b/i',$clean,$m)) $d[]='+'.$m[1].' energy';
-    if(preg_match('/\b(unded|ded)\b/i',$clean,$m)) $d[]=strtolower($m[1]);
-    if(preg_match('/\b(os|oldschool|old school)\b/i',$clean)) $d[]='OS';
-    if(preg_match('/\b(insc|inscb|inscr|inscribable|inscriptable)\b/i',$clean)) $d[]='inscribable';
-    if(preg_match('/\b(fc|fast cast|inspa?|prot|comm|communing|motivation|tact|tactics|str|strength)\b/i',$clean,$m)) $d[]=strtolower($m[1]);
-    return implode(' ',array_unique($d));
-}
-
-function aliasHasBoundaries(string $text,int $start,int $length): bool {
-    $before=$start>0?mb_substr($text,$start-1,1):'';
-    $after=mb_substr($text,$start+$length,1);
-    return ($before==='' || !preg_match('/[\p{L}\p{N}]/u',$before))
-        && ($after==='' || !preg_match('/[\p{L}\p{N}]/u',$after));
-}
-
-function catalogMentions(string $text): array {
-    $lower=mb_strtolower($text); $hits=[];
-    foreach(itemCatalog() as $name=>$aliases) foreach($aliases as $alias){
-        $offset=0;$a=mb_strtolower($alias);$length=mb_strlen($a);
-        while(($p=mb_stripos($lower,$a,$offset))!==false){
-            if(aliasHasBoundaries($lower,$p,$length)) $hits[]=['start'=>$p,'len'=>$length,'item'=>$name,'alias'=>$alias];
-            $offset=$p+max(1,$length);
-        }
-    }
-    usort($hits,fn($x,$y)=>$x['start']<=>$y['start'] ?: $y['len']<=>$x['len']);
-    $out=[];$end=-1;
-    foreach($hits as $h){if($h['start']<$end)continue;$out[]=$h;$end=$h['start']+$h['len'];}
     return $out;
 }
 
-function fallbackItem(string $segment): array {
-    $clean=norm($segment);$details=extractDetails($clean);
-    $fallback=preg_replace('/\b(wtb|wts|wtt|buying|selling)\b/i','',$clean);
-    $fallback=preg_replace('/[0-9]+(?:[.,][0-9]+)?\s*(?:a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)(?:\b|\/|$)/i','',$fallback??'');
-    $fallback=preg_replace('/\b(pm|wsp|offer|offers)\b.*$/i','',$fallback??'');
-    $fallback=(new \LittyWatch\Parser\TradeNotationCleaner())->cleanItemCandidate((string)$fallback);
-    return [$fallback!==''?mb_substr($fallback,0,100):'Onbekend',$details,0.45];
-}
-
-function splitTypeBlocks(string $message): array {
-    $s=norm($message);$matches=[];
-    preg_match_all('/\bWT([BST])\b/i',$s,$matches,PREG_OFFSET_CAPTURE);
-    if(!$matches[0]) return [['type'=>detectType($s),'text'=>$s]];
-    $blocks=[];
-    foreach($matches[0] as $i=>$m){$start=$m[1];$end=$matches[0][$i+1][1]??mb_strlen($s);$marker=strtoupper($m[0]);$type=$marker==='WTB'?'buy':($marker==='WTS'?'sell':'trade');$text=trim(mb_substr($s,$start+3,$end-($start+3))," _|-/");if($text!=='')$blocks[]=['type'=>$type,'text'=>$text];}
-    return $blocks;
-}
-
-function isGarbageFragment(string $piece): ?string {
-    $clean=trim(norm($piece));
-    if($clean==='') return 'empty';
-    if(preg_match('/^(?:or|and|plus)\b/i',$clean)) return 'dangling_conjunction';
-    if(preg_match('/^(?:pm|wsp|show me|trade\/pm|offer(?:s)? only)\b/i',$clean)) return 'contact_only';
-    if(preg_match('/^[+_=<>!\-\s]+$/',$clean)) return 'symbols_only';
-    if(mb_strlen($clean)<2) return 'too_short';
-    return null;
-}
-
-function qualityForOffer(array $offer): array {
-    $item=trim((string)$offer['item']);
-    $confidence=(float)$offer['confidence'];
-    $price=$offer['price'];
-    $basis=(string)$offer['basis'];
-    $segment=(string)$offer['segment'];
-    $garbage=isGarbageFragment($item);
-    if($garbage) return ['rejected',$garbage];
-    if($item==='Onbekend') return ['rejected','unknown_item'];
-    if(preg_match('/\b(?:guild cape|trim your guild|mission(?:s)?|rush|service|runs?|armor any|names?:)\b/i',$item)) return ['rejected','service_or_non_item'];
-    if(preg_match('/^(?:q\d+|mods?\/insc|\+{2,}|\d+[,.]?\d*\s*rp)\b/i',$item)) return ['review','generic_description'];
-    if($confidence>=0.8 && $price!==null && !in_array($basis,['bundle','currency_exchange'],true)) return ['accepted','catalog_price'];
-    if($confidence>=0.8) return ['accepted','catalog_no_price'];
-    if($price!==null && mb_strlen($item)>=3) return ['review','uncatalogued_with_price'];
-    return ['review','uncatalogued_no_price'];
-}
-
-function robustMedian(array $values): ?float {
-    $values=array_values(array_filter(array_map('floatval',$values),fn($v)=>is_finite($v)&&$v>0));
-    if(!$values)return null;sort($values,SORT_NUMERIC);$n=count($values);$mid=intdiv($n,2);
-    return $n%2?$values[$mid]:($values[$mid-1]+$values[$mid])/2;
-}
-function filterPriceOutliers(array $values): array {
-    $values=array_values(array_filter(array_map('floatval',$values),fn($v)=>is_finite($v)&&$v>0));
-    if(count($values)<4)return $values;sort($values,SORT_NUMERIC);
-    $median=robustMedian($values);$dev=array_map(fn($v)=>abs($v-$median),$values);$mad=robustMedian($dev);
-    if(!$mad || $mad<0.0001)return $values;
-    return array_values(array_filter($values,fn($v)=>abs($v-$median)/$mad<=4.5));
-}
-function flipOpportunities(int $days=7,int $minTraders=2): array {
-    $cutoff=(new DateTimeImmutable("-$days days"))->format(DATE_ATOM);
-    $st=db()->prepare("SELECT o.item,o.item_key,o.trade_type,o.unit_price_ecto,m.player,m.posted_at,o.id FROM offers o JOIN messages m ON m.id=o.message_id WHERE o.unit_price_ecto IS NOT NULL AND o.quality_status='accepted' AND o.confidence>=0.8 AND COALESCE(o.price_basis,'') NOT IN ('bundle','currency_exchange','exchange') AND datetime(m.posted_at)>=datetime(?) ORDER BY datetime(m.posted_at) DESC,o.id DESC");
-    $st->execute([$cutoff]);$group=[];
-    foreach($st->fetchAll() as $r){$k=$r['item_key'];$side=$r['trade_type'];if(!in_array($side,['buy','sell'],true))continue;$player=mb_strtolower(trim($r['player']));if(isset($group[$k][$side][$player]))continue;$group[$k]['item']=$r['item'];$group[$k][$side][$player]=(float)$r['unit_price_ecto'];}
-    $out=[];
-    foreach($group as $k=>$g){$buys=array_values($g['buy']??[]);$sells=array_values($g['sell']??[]);if(count($buys)<$minTraders||count($sells)<$minTraders)continue;$buys=filterPriceOutliers($buys);$sells=filterPriceOutliers($sells);if(count($buys)<$minTraders||count($sells)<$minTraders)continue;$buy=robustMedian($buys);$sell=robustMedian($sells);if($buy===null||$sell===null||$buy<=$sell)continue;$out[]=['item'=>$g['item'],'item_key'=>$k,'buy_median'=>$buy,'sell_median'=>$sell,'spread'=>$buy-$sell,'buy_traders'=>count($buys),'sell_traders'=>count($sells),'samples'=>count($buys)+count($sells)];}
-    usort($out,fn($a,$b)=>$b['spread']<=>$a['spread']);return array_slice($out,0,20);
-}
-
-function parsePiece(string $piece,string $type,?string $inheritedItem=null): array {
-    $piece=trim($piece," \t\n\r|,;");if($piece==='')return[];
-    $mentions=catalogMentions($piece);
-    if(count($mentions)>1 && preg_match('/\b(package|bundle|all unidentified|all unid)\b/i',$piece) && extractPrice($piece)){
-        $names=array_values(array_unique(array_column($mentions,'item')));
-        $price=extractPrice($piece);[$qty,$basis]=detectQuantity($piece,$price);
-        return [[ 'type'=>$type,'item'=>'Bundle: '.implode(' + ',$names),'details'=>extractDetails($piece),'confidence'=>0.9,'price'=>$price,'quantity'=>$qty,'basis'=>'bundle','segment'=>$piece ]];
-    }
-    if(count($mentions)>1){
-        $out=[];
-        foreach($mentions as $i=>$hit){$start=$i===0?0:$hit['start'];$end=$mentions[$i+1]['start']??mb_strlen($piece);$slice=trim(mb_substr($piece,$start,$end-$start)," /,;|");$out=array_merge($out,parsePiece($slice,$type,$hit['item']));}
-        return $out;
-    }
-    $price=extractPrice($piece);[$qty,$basis]=detectQuantity($piece,$price);
-    if($mentions){$item=$mentions[0]['item'];$confidence=.95;}
-    elseif($inheritedItem!==null && preg_match('/^(?:q\s*\d+|\d+\s*(?:a|e|k)\b|(?:fc|inspa?|prot|comm|motivation|tact))/i',$piece)){$item=$inheritedItem;$confidence=.85;}
-    else{[$item,$unused,$confidence]=fallbackItem($piece);}
-    if(preg_match('/\bsets?\b/i',$piece) && mb_strtolower($item)==='rin relic'){$qty=25.0;$basis='set';}
-    $details=extractDetails($piece);
-    return [[ 'type'=>$type,'item'=>$item,'details'=>$details,'confidence'=>$confidence,'price'=>$price,'quantity'=>$qty,'basis'=>$basis,'segment'=>$piece ]];
-}
-
-/**
- * @return list<array<string,mixed>>
- */
-function parseBarterOffers(string $text): array {
-    $matcher = new \LittyWatch\Parser\ExchangeMatcher();
-    $exchange = $matcher->parse(trim($text));
-    if ($exchange === null) return [];
-
-    $left = $matcher->splitFallbackSources($exchange['left']);
-    $target = $matcher->normalizeFallbackName($exchange['right']);
-    $offers = [];
-
-    foreach ($left as $source) {
-        $source = trim($source);
-        if ($source === '') continue;
-
-        $offers[] = [
-            'type' => 'trade',
-            'item' => $source,
-            'item_key' => itemKey($source),
-            'details' => '',
-            'quantity' => (float)$exchange['give_quantity'],
-            'amount' => null,
-            'currency' => null,
-            'ecto' => null,
-            'unit_ecto' => null,
-            'confidence' => 0.9,
-            'basis' => 'barter',
-            'segment' => trim($text),
-            'quality_status' => 'accepted',
-            'quality_reason' => 'explicit_item_exchange',
-            'exchange_item' => $target,
-            'exchange_item_key' => itemKey($target),
-            'exchange_give_quantity' => (float)$exchange['give_quantity'],
-            'exchange_receive_quantity' => (float)$exchange['receive_quantity'],
-        ];
-    }
-
-    return $offers;
-}
-
-function classifyTradeText(string $text): array { return (new \LittyWatch\Parser\MessageClassifier())->classify($text); }
-function semanticTradeText(string $text): string { return (new \LittyWatch\Parser\SemanticNormalizer())->normalize($text); }
-function smartOfferSegments(string $text): array { return (new \LittyWatch\Parser\SmartSegmenter())->split($text); }
-
-function parseOffers(string $message): array {
-    $offers=[];
-    foreach(splitTypeBlocks($message) as $block){
-        if(!$block['type'])continue;
-        if(classifyTradeText($block['text'])['kind']!=='market')continue;
-
-        if($block['type']==='trade'){
-            $barter=parseBarterOffers(semanticTradeText($block['text']));
-            if($barter!==[]){array_push($offers,...$barter);continue;}
-        }
-
-        $parts=smartOfferSegments($block['text']);
-        $lastItem=null;
-        foreach($parts as $part){
-            if(classifyTradeText($part)['kind']!=='market')continue;
-            $part=semanticTradeText($part);
-            $parsed=parsePiece($part,$block['type'],$lastItem);
-            foreach($parsed as $p){
-                if($p['item']==='Onbekend'&&!$p['price'])continue;
-                if(!str_starts_with($p['item'],'Bundle:'))$lastItem=$p['item'];
-                $price=$p['price'];$unit=$price['ecto']??null;$qty=$p['quantity'];$basis=$p['basis'];
-                if($unit!==null&&$qty&&$qty>0&&in_array($basis,['ratio','exchange','total','stack'],true))$unit/=$qty;
-                if($basis==='exchange'&&$p['item']==='Glob of Ectoplasm')$basis='currency_exchange';
-                $candidate=['type'=>$p['type'],'item'=>$p['item'],'item_key'=>itemKey($p['item'].($p['details']?' '.$p['details']:'')),'details'=>$p['details'],'quantity'=>$qty,
-                    'amount'=>$price['amount']??null,'currency'=>$price['currency']??null,'ecto'=>$price['ecto']??null,'unit_ecto'=>$unit,'confidence'=>$p['confidence'],'basis'=>$basis,'segment'=>$p['segment'],
-                    'exchange_item'=>null,'exchange_item_key'=>null,'exchange_give_quantity'=>null,'exchange_receive_quantity'=>null];
-                [$candidate['quality_status'],$candidate['quality_reason']]=qualityForOffer(['item'=>$p['item'],'confidence'=>$p['confidence'],'price'=>$price,'basis'=>$basis,'segment'=>$p['segment']]);
-                if($candidate['quality_status']!=='rejected')$offers[]=$candidate;
-            }
-        }
-    }
-    return $offers;
-}
-
-function parseTrade(string $message): array {$offers=parseOffers($message);$f=$offers[0]??null;return['type'=>$f['type']??detectType($message),'item'=>$f['item']??null,'amount'=>$f['amount']??null,'currency'=>$f['currency']??null,'ecto'=>$f['ecto']??null];}
-function saveOffers(int $messageId,string $message): int {
-    db()->prepare('DELETE FROM offers WHERE message_id=?')->execute([$messageId]);
-    $parsed=parseOffers($message);
-    $ins=db()->prepare('INSERT OR IGNORE INTO offers(message_id,trade_type,item,item_key,details,quantity,price_amount,price_currency,price_ecto,unit_price_ecto,confidence,created_at,price_basis,raw_segment,quality_status,quality_reason,exchange_item,exchange_item_key,exchange_give_quantity,exchange_receive_quantity) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    $n=0;foreach($parsed as $o){$ins->execute([$messageId,$o['type'],$o['item'],$o['item_key'],$o['details'],$o['quantity'],$o['amount'],$o['currency'],$o['ecto'],$o['unit_ecto'],$o['confidence'],date(DATE_ATOM),$o['basis'],$o['segment'],$o['quality_status'],$o['quality_reason'],$o['exchange_item']??null,$o['exchange_item_key']??null,$o['exchange_give_quantity']??null,$o['exchange_receive_quantity']??null]);$n+=$ins->rowCount();}
-    $c=classifyTradeText(norm($message));
-    if($c['kind']==='service'){$status='excluded';$summary='Serviceadvertentie uitgesloten';}
-    elseif($c['kind']==='character_name_sale'){$status='excluded';$summary='Naamverkoop uitgesloten';}
-    elseif($n>0){$status='parsed';$summary=$n.' aanbieding'.($n===1?'':'en').' herkend';}
-    else{$status='review';$summary='Niet betrouwbaar herkend · controle nodig';}
-    db()->prepare('UPDATE messages SET parser_status=?,parser_summary=?,parser_offer_count=? WHERE id=?')->execute([$status,$summary,$n,$messageId]);
-    return$n;
+function parseTrade(string $message): array {
+    $first=parseOffers($message)[0]??null;
+    return [
+        'type'=>$first['type']??null,
+        'item'=>$first['item']??null,
+        'amount'=>$first['amount']??null,
+        'currency'=>$first['currency']??null,
+        'ecto'=>$first['ecto']??null,
+    ];
 }
 
 function httpGet(string $url): array {global$config;$headers=['User-Agent: LittyWatch/0.5 (+personal project)'];$ch=curl_init($url);curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>$config['request_timeout'],CURLOPT_HTTPHEADER=>$headers,CURLOPT_ENCODING=>'']);$body=curl_exec($ch);$err=curl_error($ch);$code=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$type=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);curl_close($ch);if($body===false)throw new RuntimeException('cURL-fout: '.$err);return[$code,$type,$body];}
@@ -494,14 +231,18 @@ function collectMessages(): array {
     $added=0;$offerCount=0;
     foreach(array_slice($messages,0,$config['max_messages_per_run'])as$row){
         $p=parseTrade($row['message']);
-        $insert->execute([$row['source'],$row['key'],$row['player'],$row['message'],$p['type'],$p['item'],$p['amount'],$p['currency'],$p['ecto'],$row['posted_at'],date(DATE_ATOM),$row['raw_payload']??null,'phase3m1']);
+        $insert->execute([$row['source'],$row['key'],$row['player'],$row['message'],$p['type'],$p['item'],$p['amount'],$p['currency'],$p['ecto'],$row['posted_at'],date(DATE_ATOM),$row['raw_payload']??null,'v5.2-structured']);
         if($insert->rowCount()){
-            $added++;$id=(int)db()->lastInsertId();$offerCount+=saveOffers($id,$row['message']);
+            $added++;$id=(int)db()->lastInsertId();
             try {
-                (new \LittyWatch\Market\StructuredOfferWriter(
+                $created=(new \LittyWatch\Market\StructuredOfferWriter(
                     db(), parserV2(), new \LittyWatch\Market\VariantNormalizer(),
                     new \LittyWatch\Market\OfferLifecycleService(db())
                 ))->parseMessage($id,$row['message'],true);
+                $offerCount += $created;
+                $status=$created>0?'parsed':'review';
+                $summary=$created>0?($created.' aanbieding'.($created===1?'':'en').' herkend'):'Niet betrouwbaar herkend · controle nodig';
+                db()->prepare('UPDATE messages SET parser_status=?,parser_summary=?,parser_offer_count=? WHERE id=?')->execute([$status,$summary,$created,$id]);
             } catch (Throwable $shadowError) {
                 // LITTYWATCH_PHASE7D4_COLLECTOR_LIFECYCLE_RETRY
                 // Never silently leave a freshly inserted accepted offer active
@@ -544,7 +285,7 @@ function collectMessages(): array {
     } catch (Throwable $retentionError) {
         error_log('Market retention failed: '.$retentionError->getMessage());
     }
-    return['fetched'=>count($messages),'added'=>$added,'offers_added'=>$offerCount,'source'=>$used,'warning'=>$error,'collector_version'=>'phase3m1'];
+    return['fetched'=>count($messages),'added'=>$added,'offers_added'=>$offerCount,'source'=>$used,'warning'=>$error,'collector_version'=>'v5.2-structured'];
 }
 
 function parserV2(): \LittyWatch\Parser\ParserEngine {

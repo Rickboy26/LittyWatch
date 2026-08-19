@@ -7,7 +7,7 @@ use LittyWatch\Market\StrictCatalogGate;
 use LittyWatch\Core\Request;
 use LittyWatch\Core\Response;
 use LittyWatch\Core\View;
-use LittyWatch\V2\Assets\AssetCatalogService;
+use LittyWatch\Assets\AssetCatalogService;
 use Throwable;
 
 final class AssetController

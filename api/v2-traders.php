@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/bootstrap.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-require dirname(__DIR__) . '/app/V2/Database.php';
-require dirname(__DIR__) . '/app/V2/Trader/TraderIntelligenceService.php';
 
-use LittyWatch\V2\Database;
-use LittyWatch\V2\Trader\TraderIntelligenceService;
+use LittyWatch\Infrastructure\Database;
+use LittyWatch\Trader\TraderIntelligenceService;
 
 try {
     $root = dirname(__DIR__);

@@ -10,7 +10,6 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $clear = [
     'structured_offers',
-    'offers',
     'market_intelligence',
     'market_snapshots',
     'ai_offer_validations',

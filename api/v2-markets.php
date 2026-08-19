@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
-require dirname(__DIR__) . '/app/V2/Database.php';
-require dirname(__DIR__) . '/app/V2/Intelligence/Schema.php';
-require dirname(__DIR__) . '/app/V2/Intelligence/MarketExplorerService.php';
+require dirname(__DIR__) . '/bootstrap.php';
 
-use LittyWatch\V2\Database;
-use LittyWatch\V2\Intelligence\MarketExplorerService;
+header('Content-Type: application/json; charset=utf-8');
+
+use LittyWatch\Infrastructure\Database;
+use LittyWatch\Intelligence\MarketExplorerService;
 
 try {
     $service = new MarketExplorerService(Database::connect(dirname(__DIR__)));

@@ -47,7 +47,7 @@ use LittyWatch\Services\ItemImageService;
 use LittyWatch\Services\ParserBatchReviewService;
 use LittyWatch\Services\KnowledgePackService;
 use LittyWatch\Support\ProjectPaths;
-use LittyWatch\V2\Assets\AssetCatalogService;
+use LittyWatch\Assets\AssetCatalogService;
 
 final class ApplicationServiceProvider
 {

@@ -82,7 +82,7 @@ final class CatalogFirstResolver
         // LITTYWATCH_PHASE7B_CONSERVATIVE_CATALOG_RECOVERY
         // Recover only catalogue-proven Kamadan shorthand and embedded concrete
         // identities before the broader controlled/fuzzy resolver runs.
-        $phase7b=(new Phase7BRecovery($this->pdo))->resolve($row,$message);
+        $phase7b=(new ConservativeCatalogRecovery($this->pdo))->resolve($row,$message);
         if($phase7b!==null){
             $row['item']=$phase7b['name'];$row['item_key']=$phase7b['key'];$row['market_key']=$phase7b['key'];
             $row=$this->promoteRecoveredCatalogMatch($row);
@@ -92,7 +92,7 @@ final class CatalogFirstResolver
         // LITTYWATCH_PHASE7C_CONCRETE_CLAUSE_RECOVERY
         // Recover one uniquely evidenced concrete catalogue identity from noisy
         // or truncated weapon clauses. Generic families remain unresolved.
-        $phase7c=(new Phase7CRecovery($this->pdo))->resolve($row,$message);
+        $phase7c=(new ConcreteClauseRecovery($this->pdo))->resolve($row,$message);
         if($phase7c!==null){
             $row['item']=$phase7c['name'];$row['item_key']=$phase7c['key'];$row['market_key']=$phase7c['key'];
             $row=$this->promoteRecoveredCatalogMatch($row);
@@ -102,7 +102,7 @@ final class CatalogFirstResolver
         // LITTYWATCH_PHASE7C1_UNIQUE_CONCRETE_RECOVERY
         // Final exact/explicit salvage for residual shorthand. Ambiguous weapon
         // families and miniature variants are intentionally never promoted here.
-        $phase7c1=(new Phase7C1Recovery($this->pdo))->resolve($row,$message);
+        $phase7c1=(new UniqueConcreteRecovery($this->pdo))->resolve($row,$message);
         if($phase7c1!==null){
             $row['item']=$phase7c1['name'];$row['item_key']=$phase7c1['key'];$row['market_key']=$phase7c1['key'];
             $row=$this->promoteRecoveredCatalogMatch($row);
@@ -180,7 +180,7 @@ final class CatalogFirstResolver
         // Recover one concrete miniature from noisy shorthand only when the
         // dedication state is explicit. Multi-mini bundles remain unresolved
         // unless price binding can be proven safe.
-        $phase7e=(new Phase7ERecovery($this->pdo))->resolve($row,$message,$state);
+        $phase7e=(new MiniatureRecovery($this->pdo))->resolve($row,$message,$state);
         if($phase7e!==null)return [$phase7e];
 
         // Variant tokens and trader words are metadata, never part of the

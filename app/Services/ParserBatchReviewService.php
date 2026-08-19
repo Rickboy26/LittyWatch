@@ -105,7 +105,6 @@ final class ParserBatchReviewService
 
                 $classification = $classifier->classify($message);
                 if ($classification['kind'] !== 'market') {
-                    $this->pdo->prepare("DELETE FROM offers WHERE message_id=?")->execute([$messageId]);
                     $this->pdo->prepare("DELETE FROM structured_offers WHERE message_id=?")->execute([$messageId]);
 
                     $summary = match ($classification['kind']) {
@@ -121,7 +120,6 @@ final class ParserBatchReviewService
                     continue;
                 }
 
-                $legacyCount = saveOffers($messageId, $message);
                 $writer->parseMessage($messageId, $message, true);
 
                 $quality = $this->qualityForMessage($messageId);
@@ -129,13 +127,13 @@ final class ParserBatchReviewService
                     $summary = $quality['accepted'] > 0
                         ? $quality['accepted'] . ' herkend, ' . $quality['review'] . ' controle nodig'
                         : 'Niet betrouwbaar herkend · controle nodig';
-                    $this->setMessageStatus($messageId, 'review', $summary, $legacyCount);
+                    $this->setMessageStatus($messageId, 'review', $summary, $quality['accepted'] + $quality['review']);
                     $result['review']++;
                 } else {
                     $summary = $quality['accepted'] . ' aanbieding'
                         . ($quality['accepted'] === 1 ? '' : 'en')
                         . ' herkend';
-                    $this->setMessageStatus($messageId, 'parsed', $summary, $legacyCount);
+                    $this->setMessageStatus($messageId, 'parsed', $summary, $quality['accepted']);
                     $result['parsed']++;
                 }
 

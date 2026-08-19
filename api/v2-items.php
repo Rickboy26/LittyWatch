@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/bootstrap.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-require dirname(__DIR__) . '/app/V2/Database.php';
-require dirname(__DIR__) . '/app/V2/Encyclopedia/ItemEncyclopediaService.php';
 
-use LittyWatch\V2\Database;
-use LittyWatch\V2\Encyclopedia\ItemEncyclopediaService;
+use LittyWatch\Infrastructure\Database;
+use LittyWatch\Encyclopedia\ItemEncyclopediaService;
 
 try {
     $root = dirname(__DIR__);

@@ -8,7 +8,7 @@ use LittyWatch\Core\Response;
 use LittyWatch\Core\View;
 use LittyWatch\Repositories\MarketRepository;
 use LittyWatch\Repositories\DatasetRepository;
-use LittyWatch\V2\Assets\AssetCatalogService;
+use LittyWatch\Assets\AssetCatalogService;
 use Throwable;
 
 final class AdminController

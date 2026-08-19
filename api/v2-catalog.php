@@ -2,16 +2,15 @@
 
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/bootstrap.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-require dirname(__DIR__) . '/app/V2/Database.php';
-require dirname(__DIR__) . '/app/V2/Encyclopedia/WikiClient.php';
-require dirname(__DIR__) . '/app/V2/Encyclopedia/CatalogImportService.php';
 
-use LittyWatch\V2\Database;
-use LittyWatch\V2\Encyclopedia\CatalogImportService;
-use LittyWatch\V2\Encyclopedia\WikiClient;
+use LittyWatch\Infrastructure\Database;
+use LittyWatch\Encyclopedia\CatalogImportService;
+use LittyWatch\Encyclopedia\WikiClient;
 
 try {
     $root = dirname(__DIR__);

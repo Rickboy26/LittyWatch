@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/bootstrap.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-require dirname(__DIR__) . '/app/V2/Database.php';
-require dirname(__DIR__) . '/app/V2/Alerts/AlertService.php';
 
-use LittyWatch\V2\Alerts\AlertService;
-use LittyWatch\V2\Database;
+use LittyWatch\Alerts\AlertService;
+use LittyWatch\Infrastructure\Database;
 
 try {
     $pdo = Database::connect(dirname(__DIR__));
