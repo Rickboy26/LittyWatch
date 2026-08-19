@@ -72,6 +72,7 @@ use LittyWatch\Repositories\ParserReviewRepository;
 
 $pdo = db();
 installSchema();
+$pdo->exec('PRAGMA busy_timeout = 30000');
 
 $parser = new ParserEngine(new Catalog($root . '/app/Data', $pdo));
 $writer = new StructuredOfferWriter($pdo, $parser, new VariantNormalizer(), null);
@@ -222,7 +223,7 @@ $accepted = 0;
 $review = 0;
 $rejected = 0;
 $affectedKeys = [];
-$lifecycleTotals = ['active'=>0, 'superseded'=>0, 'expired'=>0];
+$lifecycleResult = [];
 $started = microtime(true);
 
 foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
@@ -270,13 +271,6 @@ foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
 
             $pdo->commit();
 
-            // Lifecycle owns its own transaction/retry mechanism, so run it only
-            // after the parser transaction is committed.
-            $life = $lifecycle->rebuild($messageId);
-            foreach ($lifecycleTotals as $key => $_) {
-                $lifecycleTotals[$key] += (int)($life[$key] ?? 0);
-            }
-
             $newKeysStmt->execute([$messageId]);
             foreach ($newKeysStmt->fetchAll(PDO::FETCH_COLUMN) as $key) {
                 $key = trim((string)$key);
@@ -299,13 +293,6 @@ foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
         }
     }
 
-    // Recalculate market quality once per batch instead of once per message.
-    // This keeps the operation targeted while avoiding thousands of repeated
-    // group scans.
-    if ($batchKeys !== []) {
-        $quality->rebuildForItemKeys(array_keys($batchKeys));
-    }
-
     $pct = $totalCandidates > 0 ? ($processed / $totalCandidates) * 100 : 100.0;
     $elapsed = max(0.001, microtime(true) - $started);
     $rate = $processed / $elapsed;
@@ -322,13 +309,47 @@ foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
     );
 }
 
+
+/**
+ * Retry transient SQLite BUSY/LOCKED errors. Other LittyWatch cron jobs may
+ * briefly touch the same database even while the collector lock is held.
+ */
+$withBusyRetry = static function (callable $fn, string $label, int $attempts = 12) {
+    $delayUs = 250000;
+    for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+        try {
+            return $fn();
+        } catch (PDOException $e) {
+            $msg = strtolower($e->getMessage());
+            $busy = str_contains($msg, 'database is locked') || str_contains($msg, 'database is busy');
+            if (!$busy || $attempt === $attempts) throw $e;
+            fwrite(STDOUT, sprintf("%s: database busy, retry %d/%d...\n", $label, $attempt, $attempts));
+            usleep($delayUs);
+            $delayUs = min(2000000, (int)($delayUs * 1.5));
+        }
+    }
+    return null;
+};
+
+// Lifecycle is deliberately rebuilt once after all parser writes. Doing this
+// per message made the targeted reparse several times slower and caused
+// unnecessary SQLite write-lock churn.
+fwrite(STDOUT, "\nLifecycle opnieuw opbouwen...\n");
+$lifecycleResult = $withBusyRetry(
+    static fn() => $lifecycle->rebuild(),
+    'Lifecycle'
+);
+
 // Seed newly created review rows once at the end.
 (new ParserReviewRepository($pdo, new ParserKnowledgeRepository($pdo)))->seedPending();
 
 // Final quality pass only for markets touched by the targeted reparse.
 // This catches cross-batch market baselines after all lifecycle states are final.
 $qualityResult = $affectedKeys !== []
-    ? $quality->rebuildForItemKeys(array_keys($affectedKeys))
+    ? $withBusyRetry(
+        static fn() => $quality->rebuildForItemKeys(array_keys($affectedKeys)),
+        'Market quality'
+      )
     : ['trusted'=>0,'uncertain'=>0,'outlier'=>0,'unpriced'=>0,'groups'=>0];
 
 $duration = microtime(true) - $started;
@@ -340,6 +361,6 @@ fwrite(STDOUT, "Accepted:           {$accepted}\n");
 fwrite(STDOUT, "Review:             {$review}\n");
 fwrite(STDOUT, "Rejected:           {$rejected}\n");
 fwrite(STDOUT, "Market keys geraakt: ".count($affectedKeys)."\n");
-fwrite(STDOUT, 'Lifecycle: ' . json_encode($lifecycleTotals, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+fwrite(STDOUT, 'Lifecycle: ' . json_encode($lifecycleResult, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
 fwrite(STDOUT, 'Market quality: ' . json_encode($qualityResult, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
 fwrite(STDOUT, sprintf("Duur: %.1f sec\n", $duration));
