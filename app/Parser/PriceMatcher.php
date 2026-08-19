@@ -10,13 +10,13 @@ final class PriceMatcher
         // Phase 3L.2: explicit price ranges are observations, not exact unit prices.
         // Keep the upper amount visible, but deliberately withhold unit_ecto so a
         // range such as "225-675e" cannot pollute medians as a single 675e quote.
-        if (preg_match('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
+        if (preg_match('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)\s*(a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $amount = $this->number($m[2]);
             return $this->make($amount, $this->currency((string)$m[3]), 'range', null, $m[0]);
         }
 
         // Ratio shorthand: 5:1e means five units for one ecto total.
-        if (preg_match('/(?<!\d)(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
+        if (preg_match('/(?<!\d)(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)\s*(a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $quantity = $this->number($m[1]);
             $amount = $this->number($m[2]);
             return $this->make($amount, $this->currency((string)$m[3]), 'ratio', $quantity, $m[0]);
@@ -26,7 +26,7 @@ final class PriceMatcher
         // "3/1e", "5/11e", "7/100k" mean N units for the following total price.
         // Keep this before ordinary money-token parsing so the quantity cannot
         // be mistaken for part of another item segment.
-        if (preg_match('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
+        if (preg_match('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)\s*(a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $quantity = $this->number($m[1]);
             $amount = $this->number($m[2]);
             if ($quantity > 0) {
@@ -35,14 +35,14 @@ final class PriceMatcher
         }
 
         // Explicit quantity-for-total: "6 arms for 162e".
-        if (preg_match('/(?<!\d)(\d+(?:[.,]\d+)?)\s+[^|;,]{1,45}?\bfor\s+(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
+        if (preg_match('/(?<!\d)(\d+(?:[.,]\d+)?)\s+[^|;,]{1,45}?\bfor\s+(\d+(?:[.,]\d+)?)\s*(a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $quantity = $this->number($m[1]);
             $amount = $this->number($m[2]);
             return $this->make($amount, $this->currency((string)$m[3]), 'total', $quantity, $m[0]);
         }
 
         // Legacy "5=1e" shorthand, not currency conversion such as 1750e=64a.
-        if (preg_match('/(?<![a-z0-9])(\d+(?:[.,]\d+)?)\s*=\s*(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
+        if (preg_match('/(?<![a-z0-9])(\d+(?:[.,]\d+)?)\s*=\s*(\d+(?:[.,]\d+)?)\s*(a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $quantity = $this->number($m[1]);
             $amount = $this->number($m[2]);
             return $this->make($amount, $this->currency((string)$m[3]), 'exchange', $quantity, $m[0]);
@@ -50,7 +50,7 @@ final class PriceMatcher
 
         // Explicit multi-stack total: "Royal Gift Stacks (x8) 8a" means
         // eight full stacks for 8a total. A full GW1 stack contains 250 items.
-        if (preg_match('/\bstacks?\b\s*(?:\(\s*)?x\s*(\d+)(?:\s*\))?[^|;,]{0,24}?(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/i', $segment, $m)) {
+        if (preg_match('/\bstacks?\b\s*(?:\(\s*)?x\s*(\d+)(?:\s*\))?[^|;,]{0,24}?(\d+(?:[.,]\d+)?)\s*(a|ambr(?:ace)?s?|armbraces?|e|ectos?|k|plat(?:inum)?)\b/i', $segment, $m)) {
             $stackCount = $this->number($m[1]);
             $amount = $this->number($m[2]);
             return $this->make($amount, $this->currency((string)$m[3]), 'stack_total', $stackCount * 250.0, $m[0]);
@@ -85,6 +85,7 @@ final class PriceMatcher
             $basis = 'unqualified';
             $quantity = null;
             $priority = 1;
+            $inventoryQuantity = $this->detectInventoryQuantity($segment);
 
             if (preg_match('/^\s*(?:[\/\-]\s*)?(?:st|stk|stack)\b/i', $tail)) {
                 // 9a/stk, 9a-stk and 9a stack = price for one 250-item stack.
@@ -98,7 +99,12 @@ final class PriceMatcher
                 // Kamadan convention: "27e x6" = six units at 27e each.
                 $basis = 'each'; $quantity = (float)$qm[1]; $priority = 5;
             } elseif (preg_match('/\bper\s+(?:ea|each|unit|piece)\s*$/i', $head)) {
-                $basis = 'each'; $quantity = $this->detectInventoryQuantity($segment); $priority = 6;
+                $basis = 'each'; $quantity = $inventoryQuantity; $priority = 6;
+            } elseif ($inventoryQuantity !== null && $inventoryQuantity > 0) {
+                // Phase 8A: an explicit item quantity owns a following bare money
+                // quote. `5 GoTT 12e` is five gifts for 12e total, never a 250
+                // stack inferred later from catalog semantics.
+                $basis = 'total'; $quantity = $inventoryQuantity; $priority = 5;
             }
 
             $candidates[] = ['priority'=>$priority,'price'=>$this->make($amount,$currency,$basis,$quantity,$raw)];

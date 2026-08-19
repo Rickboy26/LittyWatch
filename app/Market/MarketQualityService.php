@@ -60,7 +60,11 @@ final class MarketQualityService
 
         foreach ($rows as $row) {
             $invalidateStaleUnit = $this->shouldInvalidateStaleCanonicalPrice($row);
-            $recovery = $invalidateStaleUnit ? null : $this->recoverCanonicalPrice($row);
+            // Phase 8A: MarketQuality is a safety net, not a second price parser.
+            // A parser-owned canonical basis+unit must never be reinterpreted here.
+            $recovery = (!$invalidateStaleUnit && $this->needsCanonicalRecovery($row))
+                ? $this->recoverCanonicalPrice($row)
+                : null;
             $recoveredUnit = $recovery['unit'] ?? null;
             $recoveredBasis = $invalidateStaleUnit ? 'uncertain' : ($recovery['basis'] ?? null);
             if ($invalidateStaleUnit) {
@@ -146,6 +150,15 @@ final class MarketQualityService
         return $counts;
     }
 
+    /** @param array<string,mixed> $row */
+    private function needsCanonicalRecovery(array $row): bool
+    {
+        $unit = isset($row['unit_price_ecto']) && $row['unit_price_ecto'] !== null ? (float)$row['unit_price_ecto'] : null;
+        $basis = strtolower(trim((string)($row['price_basis'] ?? '')));
+        if ($unit === null || $unit <= 0) return true;
+        return in_array($basis, ['', 'unknown', 'unqualified', 'uncertain', 'currency_conversion', 'range'], true);
+    }
+
     /** @param array<string,mixed> $row @return array{0:string,1:string} */
     private function semanticStatus(array $row): array
     {
@@ -195,6 +208,19 @@ final class MarketQualityService
         if ($ecto===null || $ecto<=0) return null;
 
         $segment=trim((string)($row['raw_segment']??''));
+
+        // Phase 8A safety net: preserve an explicit inventory quantity before
+        // consulting catalog stack defaults. This protects old/unresolved rows
+        // such as `5 GoTT 12e` from ever becoming quantity 250.
+        if ($segment!==''
+            && preg_match('/\b(\d+(?:[.,]\d+)?)\s+(?:gott?s?|go?t|nick\s*sets?|nicksets?|zkeys?|tomes?|unids?|gifts?)\b/iu',$segment,$qm)) {
+            preg_match_all('/(?<![a-z0-9.])(\d+(?:[.,]\d+)?)\s*(a|e|k|plat(?:inum)?)\b/iu',$segment,$money,PREG_SET_ORDER);
+            if (count($money)===1) {
+                $quantity=(float)str_replace(',','.',(string)$qm[1]);
+                $quoted=$this->moneyToEcto((float)str_replace(',','.',(string)$money[0][1]),strtolower((string)$money[0][2]));
+                if ($quantity>0 && $quoted!==null && $quoted>0) return ['unit'=>$quoted/$quantity,'basis'=>'total'];
+            }
+        }
 
         // Phase 3L.9: explicit quote syntax owns its own money amount. Never
         // reuse stale parser price_ecto when the segment contains alternatives.
