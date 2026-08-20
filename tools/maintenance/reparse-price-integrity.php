@@ -85,47 +85,58 @@ $quality = new MarketQualityService($pdo);
  * The patterns intentionally target syntax, not item names alone:
  * - explicit quantity + commodity/item + total money
  * - "N item for M currency"
- * - ratios N:M, N/M, N=M
- * - explicit each/per-unit/stack pricing
- * - xN quantity notation
+ * - explicit leading quantities for quantity-aware commodities
+ * - "N item for M currency"
+ * - shared trailing list prices
  * - compact Elite Tome lists with "(N)"
- * - common GW modifier/value notation that must NOT become money
  */
 $isCandidate = static function (string $message): bool {
     $m = mb_strtolower($message);
-
-    // Money unit used by price syntax. Keep this local so the patterns remain readable.
     $money = '(?:a|ambr(?:ace)?s?|armbraces?|e|ecto(?:s)?|k|plat(?:inum)?)';
 
-    $patterns = [
-        // "5 GoTT 12e", "20 zkeys 15e", "12 Elite Monk Tome 2e"
-        '/\b\d+(?:[.,]\d+)?\s+[^\r\n|;,]{1,60}?\s+\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
-
-        // "11 zkeys for 7 ectos", "6 arms for 162e"
-        '/\b\d+(?:[.,]\d+)?\s+[^\r\n|;,]{1,60}?\bfor\s+\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
-
-        // "3:1e", "5/11e", "5=1e"
-        '/(?<![\p{L}\p{N}.])\d+(?:[.,]\d+)?\s*(?::|\/|=)\s*\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
-
-        // Explicit each/per-unit basis and shared trailing prices.
-        '/\d+(?:[.,]\d+)?\s*'.$money.'\s*(?:(?:[\/.\-]\s*)?(?:ea|each)\b|\bper\s+(?:ea|each|unit|piece)\b)/iu',
-
-        // Explicit stack basis / stack totals.
-        '/(?:\bstacks?\b|\bstk\b)[^\r\n|;,]{0,60}\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
-        '/\d+(?:[.,]\d+)?\s*'.$money.'\s*(?:\/|\-|\bper\s+)(?:st|stk|stack)\b/iu',
-
-        // "27e x6": explicit each-price quantity notation.
-        '/\d+(?:[.,]\d+)?\s*'.$money.'\s*x\s*\d+\b/iu',
-
-        // Compact shared-price elite-tome notation:
-        // Elite Monk (12) Ele (6) Mes (10) 2e/ea
-        '/\belite\b[^\r\n|;]{0,120}\([ ]*\d+[ ]*\)[^\r\n|;]{0,120}\d+(?:[.,]\d+)?\s*'.$money.'\s*(?:\/\s*)?(?:ea|each)\b/iu',
-
-    ];
-
-    foreach ($patterns as $pattern) {
-        if (preg_match($pattern, $m)) return true;
+    // 8A.1: explicit leading inventory quantity that used to be lost before
+    // PriceMatcher saw the final item segment.
+    // Limit this to item families for which PriceMatcher actually owns quantity.
+    if (preg_match(
+        '/\b\d+(?:[.,]\d+)?\s+(?:'
+        .'gott?s?|gifts?\s+of\s+the\s+traveler|'
+        .'zkeys?|zaishen\s+keys?|'
+        .'nick\s*sets?|nicksets?|nicholas\s+sets?|'
+        .'elite\s+(?:monk|elementalist|ele|mesmer|mes|necromancer|necro|ranger|warrior|assassin|ritualist|paragon|dervish)\s+tomes?|'
+        .'(?:elite\s+)?tomes?|unids?|gifts?'
+        .')\b[^\r\n|;,]{0,45}?\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
+        $m
+    )) {
+        return true;
     }
+
+    // 8A.1: explicit N-item-for-M-money syntax, e.g. "11 zkeys for 7 ectos".
+    if (preg_match(
+        '/\b\d+(?:[.,]\d+)?\s+[^\r\n|;,]{1,60}?\bfor\s+\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
+        $m
+    )) {
+        return true;
+    }
+
+    // 8A shared trailing price: require an actual list separator before the
+    // single trailing /ea or each quote. Plain historic /ea ads do not need a reparse.
+    if (preg_match(
+        '/(?:,|;|\|)[^\r\n]{1,140}\d+(?:[.,]\d+)?\s*'.$money.'\s*(?:\/\s*)?(?:ea|each)\b/iu',
+        $m
+    )) {
+        return true;
+    }
+
+    // 8A compact Elite Tome list:
+    // "Elite Monk (12) Ele (6) Mes (10) 2e/ea".
+    if (preg_match(
+        '/\belite\b[^\r\n|;]{0,140}\(\s*\d+\s*\)[^\r\n|;]{0,140}'
+        .'\d+(?:[.,]\d+)?\s*'.$money.'\s*(?:\/\s*)?(?:ea|each)\b/iu',
+        $m
+    )) {
+        return true;
+    }
+
     return false;
 };
 
@@ -263,6 +274,7 @@ foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
     foreach ($batchIds as $messageId) {
         $fetchMessage->execute([$messageId]);
         $row = $fetchMessage->fetch(PDO::FETCH_ASSOC);
+        $fetchMessage->closeCursor();
         if (!$row) continue;
 
         $message = (string)$row['message'];
@@ -277,39 +289,40 @@ foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
                 $affectedKeys[$key] = true;
             }
         }
+        $oldKeysStmt->closeCursor();
 
         try {
-            $result = $parseWithBusyRetry(
-                static function () use ($pdo, $writer, $newStatsStmt, $updateMessage, $messageId, $message): array {
-                    $pdo->beginTransaction();
+            // Do NOT hold one transaction open across the full ParserEngine pass.
+            // StructuredOfferWriter is replace/idempotent: if a transient lock hits,
+            // retrying the whole message safely recreates its structured rows.
+            $newCount = $parseWithBusyRetry(
+                static fn() => $writer->parseMessage($messageId, $message, true),
+                $pdo,
+                $messageId
+            );
 
-                    $newCount = $writer->parseMessage($messageId, $message, true);
+            $newStatsStmt->execute([$messageId]);
+            $stats = $newStatsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $newStatsStmt->closeCursor();
 
-                    $newStatsStmt->execute([$messageId]);
-                    $stats = $newStatsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-                    $a = (int)($stats['accepted'] ?? 0);
-                    $r = (int)($stats['review'] ?? 0);
-                    $x = (int)($stats['rejected'] ?? 0);
+            $a = (int)($stats['accepted'] ?? 0);
+            $r = (int)($stats['review'] ?? 0);
+            $x = (int)($stats['rejected'] ?? 0);
 
-                    if ($r > 0 || $a === 0) {
-                        $status = 'review';
-                        $summary = $a > 0
-                            ? "{$a} herkend, {$r} controle nodig"
-                            : 'Niet betrouwbaar herkend · controle nodig';
-                    } else {
-                        $status = 'parsed';
-                        $summary = $a . ' aanbieding' . ($a === 1 ? '' : 'en') . ' herkend';
-                    }
+            if ($r > 0 || $a === 0) {
+                $status = 'review';
+                $summary = $a > 0
+                    ? "{$a} herkend, {$r} controle nodig"
+                    : 'Niet betrouwbaar herkend · controle nodig';
+            } else {
+                $status = 'parsed';
+                $summary = $a . ' aanbieding' . ($a === 1 ? '' : 'en') . ' herkend';
+            }
 
+            $parseWithBusyRetry(
+                static function () use ($updateMessage, $status, $summary, $newCount, $messageId): int {
                     $updateMessage->execute([$status, $summary, $newCount, $messageId]);
-                    $pdo->commit();
-
-                    return [
-                        'new_count' => $newCount,
-                        'accepted' => $a,
-                        'review' => $r,
-                        'rejected' => $x,
-                    ];
+                    return $updateMessage->rowCount();
                 },
                 $pdo,
                 $messageId
@@ -323,11 +336,12 @@ foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
                     $affectedKeys[$key] = true;
                 }
             }
+            $newKeysStmt->closeCursor();
 
-            $created += (int)$result['new_count'];
-            $accepted += (int)$result['accepted'];
-            $review += (int)$result['review'];
-            $rejected += (int)$result['rejected'];
+            $created += (int)$newCount;
+            $accepted += $a;
+            $review += $r;
+            $rejected += $x;
             $processed++;
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
