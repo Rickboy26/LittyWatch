@@ -96,7 +96,61 @@ final class StructuredOfferWriter {
      if(!$variantGate['allowed']){$r['quality_status']='rejected';$r['quality_reason']=$variantGate['reason'];}
     }
    }
-   $itemKeys[]=$r['item_key'];$ins->execute([$messageId,$r['trade_type'],$r['item'],$r['item_key'],$r['market_key'],$r['normalized_market_key'],$r['requirement'],$r['attribute_key'],$r['attribute_name'],$r['is_oldschool'],$r['is_inscribable'],$r['mods_json'],$r['relevant_json'],$r['profile_json'],$r['quantity'],$r['price_amount'],$r['price_currency'],$r['price_ecto'],$r['unit_price_ecto'],$r['price_basis'],$r['confidence'],$r['quality_status'],$r['quality_reason'],$r['raw_segment'],'v5.2-phase7d2-canonical-live-dedup',date(DATE_ATOM),$r['quality_status']==='accepted'?'active':'rejected',date(DATE_ATOM),$r['exchange_item'],$r['exchange_item_key'],$r['exchange_give_quantity'],$r['exchange_receive_quantity']]);$n+=$ins->rowCount();}}
+   
+     // LITTYWATCH_PHASE8B2B_BARE_MARKET_INTENT
+     // Final integrity check after catalog/variant resolution.
+     if ($r['quality_status'] === 'accepted') {
+      $__lwMessage = trim((string)$message);
+
+      $__lwUnknownTrade =
+       mb_strtolower(trim((string)($r['trade_type'] ?? ''))) === 'unknown';
+
+      $__lwShortMessage = mb_strlen($__lwMessage) <= 30;
+
+      // WTS / W.T.S / W T S / W-T-S / WTB / WTT
+      $__lwExplicitDirection = preg_match(
+       '/(?:^|[^a-z])w[.\s_-]*t[.\s_-]*[sbt](?:[^a-z]|$)|\b(?:buying|selling|trading)\b/iu',
+       $__lwMessage
+      ) === 1;
+
+      // Price evidence anywhere in the complete message.
+      // Keeps shorthand such as "apples/corn 20e".
+      $__lwMessageHasPrice = preg_match(
+       '/(?:^|[^a-z0-9])\d+(?:[.,]\d+)?\s*(?:a|e|k)(?:\s*\/\s*(?:ea|each))?(?:[^a-z]|$)/iu',
+       $__lwMessage
+      ) === 1;
+
+      $__lwOfferHasPrice =
+       ($r['price_amount'] ?? null) !== null
+       || ($r['price_ecto'] ?? null) !== null
+       || ($r['unit_price_ecto'] ?? null) !== null;
+
+      if (
+       $__lwUnknownTrade
+       && $__lwShortMessage
+       && !$__lwExplicitDirection
+       && !$__lwMessageHasPrice
+       && !$__lwOfferHasPrice
+      ) {
+       $r['quality_status'] = 'review';
+       $r['quality_reason'] = 'bare_market_intent_unresolved';
+      }
+     }
+
+
+     // LITTYWATCH_PHASE8C3_UNKNOWN_DIRECTION_QUARANTINE
+     // An offer without a recoverable buy/sell/trade direction cannot safely
+     // participate in live market intelligence. Preserve it for review rather
+     // than guessing its direction or permanently rejecting it.
+     if (
+      $r['quality_status'] === 'accepted'
+      && mb_strtolower(trim((string)($r['trade_type'] ?? ''))) === 'unknown'
+     ) {
+      $r['quality_status'] = 'review';
+      $r['quality_reason'] = 'trade_direction_unresolved';
+     }
+
+$itemKeys[]=$r['item_key'];$ins->execute([$messageId,$r['trade_type'],$r['item'],$r['item_key'],$r['market_key'],$r['normalized_market_key'],$r['requirement'],$r['attribute_key'],$r['attribute_name'],$r['is_oldschool'],$r['is_inscribable'],$r['mods_json'],$r['relevant_json'],$r['profile_json'],$r['quantity'],$r['price_amount'],$r['price_currency'],$r['price_ecto'],$r['unit_price_ecto'],$r['price_basis'],$r['confidence'],$r['quality_status'],$r['quality_reason'],$r['raw_segment'],'v5.2-phase8c3-direction-integrity',date(DATE_ATOM),$r['quality_status']==='accepted'?'active':'rejected',date(DATE_ATOM),$r['exchange_item'],$r['exchange_item_key'],$r['exchange_give_quantity'],$r['exchange_receive_quantity']]);$n+=$ins->rowCount();}}
   if($this->lifecycle!==null){$this->lifecycle->rebuild($messageId);(new MarketQualityService($this->pdo))->rebuildForItemKeys($itemKeys);}
   return $n;
  }

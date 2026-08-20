@@ -23,8 +23,65 @@ final class MarketMessageGate
             return ['accepted'=>false,'kind'=>'noise','reason'=>'conversation'];
         }
 
-        if (preg_match('/^\s*pc(?:\s+on|\s*:|\s+)/iu', $clean)) {
+        // Phase 8B.1: pure price-check / valuation requests are not market offers.
+        // Keep mixed messages with an explicit WTB/WTS/WTT intent, so a valid
+        // advertisement is not discarded merely because it also mentions a PC.
+        $hasExplicitTradeIntent = preg_match(
+            '/\b(?:wtb|wts|wtt|buying|selling|trading)\b/iu',
+            $clean
+        ) === 1;
+
+        $hasPriceCheckIntent = (
+            preg_match('/^\s*pc(?:\s+on|\s+for|\s*:|\s+)/iu', $clean) === 1
+            || preg_match('/\bprice\s*check\b/iu', $clean) === 1
+            || preg_match('/\bpricecheck\b/iu', $clean) === 1
+        );
+
+        if ($hasPriceCheckIntent && !$hasExplicitTradeIntent) {
             return ['accepted'=>false,'kind'=>'price_check','reason'=>'price_check'];
+        }
+
+        // Phase 8B.2a: clear non-offer intents.
+        // These are conversations, valuations, completed transactions,
+        // giveaways or service requests rather than current market offers.
+        // Never reject the complete message here when it also contains an
+        // explicit WTB/WTS/WTT marker.
+        if (!$hasExplicitTradeIntent) {
+            if (
+                preg_match('/\b(?:what(?:\s+is|\'s)\s+the\s+price|what\s+are\s+the\s+prices?|how\s+much\s+(?:is|are))\b/iu', $clean)
+            ) {
+                return ['accepted'=>false,'kind'=>'price_question','reason'=>'price_question'];
+            }
+
+            if (
+                preg_match('/\b(?:just\s+bought|i\s+(?:just\s+)?bought|bought\s+(?:a|an)\b)\b/iu', $clean)
+            ) {
+                return ['accepted'=>false,'kind'=>'historical_trade','reason'=>'historical_purchase'];
+            }
+
+            if (
+                preg_match('/\b(?:giving\s+(?:out|away)|giveaway|for\s+free|free\s+(?:(?:monk|rit(?:ualist)?|warrior|ranger|necro(?:mancer)?|mesmer|elementalist|assassin|paragon|dervish)(?:\s*(?:and|\/|,)\s*(?:monk|rit(?:ualist)?|warrior|ranger|necro(?:mancer)?|mesmer|elementalist|assassin|paragon|dervish))?\s+)?(?:tomes?|runes?|items?))\b/iu', $clean)
+            ) {
+                return ['accepted'=>false,'kind'=>'giveaway','reason'=>'giveaway'];
+            }
+
+            if (
+                preg_match('/\b(?:lf|looking\s+for|need(?:ing)?)\s+(?:a\s+)?runner\b/iu', $clean)
+            ) {
+                return ['accepted'=>false,'kind'=>'service','reason'=>'runner_request'];
+            }
+
+            if (
+                preg_match('/\bhow\s+many\b.{0,80}\b(?:do\s+u|do\s+you)\s+have\b/iu', $clean)
+                || preg_match('/\b(?:do\s+u|do\s+you)\s+still\s+have\b/iu', $clean)
+                || preg_match('/\btake\s+a\s+look\s+if\b/iu', $clean)
+                || preg_match('/\b(?:around\s+i\s+would\s+say|are\s+possible\s+too)\b/iu', $clean)
+                || preg_match('/\bnewly\s+gearing\s+this\s+character\b/iu', $clean)
+                || preg_match('/\bim\s+far\s+away\s+from\b/iu', $clean)
+                || preg_match('/\bqqun\s+aurait\s+encore\b/iu', $clean)
+            ) {
+                return ['accepted'=>false,'kind'=>'conversation','reason'=>'trade_conversation'];
+            }
         }
 
         $guildPatterns = [
