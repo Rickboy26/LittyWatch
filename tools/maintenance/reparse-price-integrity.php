@@ -114,20 +114,13 @@ $isCandidate = static function (string $message): bool {
         '/(?:\bstacks?\b|\bstk\b)[^\r\n|;,]{0,60}\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
         '/\d+(?:[.,]\d+)?\s*'.$money.'\s*(?:\/|\-|\bper\s+)(?:st|stk|stack)\b/iu',
 
-        // "27e x6" or inventory "x6".
+        // "27e x6": explicit each-price quantity notation.
         '/\d+(?:[.,]\d+)?\s*'.$money.'\s*x\s*\d+\b/iu',
-        '/(?:^|[\s,;|])x\s*\d+\b/iu',
 
         // Compact shared-price elite-tome notation:
         // Elite Monk (12) Ele (6) Mes (10) 2e/ea
         '/\belite\b[^\r\n|;]{0,120}\([ ]*\d+[ ]*\)[^\r\n|;]{0,120}\d+(?:[.,]\d+)?\s*'.$money.'\s*(?:\/\s*)?(?:ea|each)\b/iu',
 
-        // Price-like modifier/value tokens that 8A explicitly protects.
-        '/\b\d{2,4}\s*gv\b/iu',
-        '/\b\d{1,2}\s*\/\s*\d{1,2}\b/u',       // 20/20, 20/10
-        '/\b\d{1,2}\s*\^\s*\d{1,3}\b/u',       // 15^50
-        '/(?<!\d)\+\s*\d{1,3}\b/u',            // +30
-        '/(?<!\d)-\s*\d{1,2}\s*we\b/iu',       // -2we
     ];
 
     foreach ($patterns as $pattern) {
@@ -226,6 +219,44 @@ $affectedKeys = [];
 $lifecycleResult = [];
 $started = microtime(true);
 
+/**
+ * Retry a complete message parse on transient SQLite BUSY/LOCKED errors.
+ * Roll back before each retry so no partial message transaction survives.
+ */
+$parseWithBusyRetry = static function (callable $fn, PDO $pdo, int $messageId, int $attempts = 20) {
+    $delayUs = 100000;
+    for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+        try {
+            return $fn();
+        } catch (PDOException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+
+            $msg = strtolower($e->getMessage());
+            $busy = str_contains($msg, 'database is locked')
+                || str_contains($msg, 'database is busy')
+                || str_contains($msg, 'general error: 5');
+
+            if (!$busy || $attempt === $attempts) throw $e;
+
+            fwrite(
+                STDOUT,
+                sprintf(
+                    "\nmessage #%d: database busy, retry %d/%d...\n",
+                    $messageId,
+                    $attempt,
+                    $attempts
+                )
+            );
+
+            usleep($delayUs);
+            $delayUs = min(2000000, (int)($delayUs * 1.5));
+        }
+    }
+
+    throw new RuntimeException("Retry uitgeput voor message #{$messageId}");
+};
+
+
 foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
     $batchKeys = [];
 
@@ -248,28 +279,41 @@ foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
         }
 
         try {
-            $pdo->beginTransaction();
+            $result = $parseWithBusyRetry(
+                static function () use ($pdo, $writer, $newStatsStmt, $updateMessage, $messageId, $message): array {
+                    $pdo->beginTransaction();
 
-            $newCount = $writer->parseMessage($messageId, $message, true);
+                    $newCount = $writer->parseMessage($messageId, $message, true);
 
-            $newStatsStmt->execute([$messageId]);
-            $stats = $newStatsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-            $a = (int)($stats['accepted'] ?? 0);
-            $r = (int)($stats['review'] ?? 0);
-            $x = (int)($stats['rejected'] ?? 0);
+                    $newStatsStmt->execute([$messageId]);
+                    $stats = $newStatsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                    $a = (int)($stats['accepted'] ?? 0);
+                    $r = (int)($stats['review'] ?? 0);
+                    $x = (int)($stats['rejected'] ?? 0);
 
-            if ($r > 0 || $a === 0) {
-                $status = 'review';
-                $summary = $a > 0
-                    ? "{$a} herkend, {$r} controle nodig"
-                    : 'Niet betrouwbaar herkend · controle nodig';
-            } else {
-                $status = 'parsed';
-                $summary = $a . ' aanbieding' . ($a === 1 ? '' : 'en') . ' herkend';
-            }
-            $updateMessage->execute([$status, $summary, $newCount, $messageId]);
+                    if ($r > 0 || $a === 0) {
+                        $status = 'review';
+                        $summary = $a > 0
+                            ? "{$a} herkend, {$r} controle nodig"
+                            : 'Niet betrouwbaar herkend · controle nodig';
+                    } else {
+                        $status = 'parsed';
+                        $summary = $a . ' aanbieding' . ($a === 1 ? '' : 'en') . ' herkend';
+                    }
 
-            $pdo->commit();
+                    $updateMessage->execute([$status, $summary, $newCount, $messageId]);
+                    $pdo->commit();
+
+                    return [
+                        'new_count' => $newCount,
+                        'accepted' => $a,
+                        'review' => $r,
+                        'rejected' => $x,
+                    ];
+                },
+                $pdo,
+                $messageId
+            );
 
             $newKeysStmt->execute([$messageId]);
             foreach ($newKeysStmt->fetchAll(PDO::FETCH_COLUMN) as $key) {
@@ -280,10 +324,10 @@ foreach (array_chunk($candidateIds, $batchSize) as $batchIndex => $batchIds) {
                 }
             }
 
-            $created += $newCount;
-            $accepted += $a;
-            $review += $r;
-            $rejected += $x;
+            $created += (int)$result['new_count'];
+            $accepted += (int)$result['accepted'];
+            $review += (int)$result['review'];
+            $rejected += (int)$result['rejected'];
             $processed++;
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
