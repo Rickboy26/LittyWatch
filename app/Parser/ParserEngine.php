@@ -280,6 +280,17 @@ final class ParserEngine
         return $out;
     }
 
+    private function normalizeCompactQuantityItemBoundary(string $segment): string
+    {
+        return preg_replace(
+            '/^(\\s*\\d+\\s*x?)(?=(?:gott?s?|nickgifts?|nicksets?|zkeys?|'
+            .'gift(?:s)?\\s+of\\s+the\\s+travell?er|zaishen\\s+keys?|'
+            .'(?:elite\\s+)?tomes?)\\b)/iu',
+            '$1 ',
+            $segment
+        ) ?? $segment;
+    }
+
     private function weaponFamilyFromName(string $item): ?string
     {
         if(!preg_match('/\b(staff|wand|focus|bow|longbow|sword|axe|hammer|shield|spear|scythe|daggers?)\b/iu',$item,$m))return null;
@@ -293,6 +304,13 @@ final class ParserEngine
     {
         $segment = trim($segment, " \t\n\r\0\x0B|,;");
         if ($segment === '') return [];
+
+        // Phase 8A.7: restore the word boundary for compact inventory notation
+        // before catalog matching. PriceMatcher already understands the quantity;
+        // this only lets ItemMatcher see the canonical item alias as well:
+        // `5GoTT` -> `5 GoTT`, `5xGoTT` -> `5x GoTT`,
+        // `5NickGifts` -> `5 NickGifts`.
+        $segment = $this->normalizeCompactQuantityItemBoundary($segment);
 
         if ($tradeType === 'trade') {
             $exchangeOffers = $this->parseExchangeSegment($segment);
