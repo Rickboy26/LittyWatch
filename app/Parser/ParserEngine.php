@@ -696,6 +696,24 @@ final class ParserEngine
         $category = (string)($item['category'] ?? '');
         $ecto = $price->ectoValue;
 
+        // Phase 8A.5: some markets are genuinely mixed-basis in live Kamadan
+        // usage. Gift of the Traveler, for example, is quoted both per gift and
+        // per 250-stack. Catalog stack metadata therefore supplies the stack size
+        // only when the offer itself says stack/stk; a bare `GoTT 2e` has no safe
+        // unit basis and must stay out of trusted market statistics.
+        if ($this->isMixedBasisMarket($key)
+            && !preg_match('/\b(?:stack|stacks|stk)\b/iu', $slice)) {
+            return new ParsedPrice(
+                $price->amount,
+                $price->currency,
+                $ecto,
+                'uncertain',
+                $price->quantity,
+                null,
+                $price->raw,
+            );
+        }
+
         // Phase 3H: market quote semantics are catalog-owned. A known
         // stack-quoted item may omit `stk` in Kamadan; only that item's declared
         // quote size is used. No category-wide consumable assumption is made.
@@ -783,6 +801,11 @@ final class ParserEngine
         // classified as `each` by PriceMatcher. A naked amount remains visible
         // but is not trusted for statistics unless context explicitly says each.
         return new ParsedPrice($price->amount,$price->currency,$ecto,'uncertain',$price->quantity,null,$price->raw);
+    }
+
+    private function isMixedBasisMarket(string $itemKey): bool
+    {
+        return in_array($itemKey, ['gift-of-the-traveler','tengu-support-flare'], true);
     }
 
     /** @return list<ParsedOffer> */

@@ -138,6 +138,8 @@ final class PriceMatcher
     {
         if (preg_match('/\[x\s*(\d+)\]/i', $segment, $m)) return (float) $m[1];
         if (preg_match('/\bx\s*(\d+)\b/i', $segment, $m)) return (float) $m[1];
+        // Compact inventory shorthand before the item: `5xGift of the Traveler 10e`.
+        if (preg_match('/\b(\d+)\s*x\s*(?:gott?s?|gift(?:s)?\s+of\s+the\s+travell?er|nick\s*gifts?|zkeys?|zaishen\s+keys?|(?:elite\s+)?tomes?|unids?|gifts?)\b/i', $segment, $m)) return (float) $m[1];
         if (preg_match('/\b(\d+)\s+(?:gott?s?|go?t|nick\s*sets?|nicksets?|zkeys?|tomes?|unids?|gifts?)\b/i', $segment, $m)) return (float) $m[1];
         return null;
     }

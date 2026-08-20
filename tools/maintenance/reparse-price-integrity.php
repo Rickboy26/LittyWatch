@@ -110,6 +110,19 @@ $isCandidate = static function (string $message): bool {
         return true;
     }
 
+    // 8A.5: mixed-basis GoTT quotes must be reparsed after removing the
+    // old unconditional stack inference. This also catches compact xN forms such
+    // as `GoTT x5 12e` and `5xGift of the Traveler 10e`.
+    if (preg_match(
+        '/\b(?:gott?s?|gift(?:s)?\s+of\s+the\s+travell?er|nick\s*gifts?)\b[^\r\n|;,]{0,50}?\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
+        $m
+    ) || preg_match(
+        '/\b\d+\s*x\s*(?:gott?s?|gift(?:s)?\s+of\s+the\s+travell?er|nick\s*gifts?)\b[^\r\n|;,]{0,50}?\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
+        $m
+    )) {
+        return true;
+    }
+
     // 8A.1: explicit N-item-for-M-money syntax, e.g. "11 zkeys for 7 ectos".
     if (preg_match(
         '/\b\d+(?:[.,]\d+)?\s+[^\r\n|;,]{1,60}?\bfor\s+\d+(?:[.,]\d+)?\s*'.$money.'\b/iu',
