@@ -140,7 +140,11 @@ final class PriceMatcher
         if (preg_match('/\bx\s*(\d+)\b/i', $segment, $m)) return (float) $m[1];
         // Compact inventory shorthand before the item: `5xGift of the Traveler 10e`.
         if (preg_match('/\b(\d+)\s*x\s*(?:gott?s?|gift(?:s)?\s+of\s+the\s+travell?er|nick\s*gifts?|zkeys?|zaishen\s+keys?|(?:elite\s+)?tomes?|unids?|gifts?)\b/i', $segment, $m)) return (float) $m[1];
-        if (preg_match('/\b(\d+)\s+(?:gott?s?|go?t|nick\s*sets?|nicksets?|zkeys?|tomes?|unids?|gifts?)\b/i', $segment, $m)) return (float) $m[1];
+        // Phase 8A.6: Kamadan users also concatenate inventory quantity and item
+        // name: `5NickGifts 10e`, `5GoTT 12e`, `5Zkeys 4e`. Keep this
+        // item-family scoped so ordinary item/model numbers never become quantity.
+        if (preg_match('/(?<![a-z0-9])(\d+)(?:gott?s?|nickgifts?|nicksets?|zkeys?|tomes?|unids?|gifts?)\b/i', $segment, $m)) return (float) $m[1];
+        if (preg_match('/\b(\d+)\s+(?:gott?s?|go?t|nick\s*gifts?|nick\s*sets?|nicksets?|zkeys?|tomes?|unids?|gifts?)\b/i', $segment, $m)) return (float) $m[1];
         return null;
     }
 
