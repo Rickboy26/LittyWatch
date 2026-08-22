@@ -128,7 +128,7 @@ foreach ($rows as $index => $row) {
     $started = microtime(true);
 
     try {
-        $result = $client->complete($prompt, 400, 0.0);
+        $result = $client->complete($prompt, 2048, 0.0);
         $duration = microtime(true) - $started;
         $totalDuration += $duration;
 

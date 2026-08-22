@@ -83,7 +83,7 @@ $client = new LocalAiClient();
 $started = microtime(true);
 
 try {
-    $result = $client->complete($prompt, 300, 0.0);
+    $result = $client->complete($prompt, 2048, 0.0);
 } catch (Throwable $e) {
     fwrite(STDERR, "AI ERROR: " . $e->getMessage() . PHP_EOL);
     exit(1);

@@ -14,7 +14,7 @@ final class LocalAiClient
 
     public function complete(
         string $prompt,
-        int $maxTokens = 300,
+        int $maxTokens = 1024,
         float $temperature = 0.0
     ): array {
         /*
@@ -27,7 +27,9 @@ final class LocalAiClient
 
         $payload = [
             'prompt' => $prompt,
-            'n_predict' => min($maxTokens, 800),
+            // Multi-offer advertisements can require considerably more than
+            // 800 tokens because every offer must contain the full schema.
+            'n_predict' => max(1, min($maxTokens, 4096)),
             'temperature' => $temperature,
             'cache_prompt' => true,
 
@@ -60,7 +62,7 @@ final class LocalAiClient
                 JSON_UNESCAPED_SLASHES
             ),
             CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT => 120,
+            CURLOPT_TIMEOUT => 300,
         ]);
 
         $response = curl_exec($ch);
@@ -100,6 +102,16 @@ final class LocalAiClient
         if ($content === '') {
             throw new RuntimeException(
                 'AI-server gaf geen content terug.'
+            );
+        }
+
+        if (($decoded['stopped_limit'] ?? false) === true) {
+            throw new RuntimeException(
+                'AI-output is afgekapt op de tokenlimiet' .
+                (isset($decoded['tokens_predicted'])
+                    ? ' (' . (int)$decoded['tokens_predicted'] . ' tokens)'
+                    : '') .
+                '. Verhoog maxTokens voor deze aanroep.'
             );
         }
 
