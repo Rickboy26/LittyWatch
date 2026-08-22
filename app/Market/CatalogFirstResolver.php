@@ -173,8 +173,46 @@ final class CatalogFirstResolver
         }
         // Dedication must also belong to this clause/candidate. Do not borrow
         // ded/unded from another miniature elsewhere in the same message.
-        $state=$this->miniState($miniContext);
-        if($state===null){$row['quality_status']='review';$row['quality_reason']='miniature_variant_unresolved';return [$row];}
+        //
+        // LITTYWATCH_PHASE8D2A_MINIATURE_DEDICATION_METADATA
+        // ParserEngine may already have recovered dedication from the original
+        // clause before segmentation removed the textual ded/unded marker.
+        // Prefer that candidate-owned metadata before inspecting the reduced
+        // item/segment text.
+        $state=null;
+
+        $relevant=json_decode((string)($row['relevant_json']??'{}'),true);
+        if(is_array($relevant)){
+            $dedication=mb_strtolower(trim((string)($relevant['dedication']??'')));
+            if($dedication==='undedicated'||$dedication==='unded')$state='unded';
+            elseif($dedication==='dedicated'||$dedication==='ded')$state='ded';
+        }
+
+        if($state===null){
+            $mods=json_decode((string)($row['mods_json']??'{}'),true);
+            if(is_array($mods)){
+                $dedication=mb_strtolower(trim((string)($mods['dedication']??'')));
+                if($dedication==='undedicated'||$dedication==='unded')$state='unded';
+                elseif($dedication==='dedicated'||$dedication==='ded')$state='ded';
+            }
+        }
+
+        if($state===null)$state=$this->miniState($miniContext);
+
+        // LITTYWATCH_PHASE8D2B_CLAUSE_LOCAL_DEDICATION
+        // If segmentation stripped the state from this concrete miniature,
+        // recover it only when ded/unded is directly attached to an alias of
+        // this exact miniature in the original message. Never borrow a state
+        // merely because another miniature elsewhere in the message has one.
+        if($state===null){
+            $state=$this->miniStateForCandidate($message,$candidate);
+        }
+
+        if($state===null){
+            $row['quality_status']='review';
+            $row['quality_reason']='miniature_variant_unresolved';
+            return [$row];
+        }
 
         // LITTYWATCH_PHASE7E_MINIATURE_BUNDLE_RECOVERY
         // Recover one concrete miniature from noisy shorthand only when the
@@ -220,6 +258,150 @@ final class CatalogFirstResolver
         $candidate=preg_replace('/\s+(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)$/iu','',$candidate)??$candidate;
         $candidate=preg_replace('/\s+mini(?:ature)?s?$/iu','',$candidate)??$candidate;
         return trim(preg_replace('/\s+/u',' ',$candidate)??$candidate," \t\n\r\0\x0B:,-");
+    }
+
+    // LITTYWATCH_PHASE8D2B_CLAUSE_LOCAL_DEDICATION
+    private function miniStateForCandidate(string $message,string $candidate): ?string
+    {
+        $name=trim($candidate);
+        if($name==='')return null;
+        if(!str_starts_with(mb_strtolower($name),'miniature '))$name='Miniature '.$name;
+
+        // Use all aliases belonging to every active KB row with this canonical
+        // visible name. Some historical KB data contains duplicate keys for the
+        // same miniature name, so key-only lookup would lose valid aliases.
+        $st=$this->pdo->prepare("
+            SELECT DISTINCT i.name,a.alias
+            FROM kb_items i
+            LEFT JOIN kb_aliases a ON a.item_key=i.key
+            WHERE i.active=1
+              AND lower(trim(i.name))=lower(trim(:n))
+        ");
+        $st->execute([':n'=>$name]);
+
+        $aliases=[$name];
+
+        foreach($st->fetchAll(PDO::FETCH_ASSOC) as $r){
+            $alias=trim((string)($r['alias']??''));
+            if($alias==='')continue;
+            if(str_starts_with(mb_strtolower($alias),'file:'))continue;
+            $aliases[]=$alias;
+        }
+
+        $text=$this->normalizeMiniStateText($message);
+        $states=[];
+
+        foreach(array_unique($aliases) as $alias){
+            $alias=$this->normalizeMiniStateText($alias);
+            if($alias===''||mb_strlen($alias)<4)continue;
+
+            $q=preg_quote($alias,'/');
+
+            if(preg_match(
+                '/(?:^| )(uded|unded|undedicated|un ded|ded|dedicated)\s+(?:mini(?:ature)?\s+)?'.$q.'(?: |$)/u',
+                $text,
+                $m
+            )){
+                $token=(string)$m[1];
+                $states[str_starts_with($token,'u')?'unded':'ded']=true;
+            }
+
+            if(preg_match(
+                '/(?:^| )'.$q.'\s+(uded|unded|undedicated|un ded|ded|dedicated)(?: |$)/u',
+                $text,
+                $m
+            )){
+                $token=(string)$m[1];
+                $states[str_starts_with($token,'u')?'unded':'ded']=true;
+            }
+        }
+
+        // Candidate-local evidence always wins.
+        if(count($states)===1)return array_key_first($states);
+
+        // Conflicting direct states are ambiguous.
+        if(count($states)>1)return null;
+
+        // LITTYWATCH_PHASE8D2C_MINI_LIST_PREFIX
+        // A dedication marker may scope an explicit miniature list:
+        //
+        //   Unded mini pets|Flowstone, Elf, Kirin
+        //   Gold Unded Mini Shiro, Water Djinn, ...
+        //   Mini unded White Rabbit, Shiro, ...
+        //   Ded Minis: Varesh, Asura
+        //
+        // This is deliberately NOT a generic comma-list inheritance rule.
+        // "unded Dhuum, Horseman, Wailing Lord" must not spread the Dhuum
+        // state to the later miniatures.
+        return $this->miniListStateForCandidate($message,$aliases);
+    }
+
+    /** @param list<string> $aliases */
+    private function miniListStateForCandidate(string $message,array $aliases): ?string
+    {
+        $stateToken='(?:uded|unded|undedicated|un[- ]?ded|ded|dedicated)';
+        $miniToken='(?:mini(?:ature)?(?:\\s*pets?)?|minipets?|minis?|miniatures?)';
+
+        $pattern=
+            '/\\b(?:'
+            .'(?<before>'.$stateToken.')\\s+'.$miniToken
+            .'|'.$miniToken.'\\s+(?<after>'.$stateToken.')'
+            .')\\b'
+            .'\\s*'
+            .'(?:\\d+(?:[.,]\\d+)?\\s*(?:a|e|k)(?:\\s*\\/\\s*(?:ea|each))?\\s*)?'
+            .'[:|]?\\s*'
+            .'(?<body>[^|]{1,300})'
+            .'/iu';
+
+        if(!preg_match_all($pattern,$message,$matches,PREG_SET_ORDER))return null;
+
+        $found=[];
+
+        foreach($matches as $match){
+            $token=mb_strtolower(trim((string)(
+                ($match['before']??'')!=='' ? $match['before'] : ($match['after']??'')
+            )));
+
+            if($token==='')continue;
+
+            $state=str_starts_with($token,'u')?'unded':'ded';
+            $body=$this->normalizeMiniStateText((string)($match['body']??''));
+
+            if($body==='')continue;
+
+            foreach(array_unique($aliases) as $alias){
+                $alias=$this->normalizeMiniStateText((string)$alias);
+
+                if($alias===''||mb_strlen($alias)<3)continue;
+
+                // "Miniature Foo" aliases should also match list members written
+                // simply as "Foo".
+                $short=preg_replace('/^miniature\\s+/u','',$alias)??$alias;
+
+                foreach(array_unique([$alias,$short]) as $needle){
+                    if($needle==='')continue;
+
+                    if(preg_match(
+                        '/(?:^| )'.preg_quote($needle,'/').'(?: |$)/u',
+                        $body
+                    )){
+                        $found[$state]=true;
+                    }
+                }
+            }
+        }
+
+        // Multiple list scopes assigning conflicting states remain unresolved.
+        if(count($found)!==1)return null;
+
+        return array_key_first($found);
+    }
+
+    private function normalizeMiniStateText(string $value): string
+    {
+        $value=str_replace(['’','´','`'],"'",mb_strtolower($value));
+        $value=preg_replace('/[^a-z0-9]+/u',' ',$value)??$value;
+        return trim(preg_replace('/\s+/u',' ',$value)??$value);
     }
 
     private function miniState(string $text): ?string

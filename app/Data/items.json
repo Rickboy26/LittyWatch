@@ -2408,5 +2408,13 @@
     "market_quote_basis": "stack",
     "market_quote_size": 250,
     "market_display_basis": "each"
+  },
+  {
+    "key": "water-staff",
+    "name": "Water Staff",
+    "category": "staff",
+    "aliases": [
+      "Water Staff"
+    ]
   }
 ]

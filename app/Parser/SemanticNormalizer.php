@@ -53,7 +53,7 @@ final class SemanticNormalizer
             '/\bz\s*keys?\b|\bzkeys?\b/iu' => 'Zaishen Key',
             '/\bparty\s+beaco(?:n)?\b/iu' => 'Party Beacon',
             '/\bsephis\s+word\b/iu' => 'Sephis Sword',
-            '/\bfrogg?y?\b/iu' => 'Frog Scepter',
+            '/\bfrogg?y?\b(?!\s+scepter\b)/iu' => 'Frog Scepter',
             // Phase 2E: high-confidence residual aliases from Parser Review.
             '/\b(?:all\s+)?tot\s+bags?\b/iu' => 'Trick-or-Treat Bag',
             '/\btrick\s*(?:-|\s)?or\s*(?:-|\s)?treat\s+bags?\b/iu' => 'Trick-or-Treat Bag',

@@ -60,7 +60,7 @@ final class ParserEngine
         $this->taxonomy = new ItemTaxonomy($catalog->taxonomy());
         $this->reviewCandidateClassifier = new ReviewCandidateClassifier($this->taxonomy);
         $this->sharedOfferListExpander = new SharedOfferListExpander();
-        $this->marketBundleExpander = new MarketBundleExpander();
+        $this->marketBundleExpander = new MarketBundleExpander($catalog->database());
         if ($catalog->knowledgeBase() !== null) {
             $this->categoryExpander = new CategoryExpander($catalog->knowledgeBase());
             $this->profileResolver = new \LittyWatch\Knowledge\ProfileResolver($catalog->knowledgeBase());
@@ -81,7 +81,8 @@ final class ParserEngine
 
             // Normalize the complete block first. Some market shorthand (for example
             // birthday ranges) expands into multiple logical offers before segmentation.
-            $blockText = $this->semantic->normalize($block['text']);
+            $rawBlockText = $block['text'];
+            $blockText = $this->semantic->normalize($rawBlockText);
             // Phase 3V: remove explicit negative/exclusion clauses before item
             // segmentation. "unid golds (no scythes, shields or spears)" is one
             // offer for Unidentified Gold, not four separate offers.
@@ -89,7 +90,15 @@ final class ParserEngine
             // Tome advertisements use profession shorthand and comma/space lists that
             // need semantic expansion before the generic grammar splitter flattens them.
             // LITTYWATCH_PHASE4C_BUNDLE_RESOLVER
-            $phase4cBundleSegments = $this->marketBundleExpander->expand($blockText);
+            // LITTYWATCH_PHASE8D2C8_RAW_BUNDLE_BEFORE_SEMANTIC
+            // Shared miniature state can be lossy after SemanticNormalizer:
+            // "unded destroyer, ceratadon" becomes
+            // "Miniature Destroyer of Flesh unded, ceratadon".
+            // Give the bundle resolver the original block first; retain the
+            // semantic form as fallback for existing normalized bundle cases.
+            $phase4cBundleSegments =
+                $this->marketBundleExpander->expand($rawBlockText)
+                ?? $this->marketBundleExpander->expand($blockText);
             $sharedListSegments = $phase4cBundleSegments ?? $this->sharedOfferListExpander->expand($blockText);
             $smartSegments = preg_match('/\btomes?\b|^\s*(?:elite|normal|regular)\s+(?:war(?:rior)?|ranger|monk|necro(?:mancer)?|mes(?:mer)?|ele(?:mentalist)?|assassin|rit(?:ualist)?|para(?:gon)?|derv(?:ish)?)\b/iu', $blockText) ? $this->segmenter->split($blockText) : [];
             $segments = $sharedListSegments !== null
@@ -98,6 +107,8 @@ final class ParserEngine
             if ($segments === []) $segments = $this->segmenter->split($blockText);
             $segments = $this->splitExplicitRequirementCommaBoundaries($segments);
             $segments = $this->splitExplicitWeaponFamilyBoundaries($segments);
+            // LITTYWATCH_PHASE8G6_CONCRETE_REQUIREMENT_BOUNDARY
+            $segments = $this->splitExplicitConcreteRequirementBoundaries($segments);
             $segments = $this->contextualSegmentExpander->expand($segments);
             // Phase 3V: expand comma-separated requirement/attribute variants and
             // inherit the concrete item identity across shorthand continuation
@@ -233,7 +244,13 @@ final class ParserEngine
             // Slash-separated market lists: split only when the right-hand side
             // clearly contains a weapon-family noun. Attribute lists such as
             // "Air Q9/11" therefore remain untouched.
-            $parts=preg_split('/\s*\/\s*(?=[^\/]{0,80}\b'.$family.'\b)/iu',$segment) ?: [$segment];
+            // LITTYWATCH_PHASE8F2_PROTECT_NUMERIC_STAT_SLASH
+            // Numeric stat slashes zijn geen offer boundaries: 20/20, 40/40, 15/50.
+            // Echte boundaries zoals "BDS / q8 Shield" blijven wel splitsen.
+            $parts=preg_split(
+                '/(?<!\d)\s*\/\s*(?!\d)(?=[^\/]{0,80}\b'.$family.'\b)/iu',
+                $segment
+            ) ?: [$segment];
             foreach($parts as $part){
                 $part=trim($part);
                 if($part==='') continue;
@@ -252,6 +269,12 @@ final class ParserEngine
                 if(preg_match('/\b'.$family.'\b/iu',$tail,$fm,PREG_OFFSET_CAPTURE)){
                     $familyWord=mb_strtolower((string)$fm[0][0]);
                     $familyWord=rtrim($familyWord,'s');
+
+                    // LITTYWATCH_PHASE8G2_BOW_SUBTYPE_BOUNDARY
+                    // Longbow is a bow subtype, not a new weapon-family boundary:
+                    // Eternal Bow q9 Longbow must remain one concrete offer.
+                    if($familyWord==='longbow')$familyWord='bow';
+
                     if($familyWord==='dagger')$familyWord='dagger';
                     $normalizedItemFamily=rtrim(mb_strtolower($itemFamily),'s');
                     if($familyWord!==$normalizedItemFamily){
@@ -278,6 +301,136 @@ final class ParserEngine
             }
         }
         return $out;
+    }
+
+    /**
+     * Phase 8G.6: a requirement followed by a NEW concrete catalogue item starts
+     * a new ownership clause, even when Kamadan omits a separator.
+     *
+     * Examples:
+     *   dhuum 45a q9 Defender 400gv
+     *     -> dhuum 45a
+     *     -> q9 Defender 400gv
+     *
+     *   OS q11 Water Staff 20/20 offer q12 Eblade 400gv
+     *     -> OS q11 Water Staff 20/20 offer
+     *     -> q12 Eblade 400gv
+     *
+     * Requirement-only continuations remain untouched:
+     *   Ghostly Staff q13 Channeling 10e - q11 Dom 1a
+     *   Fellblade q9 5e - q10 2e
+     *
+     * @param list<string> $segments
+     * @return list<string>
+     */
+    private function splitExplicitConcreteRequirementBoundaries(array $segments): array
+    {
+        $out = [];
+
+        foreach ($segments as $segment) {
+            $cuts = [];
+
+            if (!preg_match_all(
+                '/\b(?:q|r|rq|req(?:uirement)?)\s*\d{1,2}\b/iu',
+                $segment,
+                $requirements,
+                PREG_OFFSET_CAPTURE
+            )) {
+                $out[] = $segment;
+                continue;
+            }
+
+            foreach ($requirements[0] as $requirement) {
+                $offset = (int)$requirement[1];
+
+                // A requirement at the start belongs to this clause already.
+                $prefix = trim(substr($segment, 0, $offset));
+
+                if ($prefix === '') {
+                    continue;
+                }
+
+                // LITTYWATCH_PHASE8G6A_REQUIREMENT_PREFIX_METADATA
+                // Metadata before the first requirement belongs to that same item:
+                //   OS q11 Water Staff
+                //   insc q9 Eternal Blade
+                // Do not create a standalone metadata clause.
+                $prefixWithoutMetadata = preg_replace(
+                    '/\\b(?:os|old\\s*school|insc(?:r(?:ibable|iptable)?)?|inscribable|gold|blue|purple|white)\\b/iu',
+                    ' ',
+                    $prefix
+                ) ?? $prefix;
+
+                $prefixWithoutMetadata = trim(
+                    preg_replace('/[\\s,;:\\/\\-]+/u', ' ', $prefixWithoutMetadata) ?? $prefixWithoutMetadata
+                );
+
+                if ($prefixWithoutMetadata === '') {
+                    continue;
+                }
+
+                $tail = substr($segment, $offset);
+
+                if ($tail === false || trim($tail) === '') {
+                    continue;
+                }
+
+                $matches = $this->itemMatcher->matchAll($tail);
+
+                $concrete = array_values(array_filter(
+                    $matches,
+                    fn(array $m): bool => $this->taxonomy->isConcreteMatch($m)
+                ));
+
+                if ($concrete === []) {
+                    continue;
+                }
+
+                // The concrete item must occur locally after qN. This prevents a
+                // later unrelated item far down the clause from creating a cut.
+                $firstStart = (int)$concrete[0]['start'];
+
+                if ($firstStart > 40) {
+                    continue;
+                }
+
+                $cuts[$offset] = true;
+            }
+
+            if ($cuts === []) {
+                $out[] = $segment;
+                continue;
+            }
+
+            $positions = array_keys($cuts);
+            sort($positions, SORT_NUMERIC);
+
+            $start = 0;
+
+            foreach ($positions as $cut) {
+                $piece = trim(
+                    substr($segment, $start, $cut - $start),
+                    " \t\n\r\0\x0B|,;/"
+                );
+
+                if ($piece !== '') {
+                    $out[] = $piece;
+                }
+
+                $start = $cut;
+            }
+
+            $piece = trim(
+                substr($segment, $start),
+                " \t\n\r\0\x0B|,;/"
+            );
+
+            if ($piece !== '') {
+                $out[] = $piece;
+            }
+        }
+
+        return array_values($out);
     }
 
     private function normalizeCompactQuantityItemBoundary(string $segment): string
@@ -389,6 +542,50 @@ final class ParserEngine
                 }
                 return $expanded;
             }
+        }
+
+        // LITTYWATCH_PHASE8G1_ETERNAL_BOW_SHADOW_FILTER
+        // Eternal Bow contains a bow-type descriptor such as Flatbow/Longbow/
+        // Shortbow/Hornbow. Those descriptors are variant metadata, not separate
+        // catalogue items. If Eternal Bow is already concrete, suppress generic
+        // bow-family matches before offers are constructed.
+        $hasEternalBow = false;
+        foreach ($preItems as $preItem) {
+            if (($preItem['key'] ?? '') === 'eternal-bow') {
+                $hasEternalBow = true;
+                break;
+            }
+        }
+
+        if ($hasEternalBow) {
+            $preItems = array_values(array_filter(
+                $preItems,
+                static function(array $item): bool {
+                    $key = mb_strtolower((string)($item['key'] ?? ''));
+                    $name = mb_strtolower((string)($item['item'] ?? ''));
+
+                    if ($key === 'eternal-bow') return true;
+
+                    return !in_array($key, [
+                        'bow',
+                        'flatbow',
+                        'longbow',
+                        'shortbow-weapon',
+                        'recurve-bow-weapon',
+                        'hornbow',
+                    ], true)
+                    && !in_array($name, [
+                        'bow',
+                        'flatbow',
+                        'longbow',
+                        'shortbow',
+                        'shortbow (weapon)',
+                        'recurve bow',
+                        'recurve bow (weapon)',
+                        'hornbow',
+                    ], true);
+                }
+            ));
         }
 
         $items = $preItems;
@@ -564,6 +761,29 @@ final class ParserEngine
             if (isset($modifiers['attribute']) && $this->attributeIsNegated($segment, (string)$modifiers['attribute'])) {
                 unset($modifiers['attribute'], $modifiers['attribute_key']);
             }
+
+            // LITTYWATCH_PHASE8G1_ETERNAL_BOW_TYPE
+            // Bow family words inside an Eternal Bow offer describe the weapon's
+            // bow type and therefore belong in the market identity.
+            if (($item['key'] ?? '') === 'eternal-bow') {
+                $bowType = null;
+
+                if (preg_match('/\bflat\s*bow\b|\bflatbow\b/iu', $slice)) {
+                    $bowType = 'flatbow';
+                } elseif (preg_match('/\blong\s*bow\b|\blongbow\b/iu', $slice)) {
+                    $bowType = 'longbow';
+                } elseif (preg_match('/\bshort\s*bow\b|\bshortbow\b/iu', $slice)) {
+                    $bowType = 'shortbow';
+                } elseif (preg_match('/\bhorn\s*bow\b|\bhornbow\b/iu', $slice)) {
+                    $bowType = 'hornbow';
+                } elseif (preg_match('/\brecurve\s*bow\b|\brecurvebow\b|\brecurve\b/iu', $slice)) {
+                    $bowType = 'recurve';
+                }
+
+                if ($bowType !== null) {
+                    $modifiers['bow_type'] = $bowType;
+                }
+            }
             [$confidence, $status, $reason] = $this->confidenceScorer->score($item, $modifiers, $price, $slice);
             $profileData = $this->profileResolver?->resolve($item['key'], $item['category'] ?? 'unknown', $modifiers) ?? [
                 'profile' => [], 'relevant' => $modifiers, 'market_key' => $item['key']
@@ -641,6 +861,91 @@ final class ParserEngine
             $concrete = array_values(array_filter($matches, fn(array $m): bool => $this->taxonomy->isConcreteMatch($m)));
             if ($concrete !== []) {
                 $lastItem = (string)$concrete[0]['item'];
+                $out[] = $segment;
+                continue;
+            }
+
+            // LITTYWATCH_PHASE8F4_STAFF_VARIANT_CONTINUATION
+            // Proven concrete staff skins often own requirement/attribute
+            // continuations after '-' / comma expansion:
+            //
+            // Ghostly Staff q13 Channeling 10e - q11 Dom 1a
+            //   -> Ghostly Staff q11 Domination 1a
+            //
+            // Hourglass q9 Smite 8e - q10 Heal 6e, Fire 4e, Death 4e
+            //   -> Hourglass Staff variants
+            //
+            // Earlier expansion may leave a generic "Staff" shadow either at the
+            // beginning or end of the continuation. Only inherit for these proven
+            // concrete skins.
+            if ($lastItem !== null
+                && in_array(mb_strtolower($lastItem), [
+                    'ghostly staff',
+                    'hourglass staff',
+                ], true)
+            ) {
+                $candidate = trim($segment);
+
+                $isContinuation = (bool)preg_match(
+                    '/^(?:staff\s+)?(?:q|r|rq|req)\s*\d{1,2}\b/iu',
+                    $candidate
+                );
+
+                if (!$isContinuation) {
+                    $isContinuation = (bool)preg_match(
+                        '/^(?:q|r|rq|req)\s*\d{1,2}\b.*\bstaff\s*$/iu',
+                        $candidate
+                    );
+                }
+
+                if ($isContinuation) {
+                    $candidate = preg_replace(
+                        '/^staff\s+/iu',
+                        '',
+                        $candidate
+                    ) ?? $candidate;
+
+                    $candidate = preg_replace(
+                        '/\s+staff\s*$/iu',
+                        '',
+                        $candidate
+                    ) ?? $candidate;
+
+                    $out[] = $lastItem . ' ' . trim($candidate);
+                    continue;
+                }
+            }
+
+            // LITTYWATCH_PHASE8F1_CONCRETE_STAFF_SHADOW_INHERITANCE
+            // Some compact attribute lists have already been expanded into generic
+            // "Staff qX Attribute" segments by this point. If the immediately
+            // preceding concrete item is a proven staff skin, keep that skin:
+            //
+            //   BDS ... | Staff q10 Air Magic
+            //     -> Bone Dragon Staff q10 Air Magic
+            //
+            //   BO ... | Staff q9 Blood Magic
+            //     -> Bo Staff q9 Blood Magic
+            //
+            // Restrict this to explicitly proven skins. Generic Staff context must
+            // never become a concrete item merely because it follows another staff.
+            if ($lastItem !== null
+                && in_array(mb_strtolower($lastItem), [
+                    'bone dragon staff',
+                    'bo staff',
+                ], true)
+                && preg_match(
+                    '/^staff\s+(?=(?:q|r|rq|req)\s*\d{1,2}\b)/iu',
+                    trim($segment)
+                )
+            ) {
+                $segment = preg_replace(
+                    '/^staff\b/iu',
+                    $lastItem,
+                    trim($segment),
+                    1
+                ) ?? $segment;
+
                 $out[] = $segment;
                 continue;
             }
