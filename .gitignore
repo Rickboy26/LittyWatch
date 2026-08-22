@@ -1,5 +1,10 @@
 data/*
+data/**/*
 !data/.gitkeep
+# Version controlled parser/AI evaluation datasets.
+!data/**/
+!data/*.ndjson
+!data/**/*.ndjson
 
 logs/*
 !logs/.gitkeep
